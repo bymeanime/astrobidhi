@@ -53,3 +53,30 @@ Stage Summary:
 - Smart fallback system: Gemini → z-ai-sdk for standard types
 - Special dark-themed UI for advanced analysis types
 - Browser-verified: Home page, chart generation, AI analysis all working
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix Prisma build error + Add static meanings + caching + paywall
+
+Work Log:
+- Fixed `@prisma/client did not initialize yet` build error by adding `prisma generate` to Dockerfile builder stage and npm build script
+- Rewrote db.ts with lazy Proxy-based initialization so build never crashes
+- Set DATABASE_URL=file:/app/data/astrobidhi.db in Docker runner
+- Created /app/data directory in Docker for SQLite persistence
+- Added start.sh startup script to run `prisma db push` at container startup
+- Added /api/health endpoint for Railway healthcheck
+- Verified Python meanings.py works — returns planet-in-sign, planet-in-house, nakshatra, house, retrograde, and aspect meanings
+- Wired static meanings to frontend via PlacementMeaningsSection component (3 tabs: Planets, Houses, Aspects)
+- Auto-fetches static meanings when kundali is generated (zero AI tokens)
+- Verified SQLite caching already implemented in ai-analysis route (cache by SHA256 fingerprint)
+- Added paywall UI: Lock icon + Premium badge on 3 premium analysis types
+- Premium click shows Coming Soon modal with type-specific description
+- Free analysis types (7) work exactly as before
+
+Stage Summary:
+- Build error fixed: prisma generate runs before next build
+- Static meanings: 108 planet-sign + 108 planet-house + 27 nakshatras + 12 houses + retrograde effects — zero tokens
+- Caching: SHA256(birth_details + analysis_type) → SQLite, one-time AI call then cached forever
+- Paywall: 3 premium types locked behind Coming Soon modal, 7 free types unchanged
+- All changes pushed to GitHub, Railway rebuilding
