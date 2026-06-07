@@ -6,6 +6,10 @@
 # Stage 1: Install Python dependencies
 FROM python:3.12-slim AS python-base
 
+# Install git (needed for pip install from GitHub)
+RUN apt-get update && apt-get install -y git && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     vedicastro \
     git+https://github.com/diliprk/flatlib.git@sidereal#egg=flatlib
@@ -15,13 +19,12 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install Python for runtime (needed for compute.py)
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && \
+# Install Python for build stage
+RUN apt-get update && apt-get install -y python3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from python-base
 COPY --from=python-base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=python-base /usr/local/bin /usr/local/bin
 
 # Install Node.js dependencies
 COPY package.json bun.lock ./
@@ -42,7 +45,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y python3 && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages
+# Copy Python packages from python-base
 COPY --from=python-base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
 # Set environment variables
