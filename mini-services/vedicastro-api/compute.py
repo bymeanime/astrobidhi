@@ -1,10 +1,39 @@
 import os
-os.environ['SE_EPHE_PATH'] = '/home/z/.venv/lib/python3.12/site-packages/flatlib/resources/swefiles'
-import swisseph
-swisseph.set_ephe_path('/home/z/.venv/lib/python3.12/site-packages/flatlib/resources/swefiles')
-
 import sys
 import json
+
+# Find Swiss Ephemeris files dynamically
+def find_ephe_path():
+    """Locate Swiss Ephemeris files in the Python installation."""
+    # Check environment variable first
+    env_path = os.environ.get('SE_EPHE_PATH')
+    if env_path and os.path.exists(env_path):
+        return env_path
+
+    # Search common locations
+    import importlib.util
+    spec = importlib.util.find_spec('flatlib')
+    if spec and spec.origin:
+        flatlib_dir = os.path.dirname(spec.origin)
+        ephe_path = os.path.join(flatlib_dir, 'resources', 'swefiles')
+        if os.path.exists(ephe_path):
+            return ephe_path
+
+    # Search in site-packages
+    for path in sys.path:
+        candidate = os.path.join(path, 'flatlib', 'resources', 'swefiles')
+        if os.path.exists(candidate):
+            return candidate
+
+    # Fallback
+    return '/usr/local/lib/python3.12/site-packages/flatlib/resources/swefiles'
+
+ephe_path = find_ephe_path()
+os.environ['SE_EPHE_PATH'] = ephe_path
+
+import swisseph
+swisseph.set_ephe_path(ephe_path)
+
 from vedicastro import VedicAstro
 
 def nt_to_dict(obj):
@@ -24,7 +53,7 @@ if __name__ == '__main__':
     input_data = json.loads(sys.stdin.read())
     endpoint = input_data.get('endpoint', 'get_all_horoscope_data')
     params = input_data.get('params', {})
-    
+
     try:
         h = VedicAstro.VedicHoroscopeData(
             year=params['year'], month=params['month'], day=params['day'],
@@ -39,7 +68,7 @@ if __name__ == '__main__':
         houses = h.get_houses_data_from_chart(chart)
         aspects = h.get_planetary_aspects(chart)
         dasa = h.compute_vimshottari_dasa(chart)
-        
+
         rasi_planets = {}
         for p in planets:
             rasi_planets.setdefault(p.Rasi, []).append({
@@ -55,7 +84,7 @@ if __name__ == '__main__':
                 "nakshatra": hh.Nakshatra, "rasiLord": hh.RasiLord,
                 "nakshatraLord": hh.NakshatraLord, "subLord": hh.SubLord
             }
-        
+
         result = {
             "planets_data": nt_to_dict(planets),
             "houses_data": nt_to_dict(houses),

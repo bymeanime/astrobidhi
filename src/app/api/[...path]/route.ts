@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { execSync } from 'child_process'
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs'
 import { randomUUID } from 'crypto'
+import path from 'path'
 
-const PYTHON_SCRIPT = '/home/z/my-project/mini-services/vedicastro-api/compute.py'
-const PYTHON_BIN = '/home/z/.venv/bin/python3'
-const TMP_DIR = '/tmp/astrobidi-api'
+// Dynamic paths — works in both dev and production (Docker)
+const PROJECT_ROOT = process.cwd()
+const PYTHON_SCRIPT = path.join(PROJECT_ROOT, 'mini-services', 'vedicastro-api', 'compute.py')
+const PYTHON_BIN = process.env.PYTHON_BIN || 'python3'
+const TMP_DIR = process.env.TMP_DIR || '/tmp/astrobidi-api'
+
+// Ensure tmp directory exists
+try { mkdirSync(TMP_DIR, { recursive: true }) } catch {}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const { path } = await params
-  const endpoint = path.join('/')
+  const { path: routePath } = await params
+  const endpoint = routePath.join('/')
   const body = await request.json()
 
   try {
@@ -31,7 +37,6 @@ export async function POST(
         timeout: 120000,
         env: {
           ...process.env,
-          SE_EPHE_PATH: '/home/z/.venv/lib/python3.12/site-packages/flatlib/resources/swefiles',
         },
       }
     )
@@ -60,8 +65,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const { path } = await params
-  const endpoint = path.join('/')
+  const { path: routePath } = await params
+  const endpoint = routePath.join('/')
 
   if (endpoint === 'health') {
     return NextResponse.json({ status: 'ok' })
