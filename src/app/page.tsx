@@ -88,17 +88,17 @@ type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspect
 
 type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'swot_5year' | 'cosmic_blueprint' | 'shadow_integration'
 
-const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string }[] = [
-  { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard' },
-  { id: 'career', label: 'Career & Profession', icon: <Briefcase className="w-5 h-5" />, desc: 'Professional path, suitable fields, career growth periods, and financial prospects', color: '#C9721A', category: 'Standard' },
-  { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard' },
-  { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard' },
-  { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard' },
-  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: 'Dharma, spiritual path, past life karma, and moksha indications', color: '#6B1D1D', category: 'Standard' },
-  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: 'Current and upcoming planetary periods with timeline predictions', color: '#34495E', category: 'Standard' },
-  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', color: '#1a5276', category: 'Advanced' },
-  { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', color: '#0f0c29', category: 'Advanced' },
-  { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', color: '#180202', category: 'Advanced' },
+const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean }[] = [
+  { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard', isPremium: false },
+  { id: 'career', label: 'Career & Profession', icon: <Briefcase className="w-5 h-5" />, desc: 'Professional path, suitable fields, career growth periods, and financial prospects', color: '#C9721A', category: 'Standard', isPremium: false },
+  { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard', isPremium: false },
+  { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard', isPremium: false },
+  { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard', isPremium: false },
+  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: 'Dharma, spiritual path, past life karma, and moksha indications', color: '#6B1D1D', category: 'Standard', isPremium: false },
+  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: 'Current and upcoming planetary periods with timeline predictions', color: '#34495E', category: 'Standard', isPremium: false },
+  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', color: '#1a5276', category: 'Advanced', isPremium: true },
+  { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', color: '#0f0c29', category: 'Advanced', isPremium: true },
+  { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', color: '#180202', category: 'Advanced', isPremium: true },
 ]
 
 // ============ Constants ============
@@ -913,7 +913,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 >
                   <div className="mt-0.5" style={{ color: type.color }}>{type.icon}</div>
                   <div>
-                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-maroon' : 'text-foreground'}`}>{type.label}</p>
+                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-maroon' : 'text-foreground'}`}>{type.label} {type.isPremium && <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">PRO</span>}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>
@@ -948,7 +948,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                       selectedType === type.id 
                         ? type.id === 'shadow_integration' ? 'text-red-200' : type.id === 'cosmic_blueprint' ? 'text-indigo-200' : 'text-maroon'
                         : 'text-foreground'
-                    }`}>{type.label}</p>
+                    }`}>{type.label} {type.isPremium && <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">PRO</span>}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>

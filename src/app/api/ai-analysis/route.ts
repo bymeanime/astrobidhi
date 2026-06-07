@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { createHash } from 'crypto'
+import { db } from '@/lib/db'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -22,6 +24,24 @@ const OPENROUTER_MODELS = [
 ]
 
 type Provider = 'openrouter' | 'groq' | 'xai' | 'gemini' | 'z-ai-sdk'
+
+// ============ Paywall Config ============
+// Premium types require subscription in the future; standard types are free (one-time AI call, then cached)
+const PREMIUM_TYPES = new Set(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
+
+// ============ Cache Key Generator ============
+function makeCacheKey(analysisType: string, chartData: Record<string, unknown>): string {
+  // Create deterministic hash from birth details + analysis type
+  const birthKey = {
+    type: analysisType,
+    // Use key planet/house positions for uniqueness (not entire chart to avoid minor differences)
+    planets: (chartData.planets_data as { Object: string; Rasi: string; SignLonDMS: string; HouseNr: number }[])
+      ?.map(p => `${p.Object}:${p.Rasi}:${p.SignLonDMS}:H${p.HouseNr}`).join('|'),
+    houses: (chartData.houses_data as { HouseNr: number; Rasi: string; SignLonDMS: string }[])
+      ?.map(h => `H${h.HouseNr}:${h.Rasi}:${h.SignLonDMS}`).join('|'),
+  }
+  return createHash('sha256').update(JSON.stringify(birthKey)).digest('hex').substring(0, 32)
+}
 
 // ============ Chart Data Compressor ============
 // Reduces chart JSON from ~9500 tokens to ~1500 tokens (84% reduction)
@@ -414,7 +434,7 @@ async function callZaiSDK(prompt: string): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { analysisType, chartData, horaryNumber, provider: requestedProvider } = body
+    const { analysisType, chartData, horaryNumber, provider: requestedProvider, forceRefresh } = body
 
     if (!analysisType || !chartData) {
       return NextResponse.json({ detail: 'analysisType and chartData are required' }, { status: 400 })
@@ -425,19 +445,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: `Invalid analysis type. Valid: ${Object.keys(ANALYSIS_PROMPTS).join(', ')}` }, { status: 400 })
     }
 
-    // COMPRESS chart data — reduces tokens by ~80%
-    const compressedChart = compressChartData(chartData, analysisType)
-    console.log(`[AI] Chart data compressed: ${JSON.stringify(chartData).length} → ${compressedChart.length} chars`)
+    // ---- Paywall check ----
+    // Premium types will be locked behind subscription in the future
+    // For now, they are available but flagged as premium
+    const isPremium = PREMIUM_TYPES.has(analysisType)
+    // TODO: Add subscription check here when payment system is ready
+    // if (isPremium && !hasSubscription) return NextResponse.json({ detail: 'Premium analysis requires subscription', premium: true }, { status: 402 })
 
-    // Build the prompt with compressed data
+    // ---- Cache check ----
+    const cacheKey = makeCacheKey(analysisType, chartData)
+    if (!forceRefresh) {
+      try {
+        const cached = await db.cachedAnalysis.findUnique({ where: { cacheKey } })
+        if (cached) {
+          console.log(`[AI] Cache HIT for ${analysisType} (${cacheKey})`)
+          return NextResponse.json({
+            analysis: cached.result,
+            analysisType: cached.analysisType,
+            provider: cached.provider,
+            cached: true,
+            isPremium,
+          })
+        }
+      } catch (dbError) {
+        console.log('[AI] Cache read failed (DB not ready?), proceeding with AI call')
+      }
+    }
+
+    // ---- COMPRESS chart data ----
+    const compressedChart = compressChartData(chartData, analysisType)
+    console.log(`[AI] Chart compressed: ${JSON.stringify(chartData).length} → ${compressedChart.length} chars`)
+
+    // ---- Build prompt ----
     let prompt = template
       .replace('{chartData}', compressedChart)
       .replace('{currentDate}', new Date().toISOString().split('T')[0])
+    if (horaryNumber) prompt = prompt.replace('{horaryNumber}', String(horaryNumber))
 
-    if (horaryNumber) {
-      prompt = prompt.replace('{horaryNumber}', String(horaryNumber))
-    }
-
+    // ---- Call AI providers ----
     let analysis: string | null = null
     let usedProvider: Provider = 'z-ai-sdk'
     const errors: string[] = []
@@ -452,7 +497,7 @@ export async function POST(request: NextRequest) {
       try {
         switch (provider) {
           case 'openrouter':
-            if (!OPENROUTER_API_KEY) { errors.push('OpenRouter: No API key — set OPENROUTER_API_KEY in Railway Variables'); continue }
+            if (!OPENROUTER_API_KEY) { errors.push('OpenRouter: No API key'); continue }
             analysis = await callOpenRouterAPI(prompt)
             usedProvider = 'openrouter'; break
           case 'gemini':
@@ -486,7 +531,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: `All AI providers failed.${keyHint} Errors: ${errors.join(' | ')}`, providerErrors: errors }, { status: 503 })
     }
 
-    return NextResponse.json({ analysis, analysisType, provider: usedProvider })
+    // ---- Save to cache ----
+    try {
+      await db.cachedAnalysis.upsert({
+        where: { cacheKey },
+        create: {
+          cacheKey,
+          analysisType,
+          chartData: compressedChart,
+          result: analysis,
+          provider: usedProvider,
+        },
+        update: {
+          result: analysis,
+          provider: usedProvider,
+        },
+      })
+      console.log(`[AI] Cached ${analysisType} (${cacheKey})`)
+    } catch (dbError) {
+      console.log('[AI] Cache write failed (DB not ready?), analysis still returned')
+    }
+
+    return NextResponse.json({ analysis, analysisType, provider: usedProvider, cached: false, isPremium })
   } catch (error: unknown) {
     console.error('AI Analysis error:', error)
     const message = error instanceof Error ? error.message : 'Failed to generate AI analysis'
