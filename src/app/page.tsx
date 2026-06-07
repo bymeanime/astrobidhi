@@ -1291,7 +1291,7 @@ const ASPECT_TYPE_COLORS: Record<string, string> = {
   'Sextile': '#9B59B6',
 }
 
-function PlacementMeaningsSection({ meanings, loading }: { meanings: StaticMeanings | null; loading: boolean }) {
+function PlacementMeaningsSection({ meanings, loading, error }: { meanings: StaticMeanings | null; loading: boolean; error?: string | null }) {
   if (loading) {
     return (
       <div className="space-y-6">
@@ -1313,6 +1313,26 @@ function PlacementMeaningsSection({ meanings, loading }: { meanings: StaticMeani
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50">
+        <CardHeader>
+          <CardTitle className="text-red-800 flex items-center gap-2 text-base">
+            <AlertCircle className="w-5 h-5" /> Meanings Unavailable
+          </CardTitle>
+          <CardDescription className="text-red-700">
+            Could not load placement meanings. This is a server-side issue — the chart data was generated successfully but the meanings lookup failed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-red-100 rounded-md p-3 text-xs font-mono text-red-800 break-all">
+            {error}
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -1523,24 +1543,31 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [staticMeanings, setStaticMeanings] = useState<StaticMeanings | null>(null)
   const [staticMeaningsLoading, setStaticMeaningsLoading] = useState(false)
+  const [staticMeaningsError, setStaticMeaningsError] = useState<string | null>(null)
   const [horaryMeanings, setHoraryMeanings] = useState<StaticMeanings | null>(null)
   const [horaryMeaningsLoading, setHoraryMeaningsLoading] = useState(false)
+  const [horaryMeaningsError, setHoraryMeaningsError] = useState<string | null>(null)
 
   // Auto-fetch static meanings when horoscopeData changes
   useEffect(() => {
     if (!horoscopeData) {
       setStaticMeanings(null)
+      setStaticMeaningsError(null)
       return
     }
     let cancelled = false
     setStaticMeaningsLoading(true)
+    setStaticMeaningsError(null)
     fetch('/api/static-meanings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(horoscopeData),
     })
-      .then(res => {
-        if (!res.ok) throw new Error(`Error ${res.status}`)
+      .then(async res => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error((errData as { detail?: string }).detail || `Error ${res.status}`)
+        }
         return res.json()
       })
       .then(data => {
@@ -1548,6 +1575,7 @@ export default function Home() {
       })
       .catch(err => {
         console.warn('Static meanings fetch failed:', err)
+        if (!cancelled) setStaticMeaningsError(err instanceof Error ? err.message : 'Failed to load meanings')
       })
       .finally(() => {
         if (!cancelled) setStaticMeaningsLoading(false)
@@ -1559,17 +1587,22 @@ export default function Home() {
   useEffect(() => {
     if (!horaryData) {
       setHoraryMeanings(null)
+      setHoraryMeaningsError(null)
       return
     }
     let cancelled = false
     setHoraryMeaningsLoading(true)
+    setHoraryMeaningsError(null)
     fetch('/api/static-meanings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(horaryData),
     })
-      .then(res => {
-        if (!res.ok) throw new Error(`Error ${res.status}`)
+      .then(async res => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error((errData as { detail?: string }).detail || `Error ${res.status}`)
+        }
         return res.json()
       })
       .then(data => {
@@ -1577,6 +1610,7 @@ export default function Home() {
       })
       .catch(err => {
         console.warn('Horary static meanings fetch failed:', err)
+        if (!cancelled) setHoraryMeaningsError(err instanceof Error ? err.message : 'Failed to load meanings')
       })
       .finally(() => {
         if (!cancelled) setHoraryMeaningsLoading(false)
@@ -1697,7 +1731,7 @@ export default function Home() {
                   </TabsContent>
 
                   <TabsContent value="meanings">
-                    <PlacementMeaningsSection meanings={staticMeanings} loading={staticMeaningsLoading} />
+                    <PlacementMeaningsSection meanings={staticMeanings} loading={staticMeaningsLoading} error={staticMeaningsError} />
                   </TabsContent>
 
                   <TabsContent value="ai">
@@ -1751,7 +1785,7 @@ export default function Home() {
                         <PlanetTable planets={horaryData.planets_data} />
                       </CardContent>
                     </Card>
-                    <PlacementMeaningsSection meanings={horaryMeanings} loading={horaryMeaningsLoading} />
+                    <PlacementMeaningsSection meanings={horaryMeanings} loading={horaryMeaningsLoading} error={horaryMeaningsError} />
                     <AIAnalysisPanel chartData={horaryData} horaryNumber={horaryNumber} />
                   </div>
                 ) : (

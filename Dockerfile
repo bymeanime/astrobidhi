@@ -40,7 +40,7 @@ COPY . .
 # Generate Prisma client BEFORE build (Next.js needs it at build time)
 RUN npx prisma generate
 
-# Build Next.js
+# Build Next.js (build script already runs prisma generate)
 RUN npm run build
 
 # Stage 3: Production runtime — Python 3.12 base + Node.js 20
@@ -74,8 +74,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma schema + startup script
+# Copy Prisma schema + generated client + startup script
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/start.sh ./start.sh
 
 # Copy Python scripts

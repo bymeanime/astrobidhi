@@ -1,6 +1,6 @@
 // Prisma client singleton with lazy initialization
-// This ensures the build never crashes even if Prisma client isn't generated yet
-// The actual client is only created when first accessed at runtime
+// Safe at build time — PrismaClient is only constructed when first accessed at runtime
+// The top-level import is fine because prisma generate runs before next build
 
 import { PrismaClient } from '@prisma/client'
 
