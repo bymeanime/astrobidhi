@@ -37,6 +37,9 @@ RUN npm install --frozen-lockfile 2>/dev/null || npm install
 # Copy source code
 COPY . .
 
+# Generate Prisma client BEFORE build (Next.js needs it at build time)
+RUN npx prisma generate
+
 # Build Next.js
 RUN npm run build
 
@@ -74,8 +77,9 @@ COPY --from=builder /app/.next/static ./.next/static
 # Copy Python scripts
 COPY --from=builder /app/mini-services ./mini-services
 
-# Create temp directory
+# Create temp directory + data directory for SQLite
 RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 USER nextjs
 
@@ -83,5 +87,6 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV DATABASE_URL="file:/app/data/astrobidhi.db"
 
 CMD ["node", "server.js"]
