@@ -80,3 +80,29 @@ Stage Summary:
 - Caching: SHA256(birth_details + analysis_type) → SQLite, one-time AI call then cached forever
 - Paywall: 3 premium types locked behind Coming Soon modal, 7 free types unchanged
 - All changes pushed to GitHub, Railway rebuilding
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix meanings not loading + Prisma build issues
+
+Work Log:
+- Investigated "the meaning part did not load at all" report
+- Tested meanings.py locally — works perfectly (108+108+27 entries, valid JSON output)
+- Root causes identified:
+  1. Dockerfile not copying Prisma client/engine to standalone output
+  2. railway.toml using "node server.js" instead of "./start.sh" (skipping DB init)
+  3. Frontend silently swallowing errors when meanings API fails
+  4. static-meanings route lacking error detail in responses
+- Fixed Dockerfile: Added COPY for node_modules/.prisma and node_modules/@prisma to runner stage
+- Fixed railway.toml: Changed startCommand from "node server.js" to "./start.sh"
+- Enhanced start.sh: Check if Prisma client exists before attempting db push
+- Enhanced static-meanings/route.ts: Added path verification, execution error details, JSON parse errors, and debug logging
+- Enhanced page.tsx: Added staticMeaningsError/horaryMeaningsError state, error card in PlacementMeaningsSection component
+- All changes committed and pushed to GitHub
+
+Stage Summary:
+- 6 files changed: Dockerfile, railway.toml, start.sh, static-meanings/route.ts, page.tsx, db.ts
+- Meanings will now show visible error message instead of blank if they fail
+- Prisma build should work with properly copied client/engine files
+- Railway will use start.sh for DB initialization
