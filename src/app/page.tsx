@@ -866,10 +866,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       setAnalysis(data.analysis)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to generate analysis'
+      // Show the actual error from the server (includes which providers failed and why)
       const friendlyMsg = msg.includes('Failed to fetch') || msg.includes('NetworkError')
         ? 'Connection lost — the AI is taking too long. Please try again.'
-        : msg.includes('503')
-        ? 'All AI providers are busy right now. Please wait a moment and try again.'
+        : msg.includes('No API key')
+        ? msg // Show the key hint directly
         : msg
       toast({ title: 'AI Analysis Error', description: friendlyMsg, variant: 'destructive' })
     } finally {

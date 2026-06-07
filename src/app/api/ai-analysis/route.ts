@@ -607,6 +607,9 @@ export async function POST(request: NextRequest) {
     let usedProvider: Provider = 'z-ai-sdk'
     const errors: string[] = []
 
+    // Log which keys are available
+    console.log(`[AI Analysis] Keys loaded — OpenRouter: ${!!OPENROUTER_API_KEY}, Gemini: ${!!GEMINI_API_KEY}, Groq: ${!!GROQ_API_KEY}, xAI: ${!!XAI_API_KEY}`)
+
     // Determine provider order
     // If user requested a specific provider, try it first
     // Otherwise: OpenRouter (free, fast, multiple models) → Groq → xAI → Gemini → z-ai-sdk (always available)
@@ -616,9 +619,10 @@ export async function POST(request: NextRequest) {
 
     for (const provider of providerOrder) {
       try {
+        console.log(`[AI Analysis] Trying provider: ${provider}`)
         switch (provider) {
           case 'openrouter':
-            if (!OPENROUTER_API_KEY) { errors.push('OpenRouter: No API key'); continue }
+            if (!OPENROUTER_API_KEY) { errors.push('OpenRouter: No API key — set OPENROUTER_API_KEY in Railway Variables'); continue }
             analysis = await callOpenRouterAPI(prompt)
             usedProvider = 'openrouter'
             break
@@ -647,18 +651,26 @@ export async function POST(request: NextRequest) {
             break
         }
 
-        if (analysis) break // Success — stop trying providers
+        if (analysis) {
+          console.log(`[AI Analysis] Success with provider: ${usedProvider}`)
+          break // Success — stop trying providers
+        }
       } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : 'Unknown error'
         errors.push(`${provider}: ${errMsg}`)
-        console.log(`AI provider ${provider} failed, trying next:`, errMsg)
+        console.log(`[AI Analysis] Provider ${provider} failed:`, errMsg)
       }
     }
 
     if (!analysis) {
+      console.error('[AI Analysis] All providers failed:', errors)
+      // Build a helpful error message
+      const keyHint = !OPENROUTER_API_KEY && !GEMINI_API_KEY && !GROQ_API_KEY && !XAI_API_KEY
+        ? ' No API keys are loaded! Go to Railway → your service → Variables tab and add OPENROUTER_API_KEY.'
+        : ''
       return NextResponse.json(
         {
-          detail: 'All AI providers failed. Please try again later.',
+          detail: `All AI providers failed.${keyHint} Errors: ${errors.join(' | ')}`,
           providerErrors: errors,
         },
         { status: 503 }
