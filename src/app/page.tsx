@@ -7,7 +7,7 @@ import {
   ChevronRight, Loader2, AlertCircle, MapPin, Clock,
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
-  ChevronDown, Crown, Home as HomeIcon, Orbit, Shield
+  ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 
 // ============ Types ============
@@ -146,6 +147,14 @@ interface StaticMeanings {
   planet_meanings: Record<string, PlanetMeaning>
   house_meanings: Record<string, HouseStaticMeaning>
   key_aspects: KeyAspectMeaning[]
+}
+
+const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
+
+const PREMIUM_DESCRIPTIONS: Record<string, string> = {
+  swot_5year: '5-Year Career & Wealth Forecast with year-by-year predictions, SWOT analysis, specific timing windows, and personalized remedies.',
+  cosmic_blueprint: 'Complete Cosmic Blueprint with house-by-house analysis, Ashtakvarga bindus, Yoga directory, and Harmonized interpretations.',
+  shadow_integration: 'Shadow Integration analysis with vulnerability mapping, Tragic Sublimation pathways, and integration protocol for personal growth.',
 }
 
 const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean }[] = [
@@ -900,9 +909,22 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [selectedType, setSelectedType] = useState<AnalysisType>('overall')
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
   const analysisRef = useRef<HTMLDivElement>(null)
 
+  const handleAnalysisClick = (typeId: AnalysisType) => {
+    if (PREMIUM_ANALYSIS_TYPES.has(typeId)) {
+      setPremiumDialogType(typeId)
+      return
+    }
+    setSelectedType(typeId)
+  }
+
   const handleAnalyze = async () => {
+    if (PREMIUM_ANALYSIS_TYPES.has(selectedType)) {
+      setPremiumDialogType(selectedType)
+      return
+    }
     setLoading(true)
     setAnalysis(null)
     try {
@@ -991,8 +1013,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               {ANALYSIS_TYPES.filter(t => t.category === 'Advanced').map(type => (
                 <button
                   key={type.id}
-                  onClick={() => setSelectedType(type.id)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
+                  onClick={() => handleAnalysisClick(type.id)}
+                  className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all opacity-75 ${
                     selectedType === type.id
                       ? type.id === 'shadow_integration'
                         ? 'border-red-800 bg-red-950/30 shadow-md'
@@ -1002,13 +1024,16 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                       : 'border-saffron/10 hover:border-saffron/30 hover:bg-saffron/5'
                   }`}
                 >
-                  <div className="mt-0.5" style={{ color: type.color }}>{type.icon}</div>
+                  <div className="mt-0.5 relative" style={{ color: type.color }}>
+                    {type.icon}
+                    <Lock className="w-3 h-3 absolute -top-1 -right-1 text-amber-600" />
+                  </div>
                   <div>
                     <p className={`text-sm font-semibold ${
                       selectedType === type.id 
                         ? type.id === 'shadow_integration' ? 'text-red-200' : type.id === 'cosmic_blueprint' ? 'text-indigo-200' : 'text-maroon'
                         : 'text-foreground'
-                    }`}>{type.label} {type.isPremium && <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">PRO</span>}</p>
+                    }`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">Premium</span></p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>
@@ -1036,6 +1061,52 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           </Button>
         </CardContent>
       </Card>
+
+      {/* Premium Dialog */}
+      <Dialog open={premiumDialogType !== null} onOpenChange={(open) => { if (!open) setPremiumDialogType(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-maroon">
+              <Lock className="w-5 h-5 text-amber-600" />
+              Premium Feature
+            </DialogTitle>
+            <DialogDescription>
+              This advanced analysis requires a premium subscription. Coming soon!
+            </DialogDescription>
+          </DialogHeader>
+          {premiumDialogType && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-900 mb-1">
+                  {ANALYSIS_TYPES.find(t => t.id === premiumDialogType)?.label}
+                </p>
+                <p className="text-sm text-amber-800">
+                  {PREMIUM_DESCRIPTIONS[premiumDialogType]}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Shield className="w-4 h-4" />
+                <span>Premium features include deeper analysis, extended timelines, and advanced yogic interpretations.</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setPremiumDialogType(null)}
+              className="flex-1 sm:flex-none"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => setPremiumDialogType(null)}
+              className="flex-1 sm:flex-none bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold"
+            >
+              <Sparkles className="w-4 h-4 mr-1" /> Notify Me
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Loading State */}
       {loading && (
