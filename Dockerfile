@@ -74,12 +74,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Copy Prisma schema + startup script
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/start.sh ./start.sh
+
 # Copy Python scripts
 COPY --from=builder /app/mini-services ./mini-services
 
 # Create temp directory + data directory for SQLite
 RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data && chmod +x ./start.sh
 
 USER nextjs
 
@@ -89,4 +93,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/app/data/astrobidhi.db"
 
-CMD ["node", "server.js"]
+CMD ["./start.sh"]

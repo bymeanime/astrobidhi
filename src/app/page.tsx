@@ -6,7 +6,8 @@ import {
   Sun, Moon, Star, Compass, Calendar, Eye, Zap,
   ChevronRight, Loader2, AlertCircle, MapPin, Clock,
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
-  Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle
+  Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
+  ChevronDown, Crown, Home as HomeIcon, Orbit, Shield
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,8 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { useToast } from '@/hooks/use-toast'
 
 // ============ Types ============
@@ -87,6 +90,63 @@ interface HoroscopeData {
 type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspects' | 'transit' | 'ai-analysis'
 
 type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'swot_5year' | 'cosmic_blueprint' | 'shadow_integration'
+
+// ============ Static Meanings Types ============
+interface SignHouseMeaning {
+  meaning: string
+  theme: string
+}
+
+interface LordshipMeaning {
+  house: number
+  meaning: string
+}
+
+interface PlanetMeaning {
+  sign: string
+  house: number
+  sign_meaning: SignHouseMeaning
+  house_meaning: SignHouseMeaning
+  retrograde: string | null
+  lord_of: number
+  lordship_meaning: LordshipMeaning
+}
+
+interface HouseMeaningData {
+  name: string
+  meaning: string
+  areas: string[]
+}
+
+interface NakshatraMeaningData {
+  meaning: string
+  ruler: string
+  deity: string
+  theme: string
+}
+
+interface HouseStaticMeaning {
+  rasi: string
+  rasi_lord: string
+  nakshatra: string
+  house_meaning: HouseMeaningData
+  nakshatra_meaning: NakshatraMeaningData
+  planets_in_house: string[]
+}
+
+interface KeyAspectMeaning {
+  P1: string
+  P2: string
+  AspectType: string
+  Orb: number
+  meaning: string
+}
+
+interface StaticMeanings {
+  planet_meanings: Record<string, PlanetMeaning>
+  house_meanings: Record<string, HouseStaticMeaning>
+  key_aspects: KeyAspectMeaning[]
+}
 
 const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean }[] = [
   { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard', isPremium: false },
@@ -1151,6 +1211,237 @@ function AIAnalysisPage({ horoscopeData, horaryData, horaryNumber, onNavigate }:
   )
 }
 
+// ============ Placement Meanings Section ============
+const ASPECT_TYPE_COLORS: Record<string, string> = {
+  'Conjunction': '#C9721A',
+  'Opposition': '#B33A3A',
+  'Trine': '#2D6A4F',
+  'Square': '#D4A843',
+  'Sextile': '#9B59B6',
+}
+
+function PlacementMeaningsSection({ meanings, loading }: { meanings: StaticMeanings | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-saffron/20">
+          <CardHeader>
+            <CardTitle className="text-maroon flex items-center gap-2 text-base">
+              <BookOpen className="w-5 h-5 text-saffron" /> Placement Meanings
+            </CardTitle>
+            <CardDescription>Loading meanings for each planet, house, and nakshatra placement...</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!meanings) return null
+
+  const { planet_meanings, house_meanings, key_aspects } = meanings
+  const planetEntries = Object.entries(planet_meanings)
+  const houseEntries = Object.entries(house_meanings).sort(([a], [b]) => Number(a) - Number(b))
+
+  return (
+    <div className="space-y-6">
+      {/* Section Header */}
+      <Card className="border-saffron/20 bg-gradient-to-r from-saffron/5 via-transparent to-maroon/5">
+        <CardHeader>
+          <CardTitle className="text-maroon flex items-center gap-2 text-base">
+            <BookOpen className="w-5 h-5 text-saffron" /> Placement Meanings
+          </CardTitle>
+          <CardDescription>
+            Rich Vedic meanings for every planet placement, house, and nakshatra — no AI tokens needed.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* Tabbed Layout for Planets / Houses / Aspects */}
+      <Tabs defaultValue="planets" className="w-full">
+        <TabsList className="bg-maroon/5 w-full justify-start">
+          <TabsTrigger value="planets" className="text-xs sm:text-sm"><Orbit className="w-4 h-4 mr-1" /> Planets ({planetEntries.length})</TabsTrigger>
+          <TabsTrigger value="houses" className="text-xs sm:text-sm"><HomeIcon className="w-4 h-4 mr-1" /> Houses ({houseEntries.length})</TabsTrigger>
+          {key_aspects.length > 0 && (
+            <TabsTrigger value="aspects" className="text-xs sm:text-sm"><Zap className="w-4 h-4 mr-1" /> Aspects ({key_aspects.length})</TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* Planet Meanings */}
+        <TabsContent value="planets">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {planetEntries.map(([planetName, data]) => (
+              <Card key={planetName} className="border-saffron/20 hover:border-saffron/40 transition-colors overflow-hidden">
+                {/* Planet Header */}
+                <div className="px-4 pt-4 pb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-lg font-bold" style={{ color: PLANET_COLORS[planetName] || '#4A0E0E' }}>
+                      {planetName}
+                    </span>
+                    <span className="text-sm text-muted-foreground">in</span>
+                    <Badge className="bg-saffron/20 text-maroon border-saffron/30 text-xs">{data.sign}</Badge>
+                    <Badge variant="outline" className="text-xs border-saffron/30 text-maroon">House {data.house}</Badge>
+                    {data.retrograde && (
+                      <Badge className="bg-red-100 text-red-800 border-red-200 text-[10px] px-1.5">℞ Retrograde</Badge>
+                    )}
+                  </div>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {data.sign_meaning?.theme && (
+                      <Badge className="bg-gradient-to-r from-saffron/80 to-gold/80 text-white text-[10px] px-2 py-0">
+                        <Crown className="w-3 h-3 mr-1" />{data.sign_meaning.theme}
+                      </Badge>
+                    )}
+                    {data.house_meaning?.theme && (
+                      <Badge className="bg-gradient-to-r from-maroon/80 to-maroon-dark/80 text-white text-[10px] px-2 py-0">
+                        <Shield className="w-3 h-3 mr-1" />{data.house_meaning.theme}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                {/* Planet Body */}
+                <CardContent className="pt-0 pb-4 space-y-3">
+                  {data.sign_meaning?.meaning && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-saffron font-semibold mb-1">In {data.sign}</p>
+                      <p className="text-xs text-foreground/80 leading-relaxed">{data.sign_meaning.meaning}</p>
+                    </div>
+                  )}
+                  {data.house_meaning?.meaning && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-maroon font-semibold mb-1">In House {data.house}</p>
+                      <p className="text-xs text-foreground/80 leading-relaxed">{data.house_meaning.meaning}</p>
+                    </div>
+                  )}
+                  {data.retrograde && (
+                    <div className="bg-red-50 dark:bg-red-950/20 rounded-md px-3 py-2 border border-red-200 dark:border-red-900/30">
+                      <p className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 font-semibold mb-1">Retrograde Effect</p>
+                      <p className="text-xs text-red-800/80 dark:text-red-300/70 leading-relaxed">{data.retrograde}</p>
+                    </div>
+                  )}
+                  {data.lordship_meaning && (
+                    <div className="bg-saffron/5 rounded-md px-3 py-2 border border-saffron/10">
+                      <p className="text-[10px] uppercase tracking-wider text-maroon font-semibold mb-1">
+                        Lord of House {data.lordship_meaning.house}
+                      </p>
+                      <p className="text-xs text-foreground/70 leading-relaxed">{data.lordship_meaning.meaning}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* House Meanings */}
+        <TabsContent value="houses">
+          <Accordion type="multiple" className="w-full space-y-2">
+            {houseEntries.map(([houseNum, data]) => (
+              <AccordionItem key={houseNum} value={`house-${houseNum}`} className="border border-saffron/20 rounded-lg overflow-hidden bg-white/50 dark:bg-white/5 px-4">
+                <AccordionTrigger className="hover:no-underline py-3">
+                  <div className="flex items-center gap-3 text-left">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-saffron/20 text-maroon font-bold text-sm">
+                      {houseNum}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-maroon text-sm">{data.house_meaning?.name || `House ${houseNum}`}</span>
+                        <Badge variant="outline" className="text-[10px] border-saffron/30 text-maroon">{data.rasi}</Badge>
+                        <span className="text-[10px] text-muted-foreground">Lord: {data.rasi_lord}</span>
+                      </div>
+                      {data.planets_in_house?.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {data.planets_in_house.map(p => (
+                            <span key={p} className="text-[10px] px-1.5 py-0.5 rounded-full bg-saffron/10" style={{ color: PLANET_COLORS[p] || '#4A0E0E' }}>
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3 pb-4">
+                  {/* Key Areas */}
+                  {data.house_meaning?.areas && data.house_meaning.areas.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.house_meaning.areas.map((area, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] bg-saffron/10 text-maroon border-saffron/20">
+                          {area}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {/* House Meaning */}
+                  {data.house_meaning?.meaning && (
+                    <p className="text-xs text-foreground/80 leading-relaxed">{data.house_meaning.meaning}</p>
+                  )}
+                  {/* Nakshatra Info */}
+                  {data.nakshatra_meaning && (
+                    <div className="bg-gradient-to-r from-saffron/5 to-maroon/5 rounded-md px-3 py-2 border border-saffron/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Star className="w-3 h-3 text-saffron" />
+                        <span className="text-xs font-semibold text-maroon">{data.nakshatra}</span>
+                        {data.nakshatra_meaning.theme && (
+                          <Badge className="bg-gradient-to-r from-saffron/60 to-gold/60 text-white text-[9px] px-1.5 py-0">
+                            {data.nakshatra_meaning.theme}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-3 mb-1">
+                        <span className="text-[10px] text-muted-foreground">Ruler: <strong className="text-foreground">{data.nakshatra_meaning.ruler}</strong></span>
+                        <span className="text-[10px] text-muted-foreground">Deity: <strong className="text-foreground">{data.nakshatra_meaning.deity}</strong></span>
+                      </div>
+                      {data.nakshatra_meaning.meaning && (
+                        <p className="text-xs text-foreground/70 leading-relaxed">{data.nakshatra_meaning.meaning}</p>
+                      )}
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </TabsContent>
+
+        {/* Key Aspects */}
+        {key_aspects.length > 0 && (
+          <TabsContent value="aspects">
+            <div className="space-y-3">
+              {key_aspects.map((aspect, i) => (
+                <Card key={i} className="border-saffron/20 overflow-hidden">
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="font-medium text-sm" style={{ color: PLANET_COLORS[aspect.P1] || '#333' }}>{aspect.P1}</span>
+                      <Badge
+                        style={{ backgroundColor: ASPECT_TYPE_COLORS[aspect.AspectType] || '#666', color: '#fff' }}
+                        className="text-[10px] px-2"
+                      >
+                        {aspect.AspectType}
+                      </Badge>
+                      <span className="font-medium text-sm" style={{ color: PLANET_COLORS[aspect.P2] || '#333' }}>{aspect.P2}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">Orb: {aspect.Orb.toFixed(1)}°</span>
+                    </div>
+                    {aspect.meaning && (
+                      <p className="text-xs text-foreground/80 leading-relaxed">{aspect.meaning}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  )
+}
+
 // ============ Main App ============
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageView>('home')
@@ -1159,6 +1450,68 @@ export default function Home() {
   const [horaryData, setHoraryData] = useState<HoroscopeData | null>(null)
   const [horaryNumber, setHoraryNumber] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(false)
+  const [staticMeanings, setStaticMeanings] = useState<StaticMeanings | null>(null)
+  const [staticMeaningsLoading, setStaticMeaningsLoading] = useState(false)
+  const [horaryMeanings, setHoraryMeanings] = useState<StaticMeanings | null>(null)
+  const [horaryMeaningsLoading, setHoraryMeaningsLoading] = useState(false)
+
+  // Auto-fetch static meanings when horoscopeData changes
+  useEffect(() => {
+    if (!horoscopeData) {
+      setStaticMeanings(null)
+      return
+    }
+    let cancelled = false
+    setStaticMeaningsLoading(true)
+    fetch('/api/static-meanings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(horoscopeData),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`Error ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        if (!cancelled) setStaticMeanings(data)
+      })
+      .catch(err => {
+        console.warn('Static meanings fetch failed:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setStaticMeaningsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [horoscopeData])
+
+  // Auto-fetch static meanings when horaryData changes
+  useEffect(() => {
+    if (!horaryData) {
+      setHoraryMeanings(null)
+      return
+    }
+    let cancelled = false
+    setHoraryMeaningsLoading(true)
+    fetch('/api/static-meanings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(horaryData),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`Error ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        if (!cancelled) setHoraryMeanings(data)
+      })
+      .catch(err => {
+        console.warn('Horary static meanings fetch failed:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setHoraryMeaningsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [horaryData])
 
   const handleGenerateChart = useCallback(async (formData: Record<string, unknown>) => {
     setLoading(true)
@@ -1201,7 +1554,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-maroon">Your Kundali</h3>
-                  <Button variant="outline" size="sm" onClick={() => setHoroscopeData(null)} className="border-saffron text-maroon">
+                  <Button variant="outline" size="sm" onClick={() => { setHoroscopeData(null); setStaticMeanings(null) }} className="border-saffron text-maroon">
                     Generate New Chart
                   </Button>
                 </div>
@@ -1211,9 +1564,10 @@ export default function Home() {
                     <TabsTrigger value="chart"><Eye className="w-4 h-4 mr-1" /> Chart</TabsTrigger>
                     <TabsTrigger value="planets"><Sparkles className="w-4 h-4 mr-1" /> Planets</TabsTrigger>
                     <TabsTrigger value="houses"><Sparkles className="w-4 h-4 mr-1" /> Houses</TabsTrigger>
+                    <TabsTrigger value="meanings"><BookOpen className="w-4 h-4 mr-1" /> Meanings</TabsTrigger>
                     <TabsTrigger value="dasa"><Calendar className="w-4 h-4 mr-1" /> Dasa</TabsTrigger>
                     <TabsTrigger value="aspects"><Zap className="w-4 h-4 mr-1" /> Aspects</TabsTrigger>
-                    <TabsTrigger value="ai"><Brain className="w-4 h-4 mr-1" /> AI Analysis</TabsTrigger>
+                    <TabsTrigger value="ai"><Brain className="w-4 h-4 mr-1" /> AI</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="chart">
@@ -1271,6 +1625,10 @@ export default function Home() {
                     </Card>
                   </TabsContent>
 
+                  <TabsContent value="meanings">
+                    <PlacementMeaningsSection meanings={staticMeanings} loading={staticMeaningsLoading} />
+                  </TabsContent>
+
                   <TabsContent value="ai">
                     <AIAnalysisPanel chartData={horoscopeData} />
                   </TabsContent>
@@ -1322,6 +1680,7 @@ export default function Home() {
                         <PlanetTable planets={horaryData.planets_data} />
                       </CardContent>
                     </Card>
+                    <PlacementMeaningsSection meanings={horaryMeanings} loading={horaryMeaningsLoading} />
                     <AIAnalysisPanel chartData={horaryData} horaryNumber={horaryNumber} />
                   </div>
                 ) : (
