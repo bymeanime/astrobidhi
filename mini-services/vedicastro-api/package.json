@@ -1,0 +1,7 @@
+{
+  "name": "vedicastro-api",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd /home/z/my-project/mini-services/vedicastro-api && python3 -u index.py"
+  }
+}
