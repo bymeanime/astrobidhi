@@ -6,9 +6,13 @@
 # Stage 1: Install Python dependencies
 FROM python:3.12-slim AS python-base
 
-# Install git (needed for pip install from GitHub)
-RUN apt-get update && apt-get install -y git && \
-    rm -rf /var/lib/apt/lists/*
+# Install git (for pip install from GitHub) + build tools (for pyswisseph compilation)
+RUN apt-get update && apt-get install -y \
+    git \
+    gcc \
+    g++ \
+    make \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \
     vedicastro \
@@ -41,7 +45,7 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 
-# Install Python runtime
+# Install Python runtime (no gcc needed — pyswisseph is already compiled)
 RUN apt-get update && apt-get install -y python3 && \
     rm -rf /var/lib/apt/lists/*
 
