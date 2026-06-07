@@ -108,9 +108,9 @@ interface PlanetMeaning {
   house: number
   sign_meaning: SignHouseMeaning
   house_meaning: SignHouseMeaning
-  retrograde: string | null
-  lord_of: number
-  lordship_meaning: LordshipMeaning
+  retrograde: SignHouseMeaning | null
+  lord_of: number | null
+  lordship_meaning: LordshipMeaning | null
 }
 
 interface HouseMeaningData {
@@ -1413,8 +1413,13 @@ function PlacementMeaningsSection({ meanings, loading, error }: { meanings: Stat
                   )}
                   {data.retrograde && (
                     <div className="bg-red-50 dark:bg-red-950/20 rounded-md px-3 py-2 border border-red-200 dark:border-red-900/30">
-                      <p className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 font-semibold mb-1">Retrograde Effect</p>
-                      <p className="text-xs text-red-800/80 dark:text-red-300/70 leading-relaxed">{data.retrograde}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 font-semibold">Retrograde Effect</p>
+                        {data.retrograde.theme && (
+                          <Badge className="bg-red-200/60 text-red-800 text-[9px] px-1.5 py-0">{data.retrograde.theme}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-red-800/80 dark:text-red-300/70 leading-relaxed">{typeof data.retrograde === 'string' ? data.retrograde : data.retrograde.meaning}</p>
                     </div>
                   )}
                   {data.lordship_meaning && (
