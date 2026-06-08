@@ -1,8 +1,10 @@
-// Prisma client singleton with lazy initialization + auto table creation
-// Safe at build time — PrismaClient is only constructed when first accessed at runtime
-// The top-level import is fine because prisma generate runs before next build
+// Prisma client singleton with Turso/libSQL driver adapter
+// Uses @libsql/client for connection + @prisma/adapter-libsql for Prisma integration
+// No more local SQLite files, no volume persistence headaches
 
 import { PrismaClient } from '@prisma/client'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { createClient } from '@libsql/client'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -12,7 +14,8 @@ let _db: PrismaClient | null = null
 let _dbReady = false
 let _dbInitPromise: Promise<void> | null = null
 
-// SQL to create tables if they don't exist — this runs WITHOUT needing prisma CLI
+// SQL to create tables if they don't exist — runs on first connection
+// Turso uses libSQL which is SQLite-compatible, so same DDL works
 const CREATE_TABLES_SQL = [
   `CREATE TABLE IF NOT EXISTS CachedAnalysis (
     id TEXT PRIMARY KEY,
@@ -33,10 +36,51 @@ const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS CachedStaticMeanings_cacheKey_idx ON CachedStaticMeanings(cacheKey)`,
 ]
 
+function getDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL || ''
+  if (!url) {
+    console.warn('[DB] No DATABASE_URL or TURSO_DATABASE_URL set — caching will be disabled')
+  }
+  return url
+}
+
+function getDatabaseAuthToken(): string {
+  return process.env.TURSO_AUTH_TOKEN || ''
+}
+
+function createPrismaClient(): PrismaClient {
+  if (_db) return _db
+
+  const dbUrl = getDatabaseUrl()
+  const authToken = getDatabaseAuthToken()
+
+  if (!dbUrl) {
+    throw new Error('[DB] No database URL configured. Set DATABASE_URL or TURSO_DATABASE_URL.')
+  }
+
+  console.log(`[DB] Connecting to Turso: ${dbUrl.replace(/\/\/.*@/, '//***@')}`)
+
+  // Create libSQL client for Turso
+  const libsql = createClient({
+    url: dbUrl,
+    authToken: authToken || undefined,
+  })
+
+  // Create Prisma adapter using libSQL client
+  const adapter = new PrismaLibSQL(libsql)
+
+  _db = globalForPrisma.prisma ?? new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
+  })
+
+  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = _db
+  return _db
+}
+
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  // Check ALL required tables — not just one
   const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings']
   const missingTables: string[] = []
 
@@ -50,43 +94,24 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
 
   if (missingTables.length === 0) {
     _dbReady = true
-    console.log('[DB] Tables already exist — cache is ready')
+    console.log('[DB] ✅ Turso tables already exist — cache is ready')
     return
   }
 
-  console.log(`[DB] Tables missing: ${missingTables.join(', ')}, creating them programmatically...`)
+  console.log(`[DB] Tables missing: ${missingTables.join(', ')}, creating them in Turso...`)
 
   try {
     for (const sql of CREATE_TABLES_SQL) {
       await prisma.$executeRawUnsafe(sql)
     }
     _dbReady = true
-    console.log('[DB] ✅ Tables created successfully — cache is ready')
+    console.log('[DB] ✅ Turso tables created successfully — cache is ready')
   } catch (error) {
-    console.error('[DB] ❌ Failed to create tables:', error instanceof Error ? error.message : error)
-    // Don't throw — the app will still work, just without caching
-    // The route handlers have try/catch around cache operations
+    console.error('[DB] ❌ Failed to create Turso tables:', error instanceof Error ? error.message : error)
   }
 }
 
-function createPrismaClient(): PrismaClient {
-  if (_db) return _db
-
-  try {
-    _db = globalForPrisma.prisma ?? new PrismaClient({
-      log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
-    })
-
-    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = _db
-    return _db
-  } catch (error) {
-    console.error('[DB] Failed to create PrismaClient:', error)
-    throw error
-  }
-}
-
-// Initialize DB tables on first access (runs once, all subsequent calls await the same promise)
-// Exported so routes can explicitly trigger init if needed (belt-and-suspenders)
+// Initialize DB tables on first access
 export function initDb(): Promise<void> {
   if (_dbInitPromise) return _dbInitPromise
   _dbInitPromise = ensureTablesExist(createPrismaClient())
@@ -94,35 +119,48 @@ export function initDb(): Promise<void> {
 }
 
 // Proxy that lazily creates the PrismaClient on first property access
-// Also ensures tables exist before any query runs
-// Handles both direct methods (db.$queryRaw) AND model delegates (db.cachedAnalysis.count())
+// Ensures tables exist before any query runs
 export const db = new Proxy({} as PrismaClient, {
   get(_target, prop, _receiver) {
-    const client = createPrismaClient()
-    const value = (client as unknown as Record<string, unknown>)[prop as string]
-    if (typeof value === 'function') {
-      // Direct method on PrismaClient (e.g. db.$queryRaw, db.$executeRawUnsafe)
-      return async (...args: unknown[]) => {
-        await initDb()
-        return (value as Function).apply(client, args)
+    // Don't proxy constructor symbols or internal props
+    if (prop === '$connect' || prop === '$disconnect' || prop === '$on' || prop === '$use') {
+      try {
+        const client = createPrismaClient()
+        const value = (client as unknown as Record<string, unknown>)[prop as string]
+        return typeof value === 'function' ? value.bind(client) : value
+      } catch {
+        return undefined
       }
     }
-    if (value && typeof value === 'object') {
-      // Model delegate (e.g. db.cachedAnalysis, db.cachedStaticMeanings)
-      // Wrap in a nested proxy so method calls like .count(), .findUnique() also trigger initDb()
-      return new Proxy(value as Record<string, unknown>, {
-        get(delegate, delegateProp) {
-          const delegateValue = (delegate as Record<string, unknown>)[delegateProp as string]
-          if (typeof delegateValue === 'function') {
-            return async (...args: unknown[]) => {
-              await initDb()
-              return (delegateValue as Function).apply(delegate, args)
+
+    try {
+      const client = createPrismaClient()
+      const value = (client as unknown as Record<string, unknown>)[prop as string]
+
+      if (typeof value === 'function') {
+        return async (...args: unknown[]) => {
+          await initDb()
+          return (value as Function).apply(client, args)
+        }
+      }
+      if (value && typeof value === 'object') {
+        return new Proxy(value as Record<string, unknown>, {
+          get(delegate, delegateProp) {
+            const delegateValue = (delegate as Record<string, unknown>)[delegateProp as string]
+            if (typeof delegateValue === 'function') {
+              return async (...args: unknown[]) => {
+                await initDb()
+                return (delegateValue as Function).apply(delegate, args)
+              }
             }
-          }
-          return delegateValue
-        },
-      })
+            return delegateValue
+          },
+        })
+      }
+      return value
+    } catch (error) {
+      console.error('[DB] Proxy access error:', error instanceof Error ? error.message : error)
+      return undefined
     }
-    return value
   },
 })

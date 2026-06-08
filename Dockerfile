@@ -1,6 +1,7 @@
 # ============================================
 # AstroBidhi — Production Docker Image
 # Next.js + Python + VedicAstro (Swiss Ephemeris)
+# Database: Turso (managed libSQL/SQLite)
 # ============================================
 
 # Stage 1: Install Python dependencies
@@ -40,7 +41,7 @@ COPY . .
 # Generate Prisma client BEFORE build (Next.js needs it at build time)
 RUN npx prisma generate
 
-# Build Next.js (build script already runs prisma generate)
+# Build Next.js
 RUN npm run build
 
 # Stage 3: Production runtime — Python 3.12 base + Node.js 20
@@ -84,10 +85,8 @@ COPY --from=builder /app/start.sh ./start.sh
 # Copy Python scripts
 COPY --from=builder /app/mini-services ./mini-services
 
-# Create temp directory + data directory for SQLite
-RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api
-# Create /data for Railway Volume mount (persistent across deploys)
-RUN mkdir -p /data && chown nextjs:nodejs /data && chmod +x ./start.sh
+# Create temp directory for Python script I/O
+RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api && chmod +x ./start.sh
 
 USER nextjs
 
@@ -95,8 +94,11 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-# Default: use /data volume (Railway mounts persistent volume here)
-# Fallback: /app/data for local dev without volume
-ENV DATABASE_URL="file:/data/astrobidhi.db"
+
+# Turso database URL and auth token (set in Railway env vars)
+# DATABASE_URL format: libsql://your-db-name-your-org.turso.io
+# TURSO_AUTH_TOKEN: authentication token from Turso
+ENV DATABASE_URL=""
+ENV TURSO_AUTH_TOKEN=""
 
 CMD ["./start.sh"]
