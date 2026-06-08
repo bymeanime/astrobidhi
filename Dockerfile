@@ -41,8 +41,18 @@ COPY . .
 # Generate Prisma client BEFORE build (Next.js needs it at build time)
 RUN npx prisma generate
 
-# Build Next.js
+# Build Next.js (standalone output)
 RUN npm run build
+
+# Fix standalone output: Next.js 16 Turbopack nests the output under directory structure
+# Find server.js and flatten everything to /app/.next/standalone-flat/
+RUN STANDALONE_DIR=$(find .next/standalone -name server.js -not -path "*/node_modules/*" | head -1 | xargs dirname) && \
+    echo "Found standalone at: $STANDALONE_DIR" && \
+    mkdir -p .next/standalone-flat && \
+    cp -r $STANDALONE_DIR/* .next/standalone-flat/ && \
+    cp -r $STANDALONE_DIR/.next .next/standalone-flat/ 2>/dev/null || true && \
+    echo "Standalone flattened to .next/standalone-flat/" && \
+    ls .next/standalone-flat/server.js && echo "✅ server.js confirmed at root"
 
 # Stage 3: Production runtime — Python 3.12 base + Node.js 20
 FROM python:3.12-slim AS runner
@@ -70,16 +80,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy built Next.js app
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
+# Copy built Next.js app (flattened standalone)
+COPY --from=builder /app/.next/standalone-flat ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + generated client + CLI + startup script
+# Copy Prisma schema + generated client + startup script
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/start.sh ./start.sh
 
 # Copy Python scripts
