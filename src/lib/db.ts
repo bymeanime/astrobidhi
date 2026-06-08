@@ -1,4 +1,4 @@
-// Prisma client singleton with lazy initialization
+// Prisma client singleton with lazy initialization + auto table creation
 // Safe at build time — PrismaClient is only constructed when first accessed at runtime
 // The top-level import is fine because prisma generate runs before next build
 
@@ -9,6 +9,56 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 let _db: PrismaClient | null = null
+let _dbReady = false
+let _dbInitPromise: Promise<void> | null = null
+
+// SQL to create tables if they don't exist — this runs WITHOUT needing prisma CLI
+const CREATE_TABLES_SQL = [
+  `CREATE TABLE IF NOT EXISTS CachedAnalysis (
+    id TEXT PRIMARY KEY,
+    cacheKey TEXT NOT NULL UNIQUE,
+    analysisType TEXT NOT NULL,
+    chartData TEXT NOT NULL,
+    result TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS CachedAnalysis_cacheKey_idx ON CachedAnalysis(cacheKey)`,
+  `CREATE TABLE IF NOT EXISTS CachedStaticMeanings (
+    id TEXT PRIMARY KEY,
+    cacheKey TEXT NOT NULL UNIQUE,
+    result TEXT NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS CachedStaticMeanings_cacheKey_idx ON CachedStaticMeanings(cacheKey)`,
+]
+
+async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
+  if (_dbReady) return
+
+  try {
+    // Quick check — if CachedAnalysis table is queryable, we're good
+    await prisma.$queryRaw`SELECT 1 FROM CachedAnalysis LIMIT 1`
+    _dbReady = true
+    console.log('[DB] Tables already exist — cache is ready')
+    return
+  } catch {
+    // Table doesn't exist yet — create it
+    console.log('[DB] Tables not found, creating them programmatically...')
+  }
+
+  try {
+    for (const sql of CREATE_TABLES_SQL) {
+      await prisma.$executeRawUnsafe(sql)
+    }
+    _dbReady = true
+    console.log('[DB] ✅ Tables created successfully — cache is ready')
+  } catch (error) {
+    console.error('[DB] ❌ Failed to create tables:', error instanceof Error ? error.message : error)
+    // Don't throw — the app will still work, just without caching
+    // The route handlers have try/catch around cache operations
+  }
+}
 
 function createPrismaClient(): PrismaClient {
   if (_db) return _db
@@ -26,14 +76,25 @@ function createPrismaClient(): PrismaClient {
   }
 }
 
+// Initialize DB tables on first access (runs once, all subsequent calls await the same promise)
+function initDb(): Promise<void> {
+  if (_dbInitPromise) return _dbInitPromise
+  _dbInitPromise = ensureTablesExist(createPrismaClient())
+  return _dbInitPromise
+}
+
 // Proxy that lazily creates the PrismaClient on first property access
-// This way, importing { db } never crashes — it only crashes if you actually USE db
+// Also ensures tables exist before any query runs
 export const db = new Proxy({} as PrismaClient, {
   get(_target, prop, _receiver) {
     const client = createPrismaClient()
     const value = (client as Record<string, unknown>)[prop as string]
     if (typeof value === 'function') {
-      return value.bind(client)
+      // Wrap every method call to ensure tables exist first
+      return async (...args: unknown[]) => {
+        await initDb()
+        return (value as Function).apply(client, args)
+      }
     }
     return value
   },
