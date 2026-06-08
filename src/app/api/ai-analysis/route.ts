@@ -454,22 +454,28 @@ export async function POST(request: NextRequest) {
 
     // ---- Cache check ----
     const cacheKey = makeCacheKey(analysisType, chartData)
+    console.log(`[AI] Cache lookup: type=${analysisType}, key=${cacheKey}, forceRefresh=${!!forceRefresh}`)
     if (!forceRefresh) {
       try {
         const cached = await db.cachedAnalysis.findUnique({ where: { cacheKey } })
         if (cached) {
-          console.log(`[AI] Cache HIT for ${analysisType} (${cacheKey})`)
+          console.log(`[AI] Cache HIT for ${analysisType} (${cacheKey}), saved ${new Date(cached.createdAt).toISOString()}`)
           return NextResponse.json({
             analysis: cached.result,
             analysisType: cached.analysisType,
             provider: cached.provider,
             cached: true,
             isPremium,
+            cachedAt: cached.createdAt,
           })
+        } else {
+          console.log(`[AI] Cache MISS for ${analysisType} (${cacheKey}) — will call AI`)
         }
       } catch (dbError) {
-        console.log('[AI] Cache read failed (DB not ready?), proceeding with AI call')
+        console.log('[AI] Cache read failed (DB not ready?), proceeding with AI call:', dbError instanceof Error ? dbError.message : 'unknown')
       }
+    } else {
+      console.log(`[AI] Force refresh requested — skipping cache`)
     }
 
     // ---- COMPRESS chart data ----
@@ -547,9 +553,9 @@ export async function POST(request: NextRequest) {
           provider: usedProvider,
         },
       })
-      console.log(`[AI] Cached ${analysisType} (${cacheKey})`)
+      console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider}`)
     } catch (dbError) {
-      console.log('[AI] Cache write failed (DB not ready?), analysis still returned')
+      console.log('[AI] Cache write failed:', dbError instanceof Error ? dbError.message : 'unknown')
     }
 
     return NextResponse.json({ analysis, analysisType, provider: usedProvider, cached: false, isPremium })

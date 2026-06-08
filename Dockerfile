@@ -85,7 +85,8 @@ COPY --from=builder /app/mini-services ./mini-services
 
 # Create temp directory + data directory for SQLite
 RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data && chmod +x ./start.sh
+# Create /data for Railway Volume mount (persistent across deploys)
+RUN mkdir -p /data && chown nextjs:nodejs /data && chmod +x ./start.sh
 
 USER nextjs
 
@@ -93,6 +94,8 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-ENV DATABASE_URL="file:/app/data/astrobidhi.db"
+# Default: use /data volume (Railway mounts persistent volume here)
+# Fallback: /app/data for local dev without volume
+ENV DATABASE_URL="file:/data/astrobidhi.db"
 
 CMD ["./start.sh"]

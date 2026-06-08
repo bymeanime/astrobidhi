@@ -946,6 +946,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
         throw new Error('AI returned an empty response. Please try again.')
       }
       setAnalysis(data.analysis)
+      // Show cache status to user
+      if (data.cached) {
+        const cachedDate = data.cachedAt ? new Date(data.cachedAt).toLocaleDateString() : 'previously'
+        toast({ title: 'From Cache', description: `This analysis was cached ${cachedDate}. No AI tokens used!` })
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to generate analysis'
       // Show the actual error from the server (includes which providers failed and why)

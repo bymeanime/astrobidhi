@@ -8,3 +8,8 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+# Persistent volume for SQLite database (survives deploys/restarts)
+# This prevents cache from being wiped on every deployment
+# NOTE: You must also create a volume in Railway Dashboard and mount it at /data
+# Railway CLI: railway volume create --mount /data --size 1GB
