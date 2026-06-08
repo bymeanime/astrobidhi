@@ -7,7 +7,9 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // URL is only used by Prisma CLI for migrations — at runtime, the driver adapter
+  // (PrismaLibSQL) handles the actual Turso connection using DATABASE_URL env var
+  url = env("DATABASE_URL")
 }
 
 model CachedAnalysis {

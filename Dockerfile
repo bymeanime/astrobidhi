@@ -38,6 +38,9 @@ RUN npm install 2>/dev/null || npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
+# Set dummy DATABASE_URL for Prisma generate (real URL comes from Railway at runtime)
+ENV DATABASE_URL="file:./dev.db"
+
 # Generate Prisma client BEFORE build (Next.js needs it at build time)
 RUN npx prisma generate
 
@@ -104,10 +107,7 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Turso database URL and auth token (set in Railway env vars)
-# DATABASE_URL format: libsql://your-db-name-your-org.turso.io
-# TURSO_AUTH_TOKEN: authentication token from Turso
-ENV DATABASE_URL=""
-ENV TURSO_AUTH_TOKEN=""
+# DO NOT set DATABASE_URL or TURSO_AUTH_TOKEN here — they come from Railway env vars
+# Setting empty ENV values here would override Railway's real values
 
 CMD ["./start.sh"]
