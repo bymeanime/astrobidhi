@@ -29,6 +29,12 @@ type Provider = 'openrouter' | 'groq' | 'xai' | 'gemini' | 'z-ai-sdk'
 // Premium types require subscription in the future; standard types are free (one-time AI call, then cached)
 const PREMIUM_TYPES = new Set(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
 
+// ============ Rate Limit Config ============
+// Per-device limits for AI analysis requests
+const FREE_CHART_LIMIT = 3        // Free: 3 unique chart readings per device
+const FREE_ANALYSIS_PER_CHART = 2 // Free: 2 analysis types per chart
+// After limit, user sees paywall. Cached results don't count.
+
 // ============ Cache Key Generator ============
 function makeCacheKey(analysisType: string, chartData: Record<string, unknown>): string {
   // Create deterministic hash from birth details + analysis type
@@ -445,15 +451,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: `Invalid analysis type. Valid: ${Object.keys(ANALYSIS_PROMPTS).join(', ')}` }, { status: 400 })
     }
 
+    // ---- Device ID ----
+    const deviceId = body.deviceId
+    if (!deviceId) {
+      return NextResponse.json({ detail: 'deviceId is required. Enable localStorage in your browser.' }, { status: 400 })
+    }
+
     // ---- Paywall check ----
-    // Premium types will be locked behind subscription in the future
-    // For now, they are available but flagged as premium
     const isPremium = PREMIUM_TYPES.has(analysisType)
-    // TODO: Add subscription check here when payment system is ready
-    // if (isPremium && !hasSubscription) return NextResponse.json({ detail: 'Premium analysis requires subscription', premium: true }, { status: 402 })
+
+    // ---- Rate limit check ----
+    // Count unique charts this device has read (non-cached)
+    // Count analysis types used per chart for this device
+    const cacheKey = makeCacheKey(analysisType, chartData)
+
+    try {
+      // Has this device already used an analysis for this exact cacheKey?
+      const existingUsage = await db.deviceUsage.findFirst({
+        where: { deviceId, cacheKey }
+      })
+
+      if (!existingUsage) {
+        // New analysis for this chart — check limits
+        const uniqueChartsUsed = await db.deviceUsage.groupBy({
+          by: ['cacheKey'],
+          where: { deviceId },
+        })
+        const chartsCount = uniqueChartsUsed.length
+
+        // Check per-chart analysis limit
+        const analysesForThisChart = await db.deviceUsage.findMany({
+          where: { deviceId, cacheKey },
+        })
+
+        if (chartsCount >= FREE_CHART_LIMIT && analysesForThisChart.length === 0) {
+          // Device has used all free charts AND this is a new chart
+          return NextResponse.json({
+            detail: `Free limit reached (${FREE_CHART_LIMIT} charts). Subscribe for unlimited readings.`,
+            limitReached: true,
+            limitType: 'charts',
+            limit: FREE_CHART_LIMIT,
+            used: chartsCount,
+          }, { status: 429 })
+        }
+
+        if (analysesForThisChart.length >= FREE_ANALYSIS_PER_CHART) {
+          // Device has used all free analysis types for this chart
+          return NextResponse.json({
+            detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
+            limitReached: true,
+            limitType: 'analyses_per_chart',
+            limit: FREE_ANALYSIS_PER_CHART,
+            used: analysesForThisChart.length,
+          }, { status: 429 })
+        }
+      }
+    } catch (dbError) {
+      console.log('[AI] Rate limit check failed (DB not ready?), proceeding:', dbError instanceof Error ? dbError.message : 'unknown')
+    }
 
     // ---- Cache check ----
-    const cacheKey = makeCacheKey(analysisType, chartData)
     console.log(`[AI] Cache lookup: type=${analysisType}, key=${cacheKey}, forceRefresh=${!!forceRefresh}`)
     if (!forceRefresh) {
       try {
@@ -556,6 +613,20 @@ export async function POST(request: NextRequest) {
       console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider}`)
     } catch (dbError) {
       console.log('[AI] Cache write failed:', dbError instanceof Error ? dbError.message : 'unknown')
+    }
+
+    // ---- Record device usage ----
+    try {
+      await db.deviceUsage.create({
+        data: {
+          deviceId,
+          analysisType,
+          cacheKey,
+        },
+      })
+      console.log(`[AI] Usage recorded: device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
+    } catch (dbError) {
+      console.log('[AI] Usage recording failed:', dbError instanceof Error ? dbError.message : 'unknown')
     }
 
     return NextResponse.json({ analysis, analysisType, provider: usedProvider, cached: false, isPremium })

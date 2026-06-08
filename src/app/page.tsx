@@ -910,7 +910,20 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
+  const [limitReached, setLimitReached] = useState<{ type: string; used: number; limit: number } | null>(null)
   const analysisRef = useRef<HTMLDivElement>(null)
+
+  // Get or create a persistent device ID (stored in localStorage)
+  const getDeviceId = (): string => {
+    if (typeof window === 'undefined') return 'server'
+    const STORAGE_KEY = 'astrobidi_device_id'
+    let id = localStorage.getItem(STORAGE_KEY)
+    if (!id) {
+      id = crypto.randomUUID()
+      localStorage.setItem(STORAGE_KEY, id)
+    }
+    return id
+  }
 
   const handleAnalysisClick = (typeId: AnalysisType) => {
     if (PREMIUM_ANALYSIS_TYPES.has(typeId)) {
@@ -928,6 +941,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
     setLoading(true)
     setAnalysis(null)
     try {
+      const deviceId = getDeviceId()
       const res = await fetch('/api/ai-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -935,10 +949,16 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           analysisType: selectedType,
           chartData,
           horaryNumber,
+          deviceId,
         }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'AI analysis failed' }))
+        // Handle rate limit
+        if (res.status === 429 && err.limitReached) {
+          setLimitReached({ type: err.limitType, used: err.used, limit: err.limit })
+          throw new Error(err.detail)
+        }
         throw new Error(err.detail || `Error: ${res.status}`)
       }
       const data = await res.json()
@@ -1108,6 +1128,59 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               className="flex-1 sm:flex-none bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold"
             >
               <Sparkles className="w-4 h-4 mr-1" /> Notify Me
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate Limit Dialog */}
+      <Dialog open={limitReached !== null} onOpenChange={(open) => { if (!open) setLimitReached(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-maroon">
+              <Shield className="w-5 h-5 text-saffron" />
+              Free Limit Reached
+            </DialogTitle>
+            <DialogDescription>
+              {limitReached?.type === 'charts'
+                ? `You've used ${limitReached.used} of ${limitReached.limit} free chart readings.`
+                : `You've used ${limitReached?.used} of ${limitReached?.limit} free analyses for this chart.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-saffron/30 bg-saffron/5 p-4">
+              <p className="text-sm font-semibold text-maroon mb-2">What you've used so far:</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>3 free chart readings per device</li>
+                <li>2 analysis types per chart</li>
+              </ul>
+              <p className="text-sm font-semibold text-maroon mt-3 mb-2">Upgrade for unlimited:</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>Unlimited chart readings</li>
+                <li>All 10 analysis types</li>
+                <li>Priority AI response</li>
+                <li>Cached results always free</li>
+              </ul>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Crown className="w-4 h-4" />
+              <span>Subscription coming soon! Cached results are always accessible for free.</span>
+            </div>
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setLimitReached(null)}
+              className="flex-1 sm:flex-none"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => setLimitReached(null)}
+              className="flex-1 sm:flex-none bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold"
+            >
+              <Crown className="w-4 h-4 mr-1" /> Get Unlimited
             </Button>
           </DialogFooter>
         </DialogContent>

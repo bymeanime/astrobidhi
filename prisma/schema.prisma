@@ -28,3 +28,11 @@ model CachedStaticMeanings {
   result   String   // Static meanings JSON
   createdAt DateTime @default(now())
 }
+
+model DeviceUsage {
+  id          String   @id @default(cuid())
+  deviceId    String   // UUID generated on frontend, stored in localStorage
+  analysisType String  // Which analysis was requested
+  cacheKey    String   // The cache key of the analysis (to track unique chart readings)
+  createdAt   DateTime @default(now())
+}

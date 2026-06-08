@@ -34,6 +34,15 @@ const CREATE_TABLES_SQL = [
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS CachedStaticMeanings_cacheKey_idx ON CachedStaticMeanings(cacheKey)`,
+  `CREATE TABLE IF NOT EXISTS DeviceUsage (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    analysisType TEXT NOT NULL,
+    cacheKey TEXT NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS DeviceUsage_deviceId_idx ON DeviceUsage(deviceId)`,
+  `CREATE INDEX IF NOT EXISTS DeviceUsage_deviceId_cacheKey_idx ON DeviceUsage(deviceId, cacheKey)`,
 ]
 
 function getDatabaseUrl(): string {
@@ -81,7 +90,7 @@ function createPrismaClient(): PrismaClient {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings']
+  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings', 'DeviceUsage']
   const missingTables: string[] = []
 
   for (const table of tablesToCheck) {
