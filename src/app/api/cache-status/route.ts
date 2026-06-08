@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { db, initDb } from '@/lib/db'
 
 export async function GET() {
   try {
+    // Explicitly ensure tables exist before querying (belt-and-suspenders)
+    await initDb()
+
     // Check if database tables exist and have data
     const analysisCount = await db.cachedAnalysis.count()
     const meaningsCount = await db.cachedStaticMeanings.count()

@@ -36,16 +36,25 @@ const CREATE_TABLES_SQL = [
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  try {
-    // Quick check — if CachedAnalysis table is queryable, we're good
-    await prisma.$queryRaw`SELECT 1 FROM CachedAnalysis LIMIT 1`
+  // Check ALL required tables — not just one
+  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings']
+  const missingTables: string[] = []
+
+  for (const table of tablesToCheck) {
+    try {
+      await prisma.$queryRawUnsafe(`SELECT 1 FROM ${table} LIMIT 1`)
+    } catch {
+      missingTables.push(table)
+    }
+  }
+
+  if (missingTables.length === 0) {
     _dbReady = true
     console.log('[DB] Tables already exist — cache is ready')
     return
-  } catch {
-    // Table doesn't exist yet — create it
-    console.log('[DB] Tables not found, creating them programmatically...')
   }
+
+  console.log(`[DB] Tables missing: ${missingTables.join(', ')}, creating them programmatically...`)
 
   try {
     for (const sql of CREATE_TABLES_SQL) {
@@ -77,7 +86,8 @@ function createPrismaClient(): PrismaClient {
 }
 
 // Initialize DB tables on first access (runs once, all subsequent calls await the same promise)
-function initDb(): Promise<void> {
+// Exported so routes can explicitly trigger init if needed (belt-and-suspenders)
+export function initDb(): Promise<void> {
   if (_dbInitPromise) return _dbInitPromise
   _dbInitPromise = ensureTablesExist(createPrismaClient())
   return _dbInitPromise
@@ -85,16 +95,33 @@ function initDb(): Promise<void> {
 
 // Proxy that lazily creates the PrismaClient on first property access
 // Also ensures tables exist before any query runs
+// Handles both direct methods (db.$queryRaw) AND model delegates (db.cachedAnalysis.count())
 export const db = new Proxy({} as PrismaClient, {
   get(_target, prop, _receiver) {
     const client = createPrismaClient()
-    const value = (client as Record<string, unknown>)[prop as string]
+    const value = (client as unknown as Record<string, unknown>)[prop as string]
     if (typeof value === 'function') {
-      // Wrap every method call to ensure tables exist first
+      // Direct method on PrismaClient (e.g. db.$queryRaw, db.$executeRawUnsafe)
       return async (...args: unknown[]) => {
         await initDb()
         return (value as Function).apply(client, args)
       }
+    }
+    if (value && typeof value === 'object') {
+      // Model delegate (e.g. db.cachedAnalysis, db.cachedStaticMeanings)
+      // Wrap in a nested proxy so method calls like .count(), .findUnique() also trigger initDb()
+      return new Proxy(value as Record<string, unknown>, {
+        get(delegate, delegateProp) {
+          const delegateValue = (delegate as Record<string, unknown>)[delegateProp as string]
+          if (typeof delegateValue === 'function') {
+            return async (...args: unknown[]) => {
+              await initDb()
+              return (delegateValue as Function).apply(delegate, args)
+            }
+          }
+          return delegateValue
+        },
+      })
     }
     return value
   },
