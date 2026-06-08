@@ -31,8 +31,8 @@ RUN apt-get update && apt-get install -y python3 && \
 COPY --from=python-base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
 # Install Node.js dependencies
-COPY package.json bun.lock ./
-RUN npm install --frozen-lockfile 2>/dev/null || npm install
+COPY package.json package-lock.json bun.lock ./
+RUN npm install 2>/dev/null || npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
