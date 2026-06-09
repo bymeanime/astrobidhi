@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useRef, useEffect, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, Moon, Star, Compass, Calendar, Eye, Zap,
@@ -8,7 +8,7 @@ import {
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
-  Share2, Copy, Twitter, Facebook
+  Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -152,6 +152,24 @@ interface StaticMeanings {
 
 const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
 
+// ============ Whop Auth Context ============
+interface WhopAuthState {
+  authenticated: boolean
+  hasAccess: boolean
+  accessLevel: string
+  user: { id: string; name: string; email: string; picture: string } | null
+  loading: boolean
+  configured: boolean
+}
+
+const WhopAuthContext = createContext<WhopAuthState>({
+  authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+})
+
+function useWhopAuth() {
+  return useContext(WhopAuthContext)
+}
+
 const PREMIUM_DESCRIPTIONS: Record<string, string> = {
   swot_5year: '5-Year Career & Wealth Forecast with year-by-year predictions, SWOT analysis, specific timing windows, and personalized remedies.',
   cosmic_blueprint: 'Complete Cosmic Blueprint with house-by-house analysis, Ashtakvarga bindus, Yoga directory, and Harmonized interpretations.',
@@ -239,6 +257,17 @@ const NAV_ITEMS: { id: PageView; label: string; icon: React.ReactNode; desc: str
 // ============ Components ============
 
 function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNavigate: (p: PageView) => void }) {
+  const whopAuth = useWhopAuth()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleWhopLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {}
+    window.location.reload()
+  }
+
   return (
     <nav className="bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark shadow-lg">
       <div className="max-w-7xl mx-auto px-4">
@@ -265,6 +294,37 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                 <span className="hidden lg:inline">{item.label}</span>
               </button>
             ))}
+            {/* Whop Auth Button */}
+            {whopAuth.configured && (
+              whopAuth.authenticated ? (
+                <div className="flex items-center gap-2 ml-2">
+                  {whopAuth.hasAccess && (
+                    <Badge className="bg-gradient-to-r from-amber-600 to-yellow-500 text-white text-[9px] px-1.5 py-0">
+                      <Crown className="w-3 h-3 mr-0.5" /> PRO
+                    </Badge>
+                  )}
+                  {whopAuth.user?.picture ? (
+                    <img src={whopAuth.user.picture} alt="" className="w-6 h-6 rounded-full border border-saffron/30" />
+                  ) : (
+                    <User className="w-4 h-4 text-saffron-light" />
+                  )}
+                  <button
+                    onClick={handleWhopLogout}
+                    disabled={loggingOut}
+                    className="flex items-center gap-1 text-saffron-light/60 hover:text-gold-light text-xs transition-colors"
+                  >
+                    <LogOut className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <a
+                  href="/api/auth/whop"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold ml-2 transition-all"
+                >
+                  <Crown className="w-4 h-4" /> Get Pro
+                </a>
+              )
+            )}
           </div>
           <div className="md:hidden">
             <MobileNav currentPage={currentPage} onNavigate={onNavigate} />
@@ -910,6 +970,7 @@ function HoraryForm({ onResult }: { onResult: (data: HoroscopeData, num: number)
 // ============ AI Analysis Panel ============
 function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData; horaryNumber?: number }) {
   const { toast } = useToast()
+  const whopAuth = useWhopAuth()
   const [selectedType, setSelectedType] = useState<AnalysisType>('overall')
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -934,6 +995,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
 
   const handleAnalysisClick = (typeId: AnalysisType) => {
     if (PREMIUM_ANALYSIS_TYPES.has(typeId)) {
+      if (whopAuth.hasAccess) {
+        // User has Whop membership — allow premium analysis
+        setSelectedType(typeId)
+        return
+      }
       setPremiumDialogType(typeId)
       return
     }
@@ -941,7 +1007,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalyze = async () => {
-    if (PREMIUM_ANALYSIS_TYPES.has(selectedType)) {
+    if (PREMIUM_ANALYSIS_TYPES.has(selectedType) && !whopAuth.hasAccess) {
       setPremiumDialogType(selectedType)
       return
     }
@@ -1152,7 +1218,9 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               Premium Feature
             </DialogTitle>
             <DialogDescription>
-              This advanced analysis requires a premium subscription. Coming soon!
+              {whopAuth.configured
+                ? 'This advanced analysis requires a premium membership via Whop.'
+                : 'This advanced analysis requires a premium subscription. Coming soon!'}
             </DialogDescription>
           </DialogHeader>
           {premiumDialogType && (
@@ -1165,6 +1233,19 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                   {PREMIUM_DESCRIPTIONS[premiumDialogType]}
                 </p>
               </div>
+              {whopAuth.configured && !whopAuth.authenticated && (
+                <div className="rounded-lg border border-saffron/30 bg-saffron/5 p-4">
+                  <p className="text-sm font-semibold text-maroon mb-2">Unlock all premium features:</p>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>5-Year SWOT Forecast</li>
+                    <li>Cosmic Blueprint</li>
+                    <li>Shadow Integration</li>
+                    <li>Unlimited chart readings</li>
+                    <li>All 10 analysis types</li>
+                    <li>Priority AI response</li>
+                  </ul>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Shield className="w-4 h-4" />
                 <span>Premium features include deeper analysis, extended timelines, and advanced yogic interpretations.</span>
@@ -1179,12 +1260,21 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             >
               Close
             </Button>
-            <Button
-              onClick={() => setPremiumDialogType(null)}
-              className="flex-1 sm:flex-none bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold"
-            >
-              <Sparkles className="w-4 h-4 mr-1" /> Notify Me
-            </Button>
+            {whopAuth.configured ? (
+              <a
+                href="/api/auth/whop"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+              >
+                <Crown className="w-4 h-4" /> Get Premium Access
+              </a>
+            ) : (
+              <Button
+                onClick={() => setPremiumDialogType(null)}
+                className="flex-1 sm:flex-none bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold"
+              >
+                <Sparkles className="w-4 h-4 mr-1" /> Notify Me
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1221,7 +1311,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Crown className="w-4 h-4" />
-              <span>Subscription coming soon! Cached results are always accessible for free.</span>
+              <span>{whopAuth.configured ? 'Upgrade via Whop to unlock unlimited access.' : 'Subscription coming soon! Cached results are always accessible for free.'}</span>
             </div>
           </div>
           <DialogFooter className="flex-row gap-2 sm:justify-end">
@@ -1232,12 +1322,21 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             >
               Close
             </Button>
-            <Button
-              onClick={() => setLimitReached(null)}
-              className="flex-1 sm:flex-none bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold"
-            >
-              <Crown className="w-4 h-4 mr-1" /> Get Unlimited
-            </Button>
+            {whopAuth.configured ? (
+              <a
+                href="/api/auth/whop"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-4 py-2 h-10 transition-all"
+              >
+                <Crown className="w-4 h-4" /> Get Unlimited
+              </a>
+            ) : (
+              <Button
+                onClick={() => setLimitReached(null)}
+                className="flex-1 sm:flex-none bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold"
+              >
+                <Crown className="w-4 h-4 mr-1" /> Get Unlimited
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1758,6 +1857,36 @@ export default function Home() {
   const [horaryMeaningsLoading, setHoraryMeaningsLoading] = useState(false)
   const [horaryMeaningsError, setHoraryMeaningsError] = useState<string | null>(null)
 
+  // Whop auth state
+  const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
+    authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+  })
+
+  // Fetch Whop auth state on mount
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setWhopAuth({
+            authenticated: data.authenticated || false,
+            hasAccess: data.hasAccess || false,
+            accessLevel: data.accessLevel || 'no_access',
+            user: data.user || null,
+            loading: false,
+            configured: data.authenticated !== undefined || data.configured === true,
+          })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWhopAuth(prev => ({ ...prev, loading: false, configured: false }))
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
+
   // Auto-fetch static meanings when horoscopeData changes
   useEffect(() => {
     if (!horoscopeData) {
@@ -2136,6 +2265,7 @@ export default function Home() {
   }
 
   return (
+    <WhopAuthContext.Provider value={whopAuth}>
     <div className="min-h-screen flex flex-col bg-temple-bg">
       <VedicNav currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="flex-1">
@@ -2153,5 +2283,6 @@ export default function Home() {
       </main>
       <VedicFooter />
     </div>
+    </WhopAuthContext.Provider>
   )
 }

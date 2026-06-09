@@ -11,93 +11,114 @@ async function safeRawQuery<T>(sql: string, args: unknown[] = [], fallback: T[] 
   }
 }
 
+// Safe number conversion
+function safeNum(val: unknown, fallback = 0): number {
+  if (typeof val === 'number') return val
+  if (typeof val === 'string') return parseInt(val, 10) || fallback
+  return fallback
+}
+
 export async function GET() {
   try {
-    await initDb()
+    // Attempt DB init, but don't let it crash everything
+    try {
+      await initDb()
+    } catch (initError) {
+      console.error('[Admin Stats] DB init failed:', initError instanceof Error ? initError.message : initError)
+      // Return empty stats rather than 500
+      return NextResponse.json({
+        totalAnalyses: 0, totalUsage: 0, uniqueDevices: 0,
+        analysesByType: {}, usageByType: {}, providerUsage: {},
+        dailyActivity: {}, recentUsage: [], sharedCharts: [],
+        totalSharedCharts: 0, totalSharedViews: 0, eventsByType: {},
+        analyticsEvents: [],
+        _warning: 'Database initialization failed. Stats may be incomplete.',
+      })
+    }
 
     // Total cached analyses
-    const totalAnalysesResult = await safeRawQuery<{ count: number }>(
+    const totalAnalysesResult = await safeRawQuery<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM CachedAnalysis`
     )
-    const totalAnalyses = Number(totalAnalysesResult[0]?.count || 0)
+    const totalAnalyses = safeNum(totalAnalysesResult[0]?.count)
 
     // Total device usages
-    const totalUsageResult = await safeRawQuery<{ count: number }>(
+    const totalUsageResult = await safeRawQuery<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM DeviceUsage`
     )
-    const totalUsage = Number(totalUsageResult[0]?.count || 0)
+    const totalUsage = safeNum(totalUsageResult[0]?.count)
 
     // Unique devices
-    const uniqueDevicesResult = await safeRawQuery<{ count: number }>(
+    const uniqueDevicesResult = await safeRawQuery<{ count: number | string }>(
       `SELECT COUNT(DISTINCT deviceId) as count FROM DeviceUsage`
     )
-    const uniqueDevices = Number(uniqueDevicesResult[0]?.count || 0)
+    const uniqueDevices = safeNum(uniqueDevicesResult[0]?.count)
 
     // Analysis by type from cache
-    const analysesByTypeResult = await safeRawQuery<{ analysisType: string; count: number }>(
+    const analysesByTypeResult = await safeRawQuery<{ analysisType: string; count: number | string }>(
       `SELECT analysisType, COUNT(*) as count FROM CachedAnalysis GROUP BY analysisType`
     )
     const analysesByType: Record<string, number> = {}
     for (const row of analysesByTypeResult) {
-      analysesByType[row.analysisType] = Number(row.count)
+      analysesByType[row.analysisType] = safeNum(row.count)
     }
 
     // Provider usage from cache
-    const providerUsageResult = await safeRawQuery<{ provider: string; count: number }>(
+    const providerUsageResult = await safeRawQuery<{ provider: string; count: number | string }>(
       `SELECT provider, COUNT(*) as count FROM CachedAnalysis GROUP BY provider`
     )
     const providerUsage: Record<string, number> = {}
     for (const row of providerUsageResult) {
-      providerUsage[row.provider] = Number(row.count)
+      providerUsage[row.provider] = safeNum(row.count)
     }
 
     // Usage by type
-    const usageByTypeResult = await safeRawQuery<{ analysisType: string; count: number }>(
+    const usageByTypeResult = await safeRawQuery<{ analysisType: string; count: number | string }>(
       `SELECT analysisType, COUNT(*) as count FROM DeviceUsage GROUP BY analysisType`
     )
     const usageByType: Record<string, number> = {}
     for (const row of usageByTypeResult) {
-      usageByType[row.analysisType] = Number(row.count)
+      usageByType[row.analysisType] = safeNum(row.count)
     }
 
     // Daily activity — analysis requests
-    const dailyAnalysesResult = await safeRawQuery<{ day: string; count: number }>(
+    const dailyAnalysesResult = await safeRawQuery<{ day: string; count: number | string }>(
       `SELECT DATE(createdAt) as day, COUNT(*) as count FROM DeviceUsage GROUP BY DATE(createdAt) ORDER BY day DESC LIMIT 30`
     )
     const dailyActivity: Record<string, { charts: number; analyses: number }> = {}
     for (const row of dailyAnalysesResult) {
-      dailyActivity[row.day] = { charts: 0, analyses: Number(row.count) }
+      dailyActivity[row.day] = { charts: 0, analyses: safeNum(row.count) }
     }
 
     // Daily activity — chart generations from AnalyticsEvent
-    const dailyChartsResult = await safeRawQuery<{ day: string; count: number }>(
+    const dailyChartsResult = await safeRawQuery<{ day: string; count: number | string }>(
       `SELECT DATE(createdAt) as day, COUNT(*) as count FROM AnalyticsEvent WHERE eventType = 'chart_generation' GROUP BY DATE(createdAt) ORDER BY day DESC LIMIT 30`
     )
     for (const row of dailyChartsResult) {
       if (!dailyActivity[row.day]) dailyActivity[row.day] = { charts: 0, analyses: 0 }
-      dailyActivity[row.day].charts = Number(row.count)
+      dailyActivity[row.day].charts = safeNum(row.count)
     }
 
     // Shared charts stats
-    const totalSharedChartsResult = await safeRawQuery<{ count: number }>(
+    const totalSharedChartsResult = await safeRawQuery<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM SharedChart`
     )
-    const totalSharedCharts = Number(totalSharedChartsResult[0]?.count || 0)
+    const totalSharedCharts = safeNum(totalSharedChartsResult[0]?.count)
 
     const sharedChartsResult = await safeRawQuery<{
-      shareId: string; analysisType: string | null; includeAnalysis: number; viewCount: number; createdAt: string
+      shareId: string; analysisType: string | null; includeAnalysis: number | string; viewCount: number | string; createdAt: string
     }>(
       `SELECT shareId, analysisType, includeAnalysis, viewCount, createdAt FROM SharedChart ORDER BY viewCount DESC LIMIT 20`
     )
-    const totalSharedViews = sharedChartsResult.reduce((sum, s) => sum + Number(s.viewCount), 0)
+    const totalSharedViews = sharedChartsResult.reduce((sum, s) => sum + safeNum(s.viewCount), 0)
 
     // Analytics events by type
-    const eventsByTypeResult = await safeRawQuery<{ eventType: string; count: number }>(
+    const eventsByTypeResult = await safeRawQuery<{ eventType: string; count: number | string }>(
       `SELECT eventType, COUNT(*) as count FROM AnalyticsEvent GROUP BY eventType`
     )
     const eventsByType: Record<string, number> = {}
     for (const row of eventsByTypeResult) {
-      eventsByType[row.eventType] = Number(row.count)
+      eventsByType[row.eventType] = safeNum(row.count)
     }
 
     // Recent analytics events
@@ -132,7 +153,7 @@ export async function GET() {
         shareId: s.shareId,
         analysisType: s.analysisType,
         includeAnalysis: !!s.includeAnalysis,
-        viewCount: Number(s.viewCount),
+        viewCount: safeNum(s.viewCount),
         createdAt: s.createdAt,
       })),
       totalSharedCharts,
@@ -147,6 +168,14 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Admin stats error:', error)
-    return NextResponse.json({ detail: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
+    // Return a valid response with empty data instead of 500
+    return NextResponse.json({
+      totalAnalyses: 0, totalUsage: 0, uniqueDevices: 0,
+      analysesByType: {}, usageByType: {}, providerUsage: {},
+      dailyActivity: {}, recentUsage: [], sharedCharts: [],
+      totalSharedCharts: 0, totalSharedViews: 0, eventsByType: {},
+      analyticsEvents: [],
+      _error: error instanceof Error ? error.message : 'Unknown error fetching stats',
+    }, { status: 200 }) // Return 200 with empty data so the dashboard renders
   }
 }

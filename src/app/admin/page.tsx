@@ -7,7 +7,8 @@ import {
 } from 'recharts'
 import {
   Brain, Star, Share2, Users, Database, TrendingUp,
-  Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon
+  Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon,
+  LogOut
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -51,6 +52,13 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' })
+    } catch {}
+    window.location.href = '/admin/login'
+  }
 
   const fetchStats = async () => {
     setLoading(true)
@@ -139,6 +147,15 @@ export default function AdminDashboard() {
               >
                 <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                size="sm"
+                className="text-saffron-light hover:bg-temple-red/20"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Logout
               </Button>
               <a href="/" className="text-saffron-light hover:text-gold-light text-sm flex items-center gap-1">
                 <ArrowLeft className="w-4 h-4" /> Back to Site
