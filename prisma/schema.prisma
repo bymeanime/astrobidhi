@@ -36,3 +36,21 @@ model DeviceUsage {
   cacheKey    String   // The cache key of the analysis (to track unique chart readings)
   createdAt   DateTime @default(now())
 }
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // "chart_generation", "analysis_request", "share", "page_view"
+  deviceId    String?
+  metadata    String   // JSON string with event details
+  createdAt   DateTime @default(now())
+}
+
+model SharedChart {
+  id              String   @id @default(cuid())
+  shareId         String   @unique @default(cuid())
+  chartParams     String   // JSON: birth details
+  analysisType    String?
+  includeAnalysis Boolean  @default(false)
+  viewCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+}

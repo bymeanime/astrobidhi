@@ -43,6 +43,25 @@ const CREATE_TABLES_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS DeviceUsage_deviceId_idx ON DeviceUsage(deviceId)`,
   `CREATE INDEX IF NOT EXISTS DeviceUsage_deviceId_cacheKey_idx ON DeviceUsage(deviceId, cacheKey)`,
+  `CREATE TABLE IF NOT EXISTS AnalyticsEvent (
+    id TEXT PRIMARY KEY,
+    eventType TEXT NOT NULL,
+    deviceId TEXT,
+    metadata TEXT NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS AnalyticsEvent_eventType_idx ON AnalyticsEvent(eventType)`,
+  `CREATE INDEX IF NOT EXISTS AnalyticsEvent_createdAt_idx ON AnalyticsEvent(createdAt)`,
+  `CREATE TABLE IF NOT EXISTS SharedChart (
+    id TEXT PRIMARY KEY,
+    shareId TEXT NOT NULL UNIQUE,
+    chartParams TEXT NOT NULL,
+    analysisType TEXT,
+    includeAnalysis INTEGER NOT NULL DEFAULT 0,
+    viewCount INTEGER NOT NULL DEFAULT 0,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS SharedChart_shareId_idx ON SharedChart(shareId)`,
 ]
 
 function getDatabaseUrl(): string {
@@ -90,7 +109,7 @@ function createPrismaClient(): PrismaClient {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings', 'DeviceUsage']
+  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart']
   const missingTables: string[] = []
 
   for (const table of tablesToCheck) {
@@ -149,7 +168,7 @@ export const db = new Proxy({} as PrismaClient, {
       if (typeof value === 'function') {
         return async (...args: unknown[]) => {
           await initDb()
-          return (value as Function).apply(client, args)
+          return (value as (...a: unknown[]) => unknown).apply(client, args)
         }
       }
       if (value && typeof value === 'object') {
@@ -159,7 +178,7 @@ export const db = new Proxy({} as PrismaClient, {
             if (typeof delegateValue === 'function') {
               return async (...args: unknown[]) => {
                 await initDb()
-                return (delegateValue as Function).apply(delegate, args)
+                return (delegateValue as (...a: unknown[]) => unknown).apply(delegate, args)
               }
             }
             return delegateValue

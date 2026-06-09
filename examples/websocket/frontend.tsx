@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ export default function SocketDemo() {
   const [inputMessage, setInputMessage] = useState('');
   const [username, setUsername] = useState('');
   const [isUsernameSet, setIsUsernameSet] = useState(false);
-  const [socket, setSocket] = useState<any>(null);
+  const socketRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
 
@@ -42,7 +42,7 @@ export default function SocketDemo() {
       timeout: 10000
     })
 
-    setSocket(socketInstance);
+    socketRef.current = socketInstance;
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
@@ -81,15 +81,15 @@ export default function SocketDemo() {
   }, []);
 
   const handleJoin = () => {
-    if (socket && username.trim() && isConnected) {
-      socket.emit('join', { username: username.trim() });
+    if (socketRef.current && username.trim() && isConnected) {
+      socketRef.current.emit('join', { username: username.trim() });
       setIsUsernameSet(true);
     }
   };
 
   const sendMessage = () => {
-    if (socket && inputMessage.trim() && username.trim()) {
-      socket.emit('message', {
+    if (socketRef.current && inputMessage.trim() && username.trim()) {
+      socketRef.current.emit('message', {
         content: inputMessage.trim(),
         username: username.trim()
       });

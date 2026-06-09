@@ -7,7 +7,8 @@ import {
   ChevronRight, Loader2, AlertCircle, MapPin, Clock,
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
-  ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock
+  ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
+  Share2, Copy, Twitter, Facebook
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -315,7 +316,10 @@ function VedicFooter() {
             </div>
           </div>
           <p className="text-xs text-center">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI Analysis</p>
-          <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
+            <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">Admin</a>
+          </div>
         </div>
       </div>
     </footer>
@@ -911,6 +915,9 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [loading, setLoading] = useState(false)
   const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
   const [limitReached, setLimitReached] = useState<{ type: string; used: number; limit: number } | null>(null)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const analysisRef = useRef<HTMLDivElement>(null)
 
   // Get or create a persistent device ID (stored in localStorage)
@@ -990,6 +997,55 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       analysisRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [analysis])
+
+  // Share chart + analysis
+  const handleShare = async (includeAnalysis: boolean) => {
+    setShareLoading(true)
+    try {
+      const deviceId = getDeviceId()
+      // Get birth details from chartData
+      const birthDetails = chartData.planets_data ? {
+        // Extract birth params from the chart data for reconstruction
+        // We'll store the chart data itself
+      } : {}
+
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chartParams: {
+            // Store enough info to regenerate the chart
+            chartData: chartData,
+            analysisType: selectedType,
+          },
+          analysisType: includeAnalysis ? selectedType : null,
+          includeAnalysis,
+          deviceId,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to create share link')
+      const data = await res.json()
+      const fullUrl = `${window.location.origin}/share/${data.shareId}`
+      setShareUrl(fullUrl)
+      toast({ title: 'Share link created!', description: 'Copy the link or share on social media' })
+    } catch (err: unknown) {
+      toast({ title: 'Share Error', description: err instanceof Error ? err.message : 'Failed to create share link', variant: 'destructive' })
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleCopyLink = () => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const shareText = analysis
+    ? `Check out my ${ANALYSIS_TYPES.find(t => t.id === selectedType)?.label || 'Vedic astrology'} reading on AstroBidhi!`
+    : 'Check out my Vedic astrology birth chart on AstroBidhi!'
 
   return (
     <div className="space-y-6">
@@ -1299,14 +1355,85 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               <ReactMarkdown>{analysis}</ReactMarkdown>
             </div>
             <div className={`mt-6 pt-4 border-t ${
-              selectedType === 'cosmic_blueprint' ? 'border-indigo-700/20' 
-              : selectedType === 'shadow_integration' ? 'border-red-800/20' 
+              selectedType === 'cosmic_blueprint' ? 'border-indigo-700/20'
+              : selectedType === 'shadow_integration' ? 'border-red-800/20'
               : selectedType === 'swot_5year' ? 'border-blue-700/20'
               : 'border-saffron/10'
             }`}>
+              {/* Share Buttons */}
+              <div className="mb-4">
+                <p className={`text-xs font-semibold mb-2 ${
+                  selectedType === 'cosmic_blueprint' ? 'text-indigo-300'
+                  : selectedType === 'shadow_integration' ? 'text-red-300'
+                  : selectedType === 'swot_5year' ? 'text-blue-300'
+                  : 'text-maroon'
+                }`}>Share this reading</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleShare(true)}
+                    disabled={shareLoading}
+                    className={`text-xs ${
+                      selectedType === 'cosmic_blueprint' ? 'border-indigo-600/40 text-indigo-200 hover:bg-indigo-900/30'
+                      : selectedType === 'shadow_integration' ? 'border-red-600/40 text-red-200 hover:bg-red-900/30'
+                      : selectedType === 'swot_5year' ? 'border-blue-600/40 text-blue-200 hover:bg-blue-900/30'
+                      : 'border-saffron/30 text-maroon hover:bg-saffron/10'
+                    }`}
+                  >
+                    <Share2 className="w-3 h-3 mr-1" /> Share Chart + Analysis
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleShare(false)}
+                    disabled={shareLoading}
+                    className={`text-xs ${
+                      selectedType === 'cosmic_blueprint' ? 'border-indigo-600/40 text-indigo-200 hover:bg-indigo-900/30'
+                      : selectedType === 'shadow_integration' ? 'border-red-600/40 text-red-200 hover:bg-red-900/30'
+                      : selectedType === 'swot_5year' ? 'border-blue-600/40 text-blue-200 hover:bg-blue-900/30'
+                      : 'border-saffron/30 text-maroon hover:bg-saffron/10'
+                    }`}
+                  >
+                    <Star className="w-3 h-3 mr-1" /> Share Chart Only
+                  </Button>
+                </div>
+                {shareUrl && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Input
+                      value={shareUrl}
+                      readOnly
+                      className={`text-xs h-8 ${
+                        selectedType === 'cosmic_blueprint' ? 'bg-indigo-950/50 border-indigo-700/30 text-indigo-200'
+                        : selectedType === 'shadow_integration' ? 'bg-red-950/50 border-red-700/30 text-red-200'
+                        : selectedType === 'swot_5year' ? 'bg-blue-950/50 border-blue-700/30 text-blue-200'
+                        : 'bg-saffron/5 border-saffron/20'
+                      }`}
+                    />
+                    <Button size="sm" variant="outline" onClick={handleCopyLink} className="h-8 text-xs shrink-0">
+                      <Copy className="w-3 h-3 mr-1" /> {copied ? 'Copied!' : 'Copy'}
+                    </Button>
+                    <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 border-saffron/30">
+                        <Twitter className="w-3 h-3" />
+                      </Button>
+                    </a>
+                    <a href={`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 border-vedic-green/30">
+                        <MessageCircle className="w-3 h-3" />
+                      </Button>
+                    </a>
+                    <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 border-saffron/30">
+                        <Facebook className="w-3 h-3" />
+                      </Button>
+                    </a>
+                  </div>
+                )}
+              </div>
               <p className={`text-xs italic ${
-                selectedType === 'cosmic_blueprint' ? 'text-indigo-300/50' 
-                : selectedType === 'shadow_integration' ? 'text-red-300/50' 
+                selectedType === 'cosmic_blueprint' ? 'text-indigo-300/50'
+                : selectedType === 'shadow_integration' ? 'text-red-300/50'
                 : selectedType === 'swot_5year' ? 'text-blue-300/50'
                 : 'text-muted-foreground'
               }`}>
@@ -1709,6 +1836,19 @@ export default function Home() {
       if (currentPage === 'birth-chart') {
         toast({ title: 'Chart Generated', description: 'Your Kundali has been calculated successfully!' })
       }
+      // Track analytics event
+      try {
+        const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+        fetch('/api/analytics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventType: 'chart_generation',
+            deviceId,
+            metadata: { type: 'birth_chart', ayanamsa: formData.ayanamsa },
+          }),
+        }).catch(() => {}) // Fire and forget
+      } catch {}
     } catch (err: unknown) {
       toast({
         title: 'Error',
