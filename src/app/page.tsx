@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef, useEffect, createContext, useContext } from 'react'
+import { searchCities, getPopularCities, CityEntry } from '@/data/cities'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, Moon, Star, Compass, Calendar, Eye, Zap,
@@ -466,109 +467,366 @@ function BirthChartForm({ onSubmit, loading }: {
   onSubmit: (data: Record<string, unknown>) => void
   loading: boolean
 }) {
-  const [form, setForm] = useState({
-    year: 1990, month: 6, day: 15,
-    hour: 10, minute: 30, second: 0,
-    utc: '+05:30', latitude: 11.02, longitude: 76.98,
-    ayanamsa: 'Lahiri', house_system: 'Placidus',
-    name: '',
-  })
+  const popularCities = getPopularCities()
+  const searchRef = useRef<HTMLDivElement>(null)
+
+  const [citySearch, setCitySearch] = useState('')
+  const [citySearchResults, setCitySearchResults] = useState<CityEntry[]>([])
+  const [selectedCity, setSelectedCity] = useState<CityEntry | null>(null)
+  const [showCityDropdown, setShowCityDropdown] = useState(false)
+  const [birthDate, setBirthDate] = useState('1990-06-15')
+  const [birthTime, setBirthTime] = useState('10:30')
+  const [dontKnowBirthTime, setDontKnowBirthTime] = useState(false)
+  const [showManualCoords, setShowManualCoords] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [manualLat, setManualLat] = useState(0)
+  const [manualLng, setManualLng] = useState(0)
+  const [manualUtc, setManualUtc] = useState('+05:30')
+  const [ayanamsa, setAyanamsa] = useState('Lahiri')
+  const [houseSystem, setHouseSystem] = useState('Whole Sign')
+  const [overrideUtc, setOverrideUtc] = useState('')
+  const [useUtcOverride, setUseUtcOverride] = useState(false)
+
+  // Click outside handler for city dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowCityDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Handle city search input
+  const handleCitySearch = useCallback((query: string) => {
+    setCitySearch(query)
+    if (query.length >= 2) {
+      const results = searchCities(query)
+      setCitySearchResults(results)
+      setShowCityDropdown(results.length > 0)
+    } else {
+      setCitySearchResults([])
+      setShowCityDropdown(false)
+    }
+  }, [])
+
+  // Select a city from search or popular
+  const selectCity = useCallback((city: CityEntry) => {
+    setSelectedCity(city)
+    setCitySearch(`${city.name}, ${city.country}`)
+    setShowCityDropdown(false)
+    setShowManualCoords(false)
+  }, [])
+
+  // Handle "don't know birth time" checkbox
+  useEffect(() => {
+    if (dontKnowBirthTime) {
+      setBirthTime('12:00')
+    }
+  }, [dontKnowBirthTime])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const [year, month, day] = birthDate.split('-').map(Number)
+    const timeToUse = dontKnowBirthTime ? '12:00' : birthTime
+    const [hour, minute] = timeToUse.split(':').map(Number)
+    const latitude = selectedCity ? selectedCity.lat : manualLat
+    const longitude = selectedCity ? selectedCity.lng : manualLng
+    const utc = useUtcOverride && overrideUtc ? overrideUtc : (selectedCity ? selectedCity.tz : manualUtc)
     onSubmit({
-      year: form.year, month: form.month, day: form.day,
-      hour: form.hour, minute: form.minute, second: form.second,
-      utc: form.utc, latitude: form.latitude, longitude: form.longitude,
-      ayanamsa: form.ayanamsa, house_system: form.house_system,
+      year, month, day, hour, minute, second: 0,
+      utc, latitude, longitude,
+      ayanamsa, house_system: houseSystem,
     })
   }
 
+  // Current effective UTC for display
+  const effectiveUtc = useUtcOverride && overrideUtc
+    ? overrideUtc
+    : (selectedCity ? selectedCity.tz : manualUtc)
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Date & Time */}
-        <Card className="border-saffron/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-maroon flex items-center gap-2 text-base">
-              <Clock className="w-4 h-4" /> Date & Time of Birth
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs">Year</Label>
-              <Input type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: +e.target.value }))} className="h-9" />
+      {/* ====== City Selection ====== */}
+      <Card className="border-saffron/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-maroon flex items-center gap-2 text-base">
+            <MapPin className="w-4 h-4" /> Where were you born?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* City Search with Dropdown */}
+          <div className="relative" ref={searchRef}>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-saffron/60" />
+              <Input
+                type="text"
+                value={citySearch}
+                onChange={e => handleCitySearch(e.target.value)}
+                onFocus={() => { if (citySearchResults.length > 0) setShowCityDropdown(true) }}
+                placeholder="Search your birth city..."
+                className="pl-9 h-10 border-saffron/30 focus:border-saffron"
+              />
             </div>
-            <div>
-              <Label className="text-xs">Month</Label>
-              <Input type="number" min={1} max={12} value={form.month} onChange={e => setForm(f => ({ ...f, month: +e.target.value }))} className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs">Day</Label>
-              <Input type="number" min={1} max={31} value={form.day} onChange={e => setForm(f => ({ ...f, day: +e.target.value }))} className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs">Hour</Label>
-              <Input type="number" min={0} max={23} value={form.hour} onChange={e => setForm(f => ({ ...f, hour: +e.target.value }))} className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs">Minute</Label>
-              <Input type="number" min={0} max={59} value={form.minute} onChange={e => setForm(f => ({ ...f, minute: +e.target.value }))} className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs">Second</Label>
-              <Input type="number" min={0} max={59} value={form.second} onChange={e => setForm(f => ({ ...f, second: +e.target.value }))} className="h-9" />
-            </div>
-            <div className="col-span-3">
-              <Label className="text-xs">UTC Offset</Label>
-              <Input value={form.utc} onChange={e => setForm(f => ({ ...f, utc: e.target.value }))} placeholder="+05:30" className="h-9" />
-            </div>
-          </CardContent>
-        </Card>
+            {/* Search Results Dropdown */}
+            {showCityDropdown && citySearchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-saffron/20 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {citySearchResults.map((city, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => selectCity(city)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-saffron/10 transition-colors text-left border-b border-saffron/5 last:border-b-0"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-saffron/60 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-medium text-maroon">{city.name}</span>
+                      <span className="text-muted-foreground text-xs ml-1">• {city.country}</span>
+                    </div>
+                    <span className="ml-auto text-xs text-muted-foreground shrink-0">UTC {city.tz}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Location */}
-        <Card className="border-saffron/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-maroon flex items-center gap-2 text-base">
-              <MapPin className="w-4 h-4" /> Birth Location
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs">Latitude</Label>
-              <Input type="number" step="0.01" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: +e.target.value }))} className="h-9" />
+          {/* Selected city info badge */}
+          {selectedCity && !showManualCoords && (
+            <div className="flex items-center gap-2 p-2.5 bg-saffron/10 rounded-lg text-sm">
+              <MapPin className="w-4 h-4 text-saffron shrink-0" />
+              <span className="text-maroon font-medium">{selectedCity.name}, {selectedCity.country}</span>
+              <span className="text-xs text-muted-foreground ml-1">
+                ({selectedCity.lat.toFixed(2)}°, {selectedCity.lng.toFixed(2)}°) • UTC {selectedCity.tz}
+              </span>
             </div>
-            <div>
-              <Label className="text-xs">Longitude</Label>
-              <Input type="number" step="0.01" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: +e.target.value }))} className="h-9" />
-            </div>
-            <div className="vedic-divider my-3" />
-            <div>
-              <Label className="text-xs">Ayanamsa</Label>
-              <Select value={form.ayanamsa} onValueChange={v => setForm(f => ({ ...f, ayanamsa: v }))}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {AYANAMSA_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">House System</Label>
-              <Select value={form.house_system} onValueChange={v => setForm(f => ({ ...f, house_system: v }))}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {HOUSE_SYSTEMS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
 
+          {/* Popular Cities Quick-Select */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Popular:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {popularCities.map(city => (
+                <button
+                  key={city.name}
+                  type="button"
+                  onClick={() => selectCity(city)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                    selectedCity?.name === city.name
+                      ? 'bg-saffron text-white border-saffron shadow-sm'
+                      : 'bg-saffron/10 text-maroon border-saffron/20 hover:bg-saffron/20 hover:border-saffron/40'
+                  }`}
+                >
+                  {city.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual coordinates toggle */}
+          {!showManualCoords ? (
+            <button
+              type="button"
+              onClick={() => { setShowManualCoords(true); setSelectedCity(null) }}
+              className="text-xs text-saffron hover:text-maroon underline underline-offset-2 transition-colors"
+            >
+              Enter coordinates manually
+            </button>
+          ) : (
+            <div className="space-y-3 p-3 bg-saffron/5 border border-saffron/10 rounded-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-maroon">Manual Coordinates</p>
+                <button
+                  type="button"
+                  onClick={() => setShowManualCoords(false)}
+                  className="text-xs text-muted-foreground hover:text-maroon transition-colors"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Latitude</Label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={manualLat || ''}
+                    onChange={e => setManualLat(+e.target.value)}
+                    placeholder="e.g. 28.6139"
+                    className="h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Longitude</Label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={manualLng || ''}
+                    onChange={e => setManualLng(+e.target.value)}
+                    placeholder="e.g. 77.2090"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">UTC Offset</Label>
+                <Input
+                  value={manualUtc}
+                  onChange={e => setManualUtc(e.target.value)}
+                  placeholder="+05:30"
+                  className="h-9"
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ====== Date & Time ====== */}
+      <Card className="border-saffron/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-maroon flex items-center gap-2 text-base">
+            <Clock className="w-4 h-4" /> When were you born?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Date</Label>
+              <Input
+                type="date"
+                value={birthDate}
+                onChange={e => setBirthDate(e.target.value)}
+                className="h-10 border-saffron/30 focus:border-saffron"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Time</Label>
+              <Input
+                type="time"
+                value={birthTime}
+                onChange={e => { if (!dontKnowBirthTime) setBirthTime(e.target.value) }}
+                disabled={dontKnowBirthTime}
+                className="h-10 border-saffron/30 focus:border-saffron disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          {/* Don't know birth time checkbox */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={dontKnowBirthTime}
+                onChange={e => setDontKnowBirthTime(e.target.checked)}
+                className="w-4 h-4 rounded border-saffron/40 text-saffron accent-[#D4A843]"
+              />
+              <span className="text-sm text-maroon">I don&apos;t know my birth time</span>
+            </label>
+            {dontKnowBirthTime && (
+              <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">
+                  Without exact birth time, the Ascendant (Lagna) will be approximate.
+                  Your Moon sign and planetary positions remain accurate.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* UTC offset auto-display */}
+          {(selectedCity || showManualCoords) && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-xs text-muted-foreground">UTC Offset:</span>
+              <Badge variant="outline" className="text-xs border-saffron/30 text-maroon font-mono">
+                {effectiveUtc}
+              </Badge>
+              {!useUtcOverride && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverrideUtc(effectiveUtc)
+                    setUseUtcOverride(true)
+                    setShowAdvanced(true)
+                  }}
+                  className="text-xs text-saffron hover:text-maroon underline underline-offset-2 transition-colors"
+                >
+                  Override
+                </button>
+              )}
+              {useUtcOverride && (
+                <span className="text-[10px] text-amber-600">(overridden)</span>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ====== Advanced Options (Collapsible) ====== */}
+      <Card className="border-saffron/20">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full flex items-center justify-between p-4 text-left hover:bg-saffron/5 transition-colors rounded-lg"
+        >
+          <span className="text-maroon flex items-center gap-2 text-sm font-medium">
+            <Star className="w-4 h-4 text-saffron" /> Advanced Options
+          </span>
+          {showAdvanced
+            ? <ChevronDown className="w-4 h-4 text-saffron" />
+            : <ChevronRight className="w-4 h-4 text-saffron" />
+          }
+        </button>
+        <AnimatePresence>
+          {showAdvanced && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <CardContent className="pt-0 space-y-3">
+                <div>
+                  <Label className="text-xs">Ayanamsa</Label>
+                  <Select value={ayanamsa} onValueChange={setAyanamsa}>
+                    <SelectTrigger className="h-9 border-saffron/30"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {AYANAMSA_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">House System</Label>
+                  <Select value={houseSystem} onValueChange={setHouseSystem}>
+                    <SelectTrigger className="h-9 border-saffron/30"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {HOUSE_SYSTEMS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {useUtcOverride && (
+                  <div>
+                    <Label className="text-xs">UTC Offset Override</Label>
+                    <Input
+                      value={overrideUtc}
+                      onChange={e => setOverrideUtc(e.target.value)}
+                      placeholder="+05:30"
+                      className="h-9 border-saffron/30"
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+
+      {/* ====== Submit Button ====== */}
       <Button
         type="submit"
         disabled={loading}
