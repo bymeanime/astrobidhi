@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkUserAccess, refreshAccessToken, getWhopUserInfo } from '@/lib/whop'
+import { checkUserAccess, refreshAccessToken, getWhopUserInfo, isWhopConfigured } from '@/lib/whop'
 
 interface WhopSession {
   userId: string
@@ -25,10 +25,29 @@ function getSession(request: NextRequest): WhopSession | null {
 }
 
 export async function GET(request: NextRequest) {
+  // Check if Whop is configured at all
+  const configured = isWhopConfigured()
+
+  if (!configured) {
+    return NextResponse.json({
+      authenticated: false,
+      hasAccess: false,
+      accessLevel: 'no_access',
+      configured: false,
+      user: null,
+    })
+  }
+
   const session = getSession(request)
 
   if (!session) {
-    return NextResponse.json({ authenticated: false, hasAccess: false })
+    return NextResponse.json({
+      authenticated: false,
+      hasAccess: false,
+      accessLevel: 'no_access',
+      configured: true,
+      user: null,
+    })
   }
 
   // Check if access token is expired
@@ -52,6 +71,7 @@ export async function GET(request: NextRequest) {
         authenticated: true,
         hasAccess: session.hasAccess,
         accessLevel: session.accessLevel,
+        configured: true,
         user: {
           id: session.userId,
           name: session.name,
@@ -71,7 +91,14 @@ export async function GET(request: NextRequest) {
       return response
     } catch (error) {
       console.error('[Auth/Me] Token refresh failed:', error)
-      return NextResponse.json({ authenticated: false, hasAccess: false, error: 'Session expired' })
+      return NextResponse.json({
+        authenticated: false,
+        hasAccess: false,
+        accessLevel: 'no_access',
+        configured: true,
+        user: null,
+        error: 'Session expired',
+      })
     }
   }
 
@@ -79,6 +106,7 @@ export async function GET(request: NextRequest) {
     authenticated: true,
     hasAccess: session.hasAccess,
     accessLevel: session.accessLevel,
+    configured: true,
     user: {
       id: session.userId,
       name: session.name,

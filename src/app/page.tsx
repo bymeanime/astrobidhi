@@ -2183,7 +2183,7 @@ export default function Home() {
             accessLevel: data.accessLevel || 'no_access',
             user: data.user || null,
             loading: false,
-            configured: data.authenticated !== undefined || data.configured === true,
+            configured: data.configured === true,
           }
           setWhopAuth(authState)
 
