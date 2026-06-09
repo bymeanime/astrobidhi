@@ -64,6 +64,34 @@ const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS SharedChart_shareId_idx ON SharedChart(shareId)`,
 ]
 
+let _libsql: ReturnType<typeof createClient> | null = null
+
+function getLibsqlClient() {
+  if (_libsql) return _libsql
+  const dbUrl = getDatabaseUrl()
+  const authToken = getDatabaseAuthToken()
+  if (!dbUrl) return null
+  _libsql = createClient({ url: dbUrl, authToken: authToken || undefined })
+  return _libsql
+}
+
+// Execute a parameterized SQL query directly via libsql (safe from injection)
+export async function rawQuery<T = Record<string, unknown>>(sql: string, args: unknown[] = []): Promise<T[]> {
+  const client = getLibsqlClient()
+  if (!client) throw new Error('Database not configured')
+  await initDb()
+  const result = await client.execute({ sql, args })
+  return result.rows as unknown as T[]
+}
+
+// Execute a parameterized SQL statement directly via libsql (safe from injection)
+export async function rawExecute(sql: string, args: unknown[] = []): Promise<void> {
+  const client = getLibsqlClient()
+  if (!client) throw new Error('Database not configured')
+  await initDb()
+  await client.execute({ sql, args })
+}
+
 function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL || ''
   if (!url) {

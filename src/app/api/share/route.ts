@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, initDb } from '@/lib/db'
+import { initDb, rawExecute } from '@/lib/db'
 
 // POST: Create a shared chart link
 export async function POST(request: NextRequest) {
@@ -12,28 +12,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: 'chartParams is required' }, { status: 400 })
     }
 
-    const shared = await db.sharedChart.create({
-      data: {
-        chartParams: JSON.stringify(chartParams),
-        analysisType: analysisType || null,
-        includeAnalysis: !!includeAnalysis,
-      },
-    })
+    const id = crypto.randomUUID()
+    const shareId = crypto.randomUUID()
+    const chartParamsStr = JSON.stringify(chartParams)
 
-    // Record analytics event
+    await rawExecute(
+      `INSERT INTO SharedChart (id, shareId, chartParams, analysisType, includeAnalysis, viewCount, createdAt) VALUES (?, ?, ?, ?, ?, 0, datetime('now'))`,
+      [id, shareId, chartParamsStr, analysisType || null, includeAnalysis ? 1 : 0]
+    )
+
+    // Record analytics event (fire and forget)
     try {
-      await db.analyticsEvent.create({
-        data: {
-          eventType: 'share',
-          deviceId: body.deviceId || null,
-          metadata: JSON.stringify({ shareId: shared.shareId, analysisType, includeAnalysis }),
-        },
-      })
+      const eventId = crypto.randomUUID()
+      const metaStr = JSON.stringify({ shareId, analysisType, includeAnalysis })
+      await rawExecute(
+        `INSERT INTO AnalyticsEvent (id, eventType, deviceId, metadata, createdAt) VALUES (?, 'share', ?, ?, datetime('now'))`,
+        [eventId, body.deviceId || null, metaStr]
+      )
     } catch {}
 
     return NextResponse.json({
-      shareId: shared.shareId,
-      shareUrl: `/share/${shared.shareId}`,
+      shareId,
+      shareUrl: `/share/${shareId}`,
     })
   } catch (error) {
     console.error('Share create error:', error)

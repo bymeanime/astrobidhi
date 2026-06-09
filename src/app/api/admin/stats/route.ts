@@ -1,74 +1,118 @@
 import { NextResponse } from 'next/server'
-import { db, initDb } from '@/lib/db'
+import { initDb, rawQuery } from '@/lib/db'
+
+// Helper to safely run a query — returns fallback on error
+async function safeRawQuery<T>(sql: string, args: unknown[] = [], fallback: T[] = []): Promise<T[]> {
+  try {
+    return await rawQuery<T>(sql, args)
+  } catch (error) {
+    console.error('[Admin Stats] Query failed:', error instanceof Error ? error.message : error)
+    return fallback
+  }
+}
 
 export async function GET() {
   try {
     await initDb()
 
     // Total cached analyses
-    const totalAnalyses = await db.cachedAnalysis.count()
+    const totalAnalysesResult = await safeRawQuery<{ count: number }>(
+      `SELECT COUNT(*) as count FROM CachedAnalysis`
+    )
+    const totalAnalyses = Number(totalAnalysesResult[0]?.count || 0)
 
-    // Total device usages (analysis requests)
-    const totalUsage = await db.deviceUsage.count()
+    // Total device usages
+    const totalUsageResult = await safeRawQuery<{ count: number }>(
+      `SELECT COUNT(*) as count FROM DeviceUsage`
+    )
+    const totalUsage = Number(totalUsageResult[0]?.count || 0)
 
     // Unique devices
-    const allUsage = await db.deviceUsage.findMany({ select: { deviceId: true } })
-    const uniqueDevices = new Set(allUsage.map(u => u.deviceId)).size
+    const uniqueDevicesResult = await safeRawQuery<{ count: number }>(
+      `SELECT COUNT(DISTINCT deviceId) as count FROM DeviceUsage`
+    )
+    const uniqueDevices = Number(uniqueDevicesResult[0]?.count || 0)
 
     // Analysis by type from cache
-    const cachedAnalyses = await db.cachedAnalysis.findMany({
-      select: { analysisType: true, provider: true, createdAt: true }
-    })
+    const analysesByTypeResult = await safeRawQuery<{ analysisType: string; count: number }>(
+      `SELECT analysisType, COUNT(*) as count FROM CachedAnalysis GROUP BY analysisType`
+    )
     const analysesByType: Record<string, number> = {}
-    const providerUsage: Record<string, number> = {}
-    for (const a of cachedAnalyses) {
-      analysesByType[a.analysisType] = (analysesByType[a.analysisType] || 0) + 1
-      providerUsage[a.provider] = (providerUsage[a.provider] || 0) + 1
+    for (const row of analysesByTypeResult) {
+      analysesByType[row.analysisType] = Number(row.count)
     }
 
-    // Usage by type (includes duplicates = how many times each type was requested)
-    const usageRecords = await db.deviceUsage.findMany({
-      select: { analysisType: true, createdAt: true, deviceId: true }
-    })
-    const usageByType: Record<string, number> = {}
-    const dailyActivity: Record<string, { charts: number; analyses: number }> = {}
+    // Provider usage from cache
+    const providerUsageResult = await safeRawQuery<{ provider: string; count: number }>(
+      `SELECT provider, COUNT(*) as count FROM CachedAnalysis GROUP BY provider`
+    )
+    const providerUsage: Record<string, number> = {}
+    for (const row of providerUsageResult) {
+      providerUsage[row.provider] = Number(row.count)
+    }
 
-    for (const u of usageRecords) {
-      usageByType[u.analysisType] = (usageByType[u.analysisType] || 0) + 1
-      const day = new Date(u.createdAt).toISOString().split('T')[0]
-      if (!dailyActivity[day]) dailyActivity[day] = { charts: 0, analyses: 0 }
-      dailyActivity[day].analyses++
+    // Usage by type
+    const usageByTypeResult = await safeRawQuery<{ analysisType: string; count: number }>(
+      `SELECT analysisType, COUNT(*) as count FROM DeviceUsage GROUP BY analysisType`
+    )
+    const usageByType: Record<string, number> = {}
+    for (const row of usageByTypeResult) {
+      usageByType[row.analysisType] = Number(row.count)
+    }
+
+    // Daily activity — analysis requests
+    const dailyAnalysesResult = await safeRawQuery<{ day: string; count: number }>(
+      `SELECT DATE(createdAt) as day, COUNT(*) as count FROM DeviceUsage GROUP BY DATE(createdAt) ORDER BY day DESC LIMIT 30`
+    )
+    const dailyActivity: Record<string, { charts: number; analyses: number }> = {}
+    for (const row of dailyAnalysesResult) {
+      dailyActivity[row.day] = { charts: 0, analyses: Number(row.count) }
+    }
+
+    // Daily activity — chart generations from AnalyticsEvent
+    const dailyChartsResult = await safeRawQuery<{ day: string; count: number }>(
+      `SELECT DATE(createdAt) as day, COUNT(*) as count FROM AnalyticsEvent WHERE eventType = 'chart_generation' GROUP BY DATE(createdAt) ORDER BY day DESC LIMIT 30`
+    )
+    for (const row of dailyChartsResult) {
+      if (!dailyActivity[row.day]) dailyActivity[row.day] = { charts: 0, analyses: 0 }
+      dailyActivity[row.day].charts = Number(row.count)
     }
 
     // Shared charts stats
-    const totalSharedCharts = await db.sharedChart.count()
-    const sharedCharts = await db.sharedChart.findMany({ orderBy: { viewCount: 'desc' }, take: 20 })
-    const totalSharedViews = sharedCharts.reduce((sum, s) => sum + s.viewCount, 0)
+    const totalSharedChartsResult = await safeRawQuery<{ count: number }>(
+      `SELECT COUNT(*) as count FROM SharedChart`
+    )
+    const totalSharedCharts = Number(totalSharedChartsResult[0]?.count || 0)
 
-    // Analytics events
-    const analyticsEvents = await db.analyticsEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
+    const sharedChartsResult = await safeRawQuery<{
+      shareId: string; analysisType: string | null; includeAnalysis: number; viewCount: number; createdAt: string
+    }>(
+      `SELECT shareId, analysisType, includeAnalysis, viewCount, createdAt FROM SharedChart ORDER BY viewCount DESC LIMIT 20`
+    )
+    const totalSharedViews = sharedChartsResult.reduce((sum, s) => sum + Number(s.viewCount), 0)
 
-    // Chart generation events
-    const chartEvents = analyticsEvents.filter(e => e.eventType === 'chart_generation')
-    for (const e of chartEvents) {
-      const day = new Date(e.createdAt).toISOString().split('T')[0]
-      if (!dailyActivity[day]) dailyActivity[day] = { charts: 0, analyses: 0 }
-      dailyActivity[day].charts++
-    }
-
-    // Recent activity (combine usage records)
-    const recentUsage = await db.deviceUsage.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: { analysisType: true, deviceId: true, cacheKey: true, createdAt: true }
-    })
-
-    // Total analytics events by type
-    const allAnalyticsEvents = await db.analyticsEvent.findMany({ select: { eventType: true } })
+    // Analytics events by type
+    const eventsByTypeResult = await safeRawQuery<{ eventType: string; count: number }>(
+      `SELECT eventType, COUNT(*) as count FROM AnalyticsEvent GROUP BY eventType`
+    )
     const eventsByType: Record<string, number> = {}
-    for (const e of allAnalyticsEvents) {
-      eventsByType[e.eventType] = (eventsByType[e.eventType] || 0) + 1
+    for (const row of eventsByTypeResult) {
+      eventsByType[row.eventType] = Number(row.count)
     }
+
+    // Recent analytics events
+    const recentEventsResult = await safeRawQuery<{
+      eventType: string; deviceId: string | null; metadata: string; createdAt: string
+    }>(
+      `SELECT eventType, deviceId, metadata, createdAt FROM AnalyticsEvent ORDER BY createdAt DESC LIMIT 100`
+    )
+
+    // Recent usage
+    const recentUsageResult = await safeRawQuery<{
+      analysisType: string; deviceId: string; cacheKey: string; createdAt: string
+    }>(
+      `SELECT analysisType, deviceId, cacheKey, createdAt FROM DeviceUsage ORDER BY createdAt DESC LIMIT 50`
+    )
 
     return NextResponse.json({
       totalAnalyses,
@@ -78,18 +122,23 @@ export async function GET() {
       usageByType,
       providerUsage,
       dailyActivity,
-      recentUsage,
-      sharedCharts: sharedCharts.map(s => ({
+      recentUsage: recentUsageResult.map(u => ({
+        analysisType: u.analysisType,
+        deviceId: u.deviceId,
+        cacheKey: u.cacheKey,
+        createdAt: u.createdAt,
+      })),
+      sharedCharts: sharedChartsResult.map(s => ({
         shareId: s.shareId,
         analysisType: s.analysisType,
-        includeAnalysis: s.includeAnalysis,
-        viewCount: s.viewCount,
+        includeAnalysis: !!s.includeAnalysis,
+        viewCount: Number(s.viewCount),
         createdAt: s.createdAt,
       })),
       totalSharedCharts,
       totalSharedViews,
       eventsByType,
-      analyticsEvents: analyticsEvents.map(e => ({
+      analyticsEvents: recentEventsResult.map(e => ({
         eventType: e.eventType,
         deviceId: e.deviceId,
         metadata: e.metadata,

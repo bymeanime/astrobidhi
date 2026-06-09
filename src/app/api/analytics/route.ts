@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, initDb } from '@/lib/db'
+import { initDb, rawQuery, rawExecute } from '@/lib/db'
 
 // POST: Record an analytics event
 export async function POST(request: NextRequest) {
@@ -12,18 +12,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: 'eventType is required' }, { status: 400 })
     }
 
-    await db.analyticsEvent.create({
-      data: {
-        eventType,
-        deviceId: deviceId || null,
-        metadata: JSON.stringify(metadata || {}),
-      },
-    })
+    const id = crypto.randomUUID()
+    const metaStr = JSON.stringify(metadata || {})
+
+    await rawExecute(
+      `INSERT INTO AnalyticsEvent (id, eventType, deviceId, metadata, createdAt) VALUES (?, ?, ?, ?, datetime('now'))`,
+      [id, eventType, deviceId || null, metaStr]
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Analytics error:', error)
-    // Don't fail the user request if analytics fails
     return NextResponse.json({ success: false, detail: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
   }
 }
@@ -35,12 +34,20 @@ export async function GET(request: NextRequest) {
     const eventType = request.nextUrl.searchParams.get('eventType')
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '100')
 
-    const where = eventType ? { eventType } : {}
-    const events = await db.analyticsEvent.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
+    let sql = `SELECT id, eventType, deviceId, metadata, createdAt FROM AnalyticsEvent`
+    const args: unknown[] = []
+
+    if (eventType) {
+      sql += ` WHERE eventType = ?`
+      args.push(eventType)
+    }
+
+    sql += ` ORDER BY createdAt DESC LIMIT ?`
+    args.push(limit)
+
+    const events = await rawQuery<{
+      id: string; eventType: string; deviceId: string | null; metadata: string; createdAt: string
+    }>(sql, args)
 
     return NextResponse.json({
       events: events.map(e => ({
