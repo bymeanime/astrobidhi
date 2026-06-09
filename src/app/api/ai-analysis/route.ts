@@ -485,18 +485,17 @@ export async function POST(request: NextRequest) {
 
       if (!existingUsage) {
         // New analysis for this chart — check limits
-        const uniqueChartsUsed = await db.deviceUsage.groupBy({
-          by: ['cacheKey'],
+        // Count unique charts (by distinct cacheKey) this device has used
+        const allUsages = await db.deviceUsage.findMany({
           where: { deviceId },
         })
-        const chartsCount = uniqueChartsUsed.length
+        const uniqueCacheKeys = new Set(allUsages.map(u => u.cacheKey))
+        const chartsCount = uniqueCacheKeys.size
 
-        // Check per-chart analysis limit
-        const analysesForThisChart = await db.deviceUsage.findMany({
-          where: { deviceId, cacheKey },
-        })
+        // Count how many analysis types this device has used for this chart's cacheKey
+        const analysesForThisChart = allUsages.filter(u => u.cacheKey === cacheKey).length
 
-        if (chartsCount >= FREE_CHART_LIMIT && analysesForThisChart.length === 0) {
+        if (chartsCount >= FREE_CHART_LIMIT && !uniqueCacheKeys.has(cacheKey)) {
           // Device has used all free charts AND this is a new chart
           return NextResponse.json({
             detail: `Free limit reached (${FREE_CHART_LIMIT} charts). Subscribe for unlimited readings.`,
@@ -507,14 +506,16 @@ export async function POST(request: NextRequest) {
           }, { status: 429 })
         }
 
-        if (analysesForThisChart.length >= FREE_ANALYSIS_PER_CHART) {
+        // Check per-chart analysis limit — use >=1 because this request IS the next one
+        // (existingUsage is null, meaning this combo hasn't been recorded yet)
+        if (analysesForThisChart >= FREE_ANALYSIS_PER_CHART) {
           // Device has used all free analysis types for this chart
           return NextResponse.json({
             detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
             limitReached: true,
             limitType: 'analyses_per_chart',
             limit: FREE_ANALYSIS_PER_CHART,
-            used: analysesForThisChart.length,
+            used: analysesForThisChart,
           }, { status: 429 })
         }
       }

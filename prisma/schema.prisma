@@ -22,6 +22,14 @@ model CachedAnalysis {
   createdAt    DateTime @default(now())
 }
 
+model CachedChart {
+  id           String   @id @default(cuid())
+  cacheKey     String   @unique
+  birthParams  String   // JSON: birth form params (year, month, day, hour, minute, etc.)
+  chartResult  String   // JSON: full computed horoscope data
+  createdAt    DateTime @default(now())
+}
+
 model CachedStaticMeanings {
   id       String   @id @default(cuid())
   cacheKey String   @unique
@@ -46,13 +54,15 @@ model AnalyticsEvent {
 }
 
 model SharedChart {
-  id              String   @id @default(cuid())
-  shareId         String   @unique @default(cuid())
-  chartParams     String   // JSON: birth details
-  analysisType    String?
-  includeAnalysis Boolean  @default(false)
-  viewCount       Int      @default(0)
-  createdAt       DateTime @default(now())
+  id                   String   @id @default(cuid())
+  shareId              String   @unique @default(cuid())
+  chartParams          String   // JSON: birth details (year, month, day, hour, minute, lat, lon, etc.)
+  analysisType         String?
+  includeAnalysis      Boolean  @default(false)
+  cachedChartData      String?  // JSON: pre-computed chart data so viewers don't need to re-run Python
+  cachedAnalysisResult String?  // Pre-computed analysis result so viewers don't consume AI credits
+  viewCount            Int      @default(0)
+  createdAt            DateTime @default(now())
 }
 
 model UserAccount {

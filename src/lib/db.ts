@@ -28,6 +28,14 @@ const CREATE_TABLES_SQL = [
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS CachedAnalysis_cacheKey_idx ON CachedAnalysis(cacheKey)`,
+  `CREATE TABLE IF NOT EXISTS CachedChart (
+    id TEXT PRIMARY KEY,
+    cacheKey TEXT NOT NULL UNIQUE,
+    birthParams TEXT NOT NULL,
+    chartResult TEXT NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS CachedChart_cacheKey_idx ON CachedChart(cacheKey)`,
   `CREATE TABLE IF NOT EXISTS CachedStaticMeanings (
     id TEXT PRIMARY KEY,
     cacheKey TEXT NOT NULL UNIQUE,
@@ -59,6 +67,8 @@ const CREATE_TABLES_SQL = [
     chartParams TEXT NOT NULL,
     analysisType TEXT,
     includeAnalysis INTEGER NOT NULL DEFAULT 0,
+    cachedChartData TEXT,
+    cachedAnalysisResult TEXT,
     viewCount INTEGER NOT NULL DEFAULT 0,
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -185,7 +195,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis']
   const missingTables: string[] = []
 
   for (const table of tablesToCheck) {

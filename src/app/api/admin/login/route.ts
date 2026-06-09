@@ -10,11 +10,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: 'Password is required' }, { status: 400 })
     }
 
-    if (!verifyAdminPassword(password)) {
+    // verifyAdminPassword is now async (uses Web Crypto API)
+    if (!(await verifyAdminPassword(password))) {
       return NextResponse.json({ detail: 'Invalid password' }, { status: 401 })
     }
 
-    const token = createSessionToken()
+    // createSessionToken is now async (uses Web Crypto API)
+    const token = await createSessionToken()
     const response = NextResponse.json({ success: true, message: 'Logged in successfully' })
 
     response.cookies.set(getCookieName(), token, {

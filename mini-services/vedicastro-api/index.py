@@ -3,10 +3,39 @@ AstroBidhi - VedicAstro FastAPI Backend (Port 8089)
 """
 
 import os
-os.environ['SE_EPHE_PATH'] = '/home/z/.venv/lib/python3.12/site-packages/flatlib/resources/swefiles'
+import sys
+
+# Find Swiss Ephemeris files dynamically (same logic as compute.py)
+def find_ephe_path():
+    """Locate Swiss Ephemeris files in the Python installation."""
+    # Check environment variable first
+    env_path = os.environ.get('SE_EPHE_PATH')
+    if env_path and os.path.exists(env_path):
+        return env_path
+
+    # Search common locations
+    import importlib.util
+    spec = importlib.util.find_spec('flatlib')
+    if spec and spec.origin:
+        flatlib_dir = os.path.dirname(spec.origin)
+        ephe_path = os.path.join(flatlib_dir, 'resources', 'swefiles')
+        if os.path.exists(ephe_path):
+            return ephe_path
+
+    # Search in site-packages
+    for path in sys.path:
+        candidate = os.path.join(path, 'flatlib', 'resources', 'swefiles')
+        if os.path.exists(candidate):
+            return candidate
+
+    # Fallback
+    return '/usr/local/lib/python3.12/site-packages/flatlib/resources/swefiles'
+
+ephe_path = find_ephe_path()
+os.environ['SE_EPHE_PATH'] = ephe_path
 
 import swisseph
-swisseph.set_ephe_path('/home/z/.venv/lib/python3.12/site-packages/flatlib/resources/swefiles')
+swisseph.set_ephe_path(ephe_path)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

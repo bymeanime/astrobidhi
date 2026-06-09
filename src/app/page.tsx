@@ -1253,7 +1253,7 @@ function HoraryForm({ onResult }: { onResult: (data: HoroscopeData, num: number)
 }
 
 // ============ AI Analysis Panel ============
-function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData; horaryNumber?: number }) {
+function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData | null; horaryNumber?: number }) {
   const { toast } = useToast()
   const whopAuth = useWhopAuth()
   const [selectedType, setSelectedType] = useState<AnalysisType>('overall')
@@ -1265,6 +1265,17 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const analysisRef = useRef<HTMLDivElement>(null)
+
+  if (!chartData) {
+    return (
+      <Card className="border-saffron/20 max-w-lg mx-auto">
+        <CardContent className="py-12 text-center">
+          <Brain className="w-16 h-16 mx-auto mb-4 text-saffron/30" />
+          <p className="text-muted-foreground mb-4">Generate a chart first to get AI analysis</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   // Get or create a persistent device ID (stored in localStorage)
   const getDeviceId = (): string => {
@@ -1354,24 +1365,22 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
     setShareLoading(true)
     try {
       const deviceId = getDeviceId()
-      // Get birth details from chartData
-      const birthDetails = chartData.planets_data ? {
-        // Extract birth params from the chart data for reconstruction
-        // We'll store the chart data itself
-      } : {}
+      // Get birth details from the parent's lastFormData or extract from chartData.birth_details
+      const birthDetails = chartData.birth_details || {}
 
       const res = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chartParams: {
-            // Store enough info to regenerate the chart
-            chartData: chartData,
-            analysisType: selectedType,
-          },
+          // Store actual birth params so the share page can regenerate the chart
+          chartParams: birthDetails,
           analysisType: includeAnalysis ? selectedType : null,
           includeAnalysis,
           deviceId,
+          // Also pass the computed chart data and analysis result for caching
+          // so viewers get results from DB without consuming AI credits
+          cachedChartData: chartData,
+          cachedAnalysisResult: includeAnalysis && analysis ? analysis : null,
         }),
       })
       if (!res.ok) throw new Error('Failed to create share link')
@@ -2423,6 +2432,9 @@ export default function Home() {
   const [horaryMeaningsLoading, setHoraryMeaningsLoading] = useState(false)
   const [horaryMeaningsError, setHoraryMeaningsError] = useState<string | null>(null)
 
+  // Store the last form data (birth params) for sharing — needed to regenerate chart from share link
+  const [lastFormData, setLastFormData] = useState<Record<string, unknown> | null>(null)
+
   // Whop auth state
   const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
     authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
@@ -2541,6 +2553,7 @@ export default function Home() {
     try {
       const data = await apiCall('get_all_horoscope_data', formData)
       setHoroscopeData(data)
+      setLastFormData(formData)
       if (currentPage === 'birth-chart') {
         toast({ title: 'Chart Generated', description: 'Your Kundali has been calculated successfully!' })
       }

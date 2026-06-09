@@ -11,9 +11,10 @@ export async function GET(
 
     const results = await rawQuery<{
       id: string; shareId: string; chartParams: string; analysisType: string | null;
-      includeAnalysis: number; viewCount: number; createdAt: string
+      includeAnalysis: number; cachedChartData: string | null; cachedAnalysisResult: string | null;
+      viewCount: number; createdAt: string
     }>(
-      `SELECT id, shareId, chartParams, analysisType, includeAnalysis, viewCount, createdAt FROM SharedChart WHERE shareId = ?`,
+      `SELECT id, shareId, chartParams, analysisType, includeAnalysis, cachedChartData, cachedAnalysisResult, viewCount, createdAt FROM SharedChart WHERE shareId = ?`,
       [shareId]
     )
 
@@ -45,6 +46,9 @@ export async function GET(
       chartParams: JSON.parse(shared.chartParams),
       analysisType: shared.analysisType,
       includeAnalysis: !!shared.includeAnalysis,
+      // Return cached chart data and analysis result so viewers don't need to re-compute
+      cachedChartData: shared.cachedChartData ? JSON.parse(shared.cachedChartData) : null,
+      cachedAnalysisResult: shared.cachedAnalysisResult || null,
       viewCount: Number(shared.viewCount) + 1,
       createdAt: shared.createdAt,
     })

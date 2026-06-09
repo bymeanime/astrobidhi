@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     await initDb()
     const body = await request.json()
-    const { chartParams, analysisType, includeAnalysis } = body
+    const { chartParams, analysisType, includeAnalysis, cachedChartData, cachedAnalysisResult } = body
 
     if (!chartParams) {
       return NextResponse.json({ detail: 'chartParams is required' }, { status: 400 })
@@ -16,9 +16,14 @@ export async function POST(request: NextRequest) {
     const shareId = crypto.randomUUID()
     const chartParamsStr = JSON.stringify(chartParams)
 
+    // Store the chart data and analysis result for caching
+    // so viewers don't need to re-run Python or consume AI credits
+    const cachedChartDataStr = cachedChartData ? JSON.stringify(cachedChartData) : null
+    const cachedAnalysisResultStr = cachedAnalysisResult || null
+
     await rawExecute(
-      `INSERT INTO SharedChart (id, shareId, chartParams, analysisType, includeAnalysis, viewCount, createdAt) VALUES (?, ?, ?, ?, ?, 0, datetime('now'))`,
-      [id, shareId, chartParamsStr, analysisType || null, includeAnalysis ? 1 : 0]
+      `INSERT INTO SharedChart (id, shareId, chartParams, analysisType, includeAnalysis, cachedChartData, cachedAnalysisResult, viewCount, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))`,
+      [id, shareId, chartParamsStr, analysisType || null, includeAnalysis ? 1 : 0, cachedChartDataStr, cachedAnalysisResultStr]
     )
 
     // Record analytics event (fire and forget)

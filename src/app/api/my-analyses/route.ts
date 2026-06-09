@@ -137,14 +137,18 @@ export async function POST(request: NextRequest) {
     )
 
     // Get cached analysis data for birth details
-    const cachedAnalyses = await rawQuery<{
-      cacheKey: string
-      chartData: string
-      analysisType: string
-    }>(
-      `SELECT cacheKey, chartData, analysisType FROM CachedAnalysis WHERE cacheKey IN (${deviceUsages.map(() => '?').join(',')})`,
-      deviceUsages.map(u => u.cacheKey)
-    )
+    // Guard against empty deviceUsages which would produce invalid SQL
+    let cachedAnalyses: { cacheKey: string; chartData: string; analysisType: string }[] = []
+    if (deviceUsages.length > 0) {
+      cachedAnalyses = await rawQuery<{
+        cacheKey: string
+        chartData: string
+        analysisType: string
+      }>(
+        `SELECT cacheKey, chartData, analysisType FROM CachedAnalysis WHERE cacheKey IN (${deviceUsages.map(() => '?').join(',')})`,
+        deviceUsages.map(u => u.cacheKey)
+      )
+    }
 
     // Create chartData lookup
     const chartDataMap = new Map(cachedAnalyses.map(c => [c.cacheKey, c.chartData]))

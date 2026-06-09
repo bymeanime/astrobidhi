@@ -26,6 +26,8 @@ interface SharedData {
   chartParams: Record<string, unknown>
   analysisType: string | null
   includeAnalysis: boolean
+  cachedChartData: Record<string, unknown> | null
+  cachedAnalysisResult: string | null
   viewCount: number
   createdAt: string
 }
@@ -57,6 +59,9 @@ const ANALYSIS_LABELS: Record<string, string> = {
   spiritual: 'Spiritual Growth',
   dasa: 'Dasa Periods',
   horary: 'Horary (Prasna)',
+  swot_5year: '5-Year SWOT Forecast',
+  cosmic_blueprint: 'Cosmic Blueprint',
+  shadow_integration: 'Shadow Integration',
 }
 
 // ============ API Helper ============
@@ -140,40 +145,56 @@ export default function SharedChartPage({ params }: { params: Promise<{ shareId:
 
     const fetchSharedChart = async () => {
       try {
-        // Get shared chart metadata
+        // Get shared chart metadata (includes cached chart data and analysis)
         const res = await fetch(`/api/share/${shareId}`)
         if (!res.ok) throw new Error('Shared chart not found')
         const data: SharedData = await res.json()
         setSharedData(data)
 
-        // Generate chart from params
-        const chartParams = data.chartParams as Record<string, unknown>
-        const isHorary = !!chartParams.horary_number
-        const endpoint = isHorary ? 'get_horary_data' : 'get_chart_data'
+        // Use cached chart data if available — avoids re-running Python
+        if (data.cachedChartData && data.cachedChartData.planets_data) {
+          setChartData(data.cachedChartData)
+        } else {
+          // Fallback: regenerate chart from birth params
+          const chartParams = data.chartParams as Record<string, unknown>
+          const isHorary = !!chartParams.horary_number
+          const endpoint = isHorary ? 'get_horary_data' : 'get_chart_data'
 
-        const chart = await apiCall(endpoint, chartParams)
-        setChartData(chart)
+          try {
+            const chart = await apiCall(endpoint, chartParams)
+            setChartData(chart)
+          } catch (chartErr) {
+            console.error('Failed to regenerate chart from params:', chartErr)
+          }
+        }
 
-        // If analysis is included, fetch it
-        if (data.includeAnalysis && data.analysisType && chart) {
+        // Use cached analysis result if available — avoids consuming AI credits
+        if (data.includeAnalysis && data.cachedAnalysisResult) {
+          setAnalysisText(data.cachedAnalysisResult)
+        } else if (data.includeAnalysis && data.analysisType && chartData) {
+          // Fallback: only call AI if no cached result exists
+          // This should rarely happen since we cache on share creation
           try {
             const deviceId = typeof window !== 'undefined'
               ? localStorage.getItem('astrobidi_device_id') || 'shared-viewer'
               : 'shared-viewer'
 
-            const analysisRes = await fetch('/api/ai-analysis', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                analysisType: data.analysisType,
-                chartData: chart,
-                deviceId,
-              }),
-            })
+            const effectiveChartData = data.cachedChartData || chartData
+            if (effectiveChartData) {
+              const analysisRes = await fetch('/api/ai-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  analysisType: data.analysisType,
+                  chartData: effectiveChartData,
+                  deviceId,
+                }),
+              })
 
-            if (analysisRes.ok) {
-              const analysisData = await analysisRes.json()
-              setAnalysisText(analysisData.analysis)
+              if (analysisRes.ok) {
+                const analysisData = await analysisRes.json()
+                setAnalysisText(analysisData.analysis)
+              }
             }
           } catch (err) {
             console.error('Failed to fetch analysis for shared chart:', err)
