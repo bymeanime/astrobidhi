@@ -54,3 +54,23 @@ model SharedChart {
   viewCount       Int      @default(0)
   createdAt       DateTime @default(now())
 }
+
+model UserAccount {
+  id           String   @id @default(cuid())
+  whopUserId   String   @unique  // Whop user ID
+  name         String?
+  email        String?
+  picture      String?
+  primaryDeviceId String? // Their main device UUID
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model UserAnalysis {
+  id           String   @id @default(cuid())
+  whopUserId   String   // Links to UserAccount.whopUserId
+  analysisType String
+  cacheKey     String   // Links to CachedAnalysis.cacheKey
+  birthDetails String   // JSON: birth params for display (name, date, location)
+  createdAt    DateTime @default(now())
+}

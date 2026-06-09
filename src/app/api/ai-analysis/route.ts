@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 import { createHash } from 'crypto'
-import { db } from '@/lib/db'
+import { db, rawQuery, rawExecute } from '@/lib/db'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -435,6 +435,18 @@ async function callZaiSDK(prompt: string): Promise<string> {
   return text
 }
 
+// ============ Whop Session Helper ============
+function getWhopUserId(request: NextRequest): string | null {
+  const cookie = request.cookies.get('whop_session')?.value
+  if (!cookie) return null
+  try {
+    const session = JSON.parse(Buffer.from(cookie, 'base64').toString()) as { userId: string }
+    return session.userId || null
+  } catch {
+    return null
+  }
+}
+
 // ============ Main Handler ============
 
 export async function POST(request: NextRequest) {
@@ -517,6 +529,35 @@ export async function POST(request: NextRequest) {
         const cached = await db.cachedAnalysis.findUnique({ where: { cacheKey } })
         if (cached) {
           console.log(`[AI] Cache HIT for ${analysisType} (${cacheKey}), saved ${new Date(cached.createdAt).toISOString()}`)
+
+          // Record UserAnalysis for Whop-authenticated users (even on cache hit)
+          const whopUserId = getWhopUserId(request)
+          if (whopUserId) {
+            try {
+              const existing = await rawQuery<{ id: string }>(
+                `SELECT id FROM UserAnalysis WHERE whopUserId = ? AND cacheKey = ? AND analysisType = ?`,
+                [whopUserId, cacheKey, analysisType]
+              )
+              if (existing.length === 0) {
+                const birthDetails = JSON.stringify({
+                  year: (chartData as Record<string, unknown>).year || (chartData as Record<string, unknown>).birth_details,
+                  month: (chartData as Record<string, unknown>).month,
+                  day: (chartData as Record<string, unknown>).day,
+                  hour: (chartData as Record<string, unknown>).hour,
+                  minute: (chartData as Record<string, unknown>).minute,
+                  latitude: (chartData as Record<string, unknown>).latitude,
+                  longitude: (chartData as Record<string, unknown>).longitude,
+                  utc: (chartData as Record<string, unknown>).utc,
+                  ayanamsa: (chartData as Record<string, unknown>).ayanamsa,
+                })
+                await rawExecute(
+                  `INSERT INTO UserAnalysis (id, whopUserId, analysisType, cacheKey, birthDetails, createdAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+                  [`ua_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, whopUserId, analysisType, cacheKey, birthDetails]
+                )
+              }
+            } catch {}
+          }
+
           return NextResponse.json({
             analysis: cached.result,
             analysisType: cached.analysisType,
@@ -627,6 +668,58 @@ export async function POST(request: NextRequest) {
       console.log(`[AI] Usage recorded: device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
     } catch (dbError) {
       console.log('[AI] Usage recording failed:', dbError instanceof Error ? dbError.message : 'unknown')
+    }
+
+    // ---- Record UserAnalysis for Whop-authenticated users ----
+    const whopUserId = getWhopUserId(request)
+    if (whopUserId) {
+      try {
+        // Extract birth details for display
+        const birthDetails = JSON.stringify({
+          year: (chartData as Record<string, unknown>).year || (chartData as Record<string, unknown>).birth_details,
+          month: (chartData as Record<string, unknown>).month,
+          day: (chartData as Record<string, unknown>).day,
+          hour: (chartData as Record<string, unknown>).hour,
+          minute: (chartData as Record<string, unknown>).minute,
+          latitude: (chartData as Record<string, unknown>).latitude,
+          longitude: (chartData as Record<string, unknown>).longitude,
+          utc: (chartData as Record<string, unknown>).utc,
+          ayanamsa: (chartData as Record<string, unknown>).ayanamsa,
+        })
+
+        // Check if already linked
+        const existing = await rawQuery<{ id: string }>(
+          `SELECT id FROM UserAnalysis WHERE whopUserId = ? AND cacheKey = ? AND analysisType = ?`,
+          [whopUserId, cacheKey, analysisType]
+        )
+
+        if (existing.length === 0) {
+          await rawExecute(
+            `INSERT INTO UserAnalysis (id, whopUserId, analysisType, cacheKey, birthDetails, createdAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [`ua_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, whopUserId, analysisType, cacheKey, birthDetails]
+          )
+          console.log(`[AI] UserAnalysis recorded for Whop user ${whopUserId.substring(0, 8)}...`)
+        }
+
+        // Upsert UserAccount
+        const existingAccount = await rawQuery<{ id: string }>(
+          `SELECT id FROM UserAccount WHERE whopUserId = ?`,
+          [whopUserId]
+        )
+        if (existingAccount.length === 0) {
+          await rawExecute(
+            `INSERT INTO UserAccount (id, whopUserId, primaryDeviceId, createdAt, updatedAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [`uacc_${Date.now()}`, whopUserId, deviceId]
+          )
+        } else {
+          await rawExecute(
+            `UPDATE UserAccount SET primaryDeviceId = ?, updatedAt = CURRENT_TIMESTAMP WHERE whopUserId = ?`,
+            [deviceId, whopUserId]
+          )
+        }
+      } catch (uaError) {
+        console.log('[AI] UserAnalysis recording failed:', uaError instanceof Error ? uaError.message : 'unknown')
+      }
     }
 
     return NextResponse.json({ analysis, analysisType, provider: usedProvider, cached: false, isPremium })

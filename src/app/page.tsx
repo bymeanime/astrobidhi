@@ -8,7 +8,8 @@ import {
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
-  Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink
+  Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink,
+  Coffee, History, RefreshCw
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -89,7 +90,7 @@ interface HoroscopeData {
   house_significators: unknown[]
 }
 
-type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspects' | 'transit' | 'ai-analysis'
+type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspects' | 'transit' | 'ai-analysis' | 'my-analyses'
 
 type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'swot_5year' | 'cosmic_blueprint' | 'shadow_integration'
 
@@ -252,6 +253,7 @@ const NAV_ITEMS: { id: PageView; label: string; icon: React.ReactNode; desc: str
   { id: 'aspects', label: 'Aspects', icon: <Zap className="w-4 h-4" />, desc: 'Drishti' },
   { id: 'transit', label: 'Transit', icon: <Globe className="w-4 h-4" />, desc: 'Gochara' },
   { id: 'ai-analysis', label: 'AI Analysis', icon: <Brain className="w-4 h-4" />, desc: 'Jyotish AI' },
+  { id: 'my-analyses', label: 'My Analyses', icon: <History className="w-4 h-4" />, desc: 'History' },
 ]
 
 // ============ Components ============
@@ -303,6 +305,16 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                       <Crown className="w-3 h-3 mr-0.5" /> PRO
                     </Badge>
                   )}
+                  <button
+                    onClick={() => onNavigate('my-analyses')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
+                      currentPage === 'my-analyses'
+                        ? 'bg-saffron/20 text-gold-light'
+                        : 'text-saffron-light/70 hover:text-gold-light hover:bg-saffron/10'
+                    }`}
+                  >
+                    <History className="w-3.5 h-3.5" /> My Analyses
+                  </button>
                   {whopAuth.user?.picture ? (
                     <img src={whopAuth.user.picture} alt="" className="w-6 h-6 rounded-full border border-saffron/30" />
                   ) : (
@@ -317,12 +329,14 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                   </button>
                 </div>
               ) : (
-                <a
-                  href="/api/auth/whop"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold ml-2 transition-all"
-                >
-                  <Crown className="w-4 h-4" /> Get Pro
-                </a>
+                <div className="flex items-center gap-2 ml-2">
+                  <a
+                    href="/api/auth/whop"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold transition-all"
+                  >
+                    <Crown className="w-4 h-4" /> Get Pro
+                  </a>
+                </div>
               )
             )}
           </div>
@@ -363,6 +377,10 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
 }
 
 function VedicFooter() {
+  const bmcSlug = typeof window !== 'undefined'
+    ? (window as unknown as { __BMC_SLUG__?: string }).__BMC_SLUG__ || 'astrobidhi'
+    : 'astrobidhi'
+
   return (
     <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
       <div className="vedic-divider" />
@@ -377,6 +395,15 @@ function VedicFooter() {
           </div>
           <p className="text-xs text-center">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI Analysis</p>
           <div className="flex items-center gap-3">
+            {/* Buy Me a Coffee Button */}
+            <a
+              href={`https://buymeacoffee.com/${bmcSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-[#000000] rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <Coffee className="w-3.5 h-3.5" /> Buy Me a Coffee
+            </a>
             <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
             <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">Admin</a>
           </div>
@@ -1843,6 +1870,287 @@ function PlacementMeaningsSection({ meanings, loading, error }: { meanings: Stat
 }
 
 // ============ Main App ============
+// ============ My Analyses Page ============
+function MyAnalysesPage() {
+  const whopAuth = useWhopAuth()
+  const { toast } = useToast()
+  const [analyses, setAnalyses] = useState<{
+    totalAnalyses: number
+    charts: Array<{
+      birthDetails: Record<string, unknown>
+      analyses: Array<{ id: string; type: string; cacheKey: string; createdAt: string; hasResult: boolean; provider: string | null }>
+    }>
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [viewingAnalysis, setViewingAnalysis] = useState<{ result: string; type: string; cachedAt: string } | null>(null)
+  const [loadingAnalysis, setLoadingAnalysis] = useState<string | null>(null)
+  const [linking, setLinking] = useState(false)
+
+  useEffect(() => {
+    if (!whopAuth.authenticated) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    fetch('/api/my-analyses')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch')
+        return res.json()
+      })
+      .then(data => {
+        if (!cancelled) setAnalyses(data)
+      })
+      .catch(err => {
+        console.error('My analyses fetch error:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [whopAuth.authenticated])
+
+  const handleLinkDevice = async () => {
+    const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+    if (!deviceId) return
+    setLinking(true)
+    try {
+      const res = await fetch('/api/my-analyses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'Analyses Linked', description: `Linked ${data.linked} past analyses to your account!` })
+        // Refresh analyses
+        const refreshRes = await fetch('/api/my-analyses')
+        const refreshData = await refreshRes.json()
+        setAnalyses(refreshData)
+      }
+    } catch (err) {
+      toast({ title: 'Link Failed', description: 'Could not link past analyses', variant: 'destructive' })
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  const handleViewAnalysis = async (cacheKey: string, type: string) => {
+    setLoadingAnalysis(cacheKey)
+    try {
+      const res = await fetch(`/api/my-analyses/${cacheKey}`)
+      if (!res.ok) throw new Error('Failed to fetch analysis')
+      const data = await res.json()
+      setViewingAnalysis({ result: data.result, type: data.analysisType, cachedAt: data.cachedAt })
+    } catch (err) {
+      toast({ title: 'Error', description: 'Could not load this analysis. It may have expired from cache.', variant: 'destructive' })
+    } finally {
+      setLoadingAnalysis(null)
+    }
+  }
+
+  // Not authenticated
+  if (!whopAuth.authenticated) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="w-20 h-20 bg-saffron/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-10 h-10 text-saffron" />
+        </div>
+        <h2 className="text-3xl font-bold text-maroon mb-3">My Analyses</h2>
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          Sign in with your Whop account to view your analysis history. All your past readings are saved and accessible anytime.
+        </p>
+        <a
+          href="/api/auth/whop"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold rounded-lg transition-all"
+        >
+          <Crown className="w-5 h-5" /> Sign In to View History
+        </a>
+        {/* Buy Me a Coffee */}
+        <div className="mt-8">
+          <a
+            href="https://buymeacoffee.com/astrobidhi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full text-sm font-semibold transition-all"
+          >
+            <Coffee className="w-4 h-4" /> Support AstroBidhi
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // Viewing a specific analysis
+  if (viewingAnalysis) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <button
+          onClick={() => setViewingAnalysis(null)}
+          className="flex items-center gap-1 text-saffron hover:text-gold-light text-sm mb-4 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 rotate-180" /> Back to My Analyses
+        </button>
+        <Card className="border-saffron/20">
+          <CardHeader>
+            <CardTitle className="text-maroon flex items-center gap-2">
+              <Brain className="w-5 h-5" /> {viewingAnalysis.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Analysis
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Cached on {new Date(viewingAnalysis.cachedAt).toLocaleDateString()}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown>{viewingAnalysis.result}</ReactMarkdown>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Loading
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <Loader2 className="w-8 h-8 text-saffron animate-spin mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading your analysis history...</p>
+      </div>
+    )
+  }
+
+  // Analyses list
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-maroon flex items-center justify-center gap-2">
+          <History className="w-8 h-8" /> My Analyses
+        </h2>
+        <p className="text-muted-foreground mt-2">Your complete analysis history — accessible anytime</p>
+        <div className="vedic-divider max-w-xs mx-auto my-4" />
+      </div>
+
+      {/* Link Past Analyses */}
+      <Card className="border-saffron/20 mb-6">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-maroon text-sm">Link Past Device Analyses</h3>
+              <p className="text-xs text-muted-foreground mt-1">Import analyses from this device into your account</p>
+            </div>
+            <Button
+              onClick={handleLinkDevice}
+              disabled={linking}
+              size="sm"
+              className="bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white"
+            >
+              {linking ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+              {linking ? 'Linking...' : 'Link Device'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {!analyses || analyses.totalAnalyses === 0 ? (
+        <Card className="border-saffron/20">
+          <CardContent className="py-12 text-center">
+            <Brain className="w-12 h-12 text-saffron/40 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-maroon mb-2">No Analyses Yet</h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              Your AI-powered Vedic astrology analyses will appear here once you generate them.
+              Try generating a birth chart and running an AI analysis!
+            </p>
+            {/* Buy Me a Coffee */}
+            <a
+              href="https://buymeacoffee.com/astrobidhi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full text-sm font-semibold transition-all"
+            >
+              <Coffee className="w-4 h-4" /> Support AstroBidhi
+            </a>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground text-center">{analyses.totalAnalyses} total analyses across {analyses.charts.length} chart(s)</p>
+          {analyses.charts.map((chart, idx) => (
+            <Card key={idx} className="border-saffron/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-maroon text-sm flex items-center gap-2">
+                  <Star className="w-4 h-4 text-saffron" />
+                  Chart #{idx + 1}
+                  <span className="text-xs text-muted-foreground font-normal ml-2">
+                    {chart.birthDetails?.year && `${chart.birthDetails.year}-${chart.birthDetails.month}-${chart.birthDetails.day}`}
+                    {chart.birthDetails?.latitude != null && ` | ${chart.birthDetails.latitude}°N, ${chart.birthDetails.longitude}°E`}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {chart.analyses.map((analysis, aIdx) => {
+                    const analysisInfo = ANALYSIS_TYPES.find(a => a.id === analysis.type)
+                    const isLoading = loadingAnalysis === analysis.cacheKey
+                    return (
+                      <div key={aIdx} className="flex items-center justify-between p-3 bg-saffron/5 rounded-lg hover:bg-saffron/10 transition-colors">
+                        <div className="flex items-center gap-3">
+                          {analysisInfo?.icon || <Brain className="w-4 h-4 text-saffron" />}
+                          <div>
+                            <p className="text-sm font-medium text-maroon">{analysisInfo?.label || analysis.type}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(analysis.createdAt).toLocaleDateString()} {analysis.provider && `via ${analysis.provider}`}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isLoading || !analysis.hasResult}
+                          onClick={() => handleViewAnalysis(analysis.cacheKey, analysis.type)}
+                          className="border-saffron/30 text-maroon hover:bg-saffron/10"
+                        >
+                          {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                          <span className="ml-1">View</span>
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Buy Me a Coffee CTA */}
+      <div className="mt-8 text-center">
+        <a
+          href="https://buymeacoffee.com/astrobidhi"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full font-semibold transition-all shadow-sm hover:shadow-md"
+        >
+          <Coffee className="w-5 h-5" /> Buy Me a Coffee
+        </a>
+        <p className="text-xs text-muted-foreground mt-2">Support the development of AstroBidhi</p>
+      </div>
+    </div>
+  )
+}
+
+// ============ Buy Me a Coffee Floating Widget ============
+function BuyMeACoffeeWidget() {
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <a
+        href="https://buymeacoffee.com/astrobidhi"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 px-4 py-3 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full font-semibold shadow-lg hover:shadow-xl transition-all group"
+      >
+        <Coffee className="w-5 h-5 group-hover:animate-bounce" />
+        <span className="hidden sm:inline text-sm">Support Us</span>
+      </a>
+    </div>
+  )
+}
+
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageView>('home')
   const { toast } = useToast()
@@ -1869,14 +2177,27 @@ export default function Home() {
       .then(res => res.json())
       .then(data => {
         if (!cancelled) {
-          setWhopAuth({
+          const authState = {
             authenticated: data.authenticated || false,
             hasAccess: data.hasAccess || false,
             accessLevel: data.accessLevel || 'no_access',
             user: data.user || null,
             loading: false,
             configured: data.authenticated !== undefined || data.configured === true,
-          })
+          }
+          setWhopAuth(authState)
+
+          // Auto-link device analyses on first Whop login
+          if (data.authenticated) {
+            const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+            if (deviceId) {
+              fetch('/api/my-analyses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId }),
+              }).catch(() => {}) // Fire and forget
+            }
+          }
         }
       })
       .catch(() => {
@@ -1993,6 +2314,9 @@ export default function Home() {
     switch (currentPage) {
       case 'home':
         return <LandingPage onNavigate={setCurrentPage} />
+
+      case 'my-analyses':
+        return <MyAnalysesPage />
 
       case 'birth-chart':
         return (
@@ -2282,6 +2606,7 @@ export default function Home() {
         </AnimatePresence>
       </main>
       <VedicFooter />
+        <BuyMeACoffeeWidget />
     </div>
     </WhopAuthContext.Provider>
   )
