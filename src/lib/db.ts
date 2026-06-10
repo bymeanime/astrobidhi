@@ -1,10 +1,18 @@
 // Prisma client singleton with Turso/libSQL driver adapter
 // Uses @libsql/client for connection + @prisma/adapter-libsql for Prisma integration
-// Gracefully degrades when no database is configured — caching is optional
+//
+// Database connection priority:
+// 1. TURSO_DATABASE_URL + TURSO_AUTH_TOKEN → Cloud Turso (production)
+// 2. DATABASE_URL → Explicit URL (can be libsql://, file:, etc.)
+// 3. Auto-created local SQLite file → Always works, data persists on disk
+//
+// The app NEVER runs without a database — all charts and analyses are always cached.
 
 import { PrismaClient } from '@prisma/client'
 import { PrismaLibSQL } from '@prisma/adapter-libsql'
-import { createClient } from '@libsql/client'
+import { createClient, type Client } from '@libsql/client'
+import path from 'path'
+import fs from 'fs'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -13,10 +21,9 @@ const globalForPrisma = globalThis as unknown as {
 let _db: PrismaClient | null = null
 let _dbReady = false
 let _dbInitPromise: Promise<void> | null = null
-let _dbAvailable = false // Tracks whether we have a working DB connection
+let _dbAvailable = false
 
 // SQL to create tables if they don't exist — runs on first connection
-// Turso uses libSQL which is SQLite-compatible, so same DDL works
 const CREATE_TABLES_SQL = [
   `CREATE TABLE IF NOT EXISTS CachedAnalysis (
     id TEXT PRIMARY KEY,
@@ -96,9 +103,9 @@ const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS UserAnalysis_whopUserId_cacheKey_idx ON UserAnalysis(whopUserId, cacheKey)`,
 ]
 
-let _libsql: ReturnType<typeof createClient> | null = null
+let _libsql: Client | null = null
 
-function getLibsqlClient() {
+function getLibsqlClient(): Client | null {
   if (_libsql) return _libsql
   const dbUrl = getDatabaseUrl()
   const authToken = getDatabaseAuthToken()
@@ -140,16 +147,69 @@ export async function rawExecute(sql: string, args: unknown[] = []): Promise<voi
   await client.execute({ sql, args })
 }
 
+// ============ Database URL Resolution ============
+// Priority: TURSO_DATABASE_URL > DATABASE_URL > Auto-created local SQLite file
+
 function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL || ''
-  if (!url) {
-    console.warn('[DB] No DATABASE_URL or TURSO_DATABASE_URL set — caching will be disabled')
+  // 1. Check for Turso cloud URL first
+  const tursoUrl = process.env.TURSO_DATABASE_URL
+  if (tursoUrl) {
+    return tursoUrl
   }
-  return url
+
+  // 2. Check for explicit DATABASE_URL
+  const dbUrl = process.env.DATABASE_URL
+  if (dbUrl && dbUrl !== 'file:./db/custom.db' && dbUrl !== 'file:./dev.db') {
+    return dbUrl
+  }
+
+  // 3. Auto-create a local SQLite database that actually persists
+  const localDbPath = resolveLocalDbPath()
+  return `file:${localDbPath}`
+}
+
+function resolveLocalDbPath(): string {
+  // Try multiple locations for the local SQLite database
+  // Priority: /data/ (Railway volume) > project dir > /tmp/
+  const candidates = [
+    '/data/astrobidhi.db',           // Railway persistent volume (if mounted)
+    '/app/data/astrobidhi.db',       // Alternative Docker path
+    path.join(process.cwd(), 'data', 'astrobidhi.db'),  // Project directory
+  ]
+
+  for (const candidate of candidates) {
+    const dir = path.dirname(candidate)
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      // Test write access
+      const testFile = path.join(dir, '.db-test')
+      fs.writeFileSync(testFile, 'test')
+      fs.unlinkSync(testFile)
+      console.log(`[DB] Using local SQLite database: ${candidate}`)
+      return candidate
+    } catch {
+      // Can't write here, try next
+    }
+  }
+
+  // Last resort: /tmp (will be wiped on restart, but at least data is stored during session)
+  const tmpPath = '/tmp/astrobidhi/astrobidhi.db'
+  try {
+    fs.mkdirSync('/tmp/astrobidhi', { recursive: true })
+  } catch {}
+  console.warn('[DB] Using /tmp for database — data will NOT persist across restarts!')
+  return tmpPath
 }
 
 function getDatabaseAuthToken(): string {
   return process.env.TURSO_AUTH_TOKEN || ''
+}
+
+function isTursoConnection(): boolean {
+  const url = getDatabaseUrl()
+  return url.startsWith('libsql://') || url.startsWith('https://')
 }
 
 function createPrismaClient(): PrismaClient | null {
@@ -159,19 +219,20 @@ function createPrismaClient(): PrismaClient | null {
   const authToken = getDatabaseAuthToken()
 
   if (!dbUrl) {
-    // Don't throw — return null so the app can start without a database
-    console.warn('[DB] No database URL configured. Caching and persistence features will be disabled. Set DATABASE_URL or TURSO_DATABASE_URL to enable.')
+    // This should never happen now since we auto-create a local DB
+    console.error('[DB] No database URL resolved — this should not happen!')
     _dbAvailable = false
     return null
   }
 
   try {
-    console.log(`[DB] Connecting to Turso: ${dbUrl.replace(/\/\/.*@/, '//***@')}`)
+    const isTurso = isTursoConnection()
+    console.log(`[DB] Connecting to ${isTurso ? 'Turso cloud' : 'local SQLite'}: ${dbUrl.replace(/\/\/.*@/, '//***@')}`)
 
-    // Create libSQL client for Turso
+    // Create libSQL client
     const libsql = createClient({
       url: dbUrl,
-      authToken: authToken || undefined,
+      authToken: isTurso && authToken ? authToken : undefined,
     })
 
     // Create Prisma adapter using libSQL client
@@ -184,6 +245,7 @@ function createPrismaClient(): PrismaClient | null {
 
     if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = _db
     _dbAvailable = true
+    _libsql = libsql // Also store for rawQuery/rawExecute
     return _db
   } catch (error) {
     console.error('[DB] Failed to create Prisma client:', error instanceof Error ? error.message : error)
@@ -208,20 +270,20 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
 
   if (missingTables.length === 0) {
     _dbReady = true
-    console.log('[DB] Turso tables already exist — cache is ready')
+    console.log('[DB] All tables already exist — database is ready')
     return
   }
 
-  console.log(`[DB] Tables missing: ${missingTables.join(', ')}, creating them in Turso...`)
+  console.log(`[DB] Creating missing tables: ${missingTables.join(', ')}`)
 
   try {
     for (const sql of CREATE_TABLES_SQL) {
       await prisma.$executeRawUnsafe(sql)
     }
     _dbReady = true
-    console.log('[DB] Turso tables created successfully — cache is ready')
+    console.log('[DB] All tables created successfully — database is ready')
   } catch (error) {
-    console.error('[DB] Failed to create Turso tables:', error instanceof Error ? error.message : error)
+    console.error('[DB] Failed to create tables:', error instanceof Error ? error.message : error)
   }
 }
 
@@ -230,7 +292,6 @@ export function initDb(): Promise<void> {
   if (_dbInitPromise) return _dbInitPromise
   const client = createPrismaClient()
   if (!client) {
-    // No database available — return a resolved promise so the app doesn't hang
     _dbInitPromise = Promise.resolve()
     return _dbInitPromise
   }
@@ -239,15 +300,12 @@ export function initDb(): Promise<void> {
 }
 
 // Proxy that lazily creates the PrismaClient on first property access
-// Returns a no-op proxy when no database is configured, so the app still works
 function createNoOpProxy(): PrismaClient {
-  // Return a proxy that silently does nothing when DB is unavailable
   return new Proxy({} as PrismaClient, {
     get(_target, prop, _receiver) {
       if (prop === '$connect' || prop === '$disconnect' || prop === '$on' || prop === '$use') {
         return async () => {}
       }
-      // For model access (e.g., db.cachedAnalysis), return another no-op proxy
       const value = (_target as Record<string, unknown>)[prop as string]
       if (value !== undefined) return value
 
@@ -256,7 +314,6 @@ function createNoOpProxy(): PrismaClient {
           const delegateValue = (delegate as Record<string, unknown>)[delegateProp as string]
           if (typeof delegateValue === 'function') {
             return async (..._args: unknown[]) => {
-              // Return appropriate empty results for common Prisma methods
               const method = delegateProp as string
               if (method === 'findUnique' || method === 'findFirst') return null
               if (method === 'findMany') return []
@@ -274,7 +331,6 @@ function createNoOpProxy(): PrismaClient {
 
 export const db = new Proxy({} as PrismaClient, {
   get(_target, prop, _receiver) {
-    // Don't proxy constructor symbols or internal props
     if (prop === '$connect' || prop === '$disconnect' || prop === '$on' || prop === '$use') {
       try {
         const client = createPrismaClient()
@@ -289,7 +345,6 @@ export const db = new Proxy({} as PrismaClient, {
     try {
       const client = createPrismaClient()
       if (!client) {
-        // No database configured — return a no-op proxy so the app doesn't crash
         return (createNoOpProxy() as unknown as Record<string, unknown>)[prop as string]
       }
 
@@ -302,7 +357,6 @@ export const db = new Proxy({} as PrismaClient, {
             return (value as (...a: unknown[]) => unknown).apply(client, args)
           } catch (error) {
             console.error('[DB] Query error:', error instanceof Error ? error.message : error)
-            // Return appropriate empty results for common Prisma methods
             const method = prop as string
             if (method === 'findUnique' || method === 'findFirst') return null
             if (method === 'findMany') return []
@@ -339,9 +393,9 @@ export const db = new Proxy({} as PrismaClient, {
       return value
     } catch (error) {
       console.error('[DB] Proxy access error:', error instanceof Error ? error.message : error)
-      // Return no-op values for common props to prevent crashes
       if (prop === 'cachedAnalysis' || prop === 'cachedStaticMeanings' || prop === 'deviceUsage' ||
-          prop === 'analyticsEvent' || prop === 'sharedChart' || prop === 'userAccount' || prop === 'userAnalysis') {
+          prop === 'analyticsEvent' || prop === 'sharedChart' || prop === 'userAccount' || prop === 'userAnalysis' ||
+          prop === 'cachedChart') {
         return createNoOpProxy()[prop as keyof PrismaClient]
       }
       return undefined

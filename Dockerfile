@@ -97,8 +97,10 @@ COPY --from=builder /app/start.sh ./start.sh
 # Copy Python scripts
 COPY --from=builder /app/mini-services ./mini-services
 
-# Create temp directory for Python script I/O
-RUN mkdir -p /tmp/astrobidi-api && chown nextjs:nodejs /tmp/astrobidi-api && chmod +x ./start.sh
+# Create directories: temp for Python I/O, /data for persistent SQLite database
+RUN mkdir -p /tmp/astrobidi-api /data /app/data && \
+    chown nextjs:nodejs /tmp/astrobidi-api /data /app/data && \
+    chmod +x ./start.sh
 
 USER nextjs
 
