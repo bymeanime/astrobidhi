@@ -154,6 +154,32 @@ interface StaticMeanings {
 
 const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
 
+// ============ Catalog Context ============
+interface CatalogItem {
+  id: string
+  analysisType: string
+  name: string
+  description: string | null
+  priceCents: number
+  originalPriceCents: number | null
+  sortOrder: number
+}
+
+interface CatalogState {
+  catalog: CatalogItem[]
+  premiumTypes: Set<string>
+  catalogMap: Record<string, CatalogItem>
+  loading: boolean
+}
+
+const CatalogContext = createContext<CatalogState>({
+  catalog: [], premiumTypes: new Set(), catalogMap: {}, loading: true,
+})
+
+function useCatalog() {
+  return useContext(CatalogContext)
+}
+
 // ============ Whop Auth Context ============
 interface WhopAuthState {
   authenticated: boolean
@@ -189,7 +215,8 @@ function useAdminAccess() {
   return useContext(AdminAccessContext)
 }
 
-const PREMIUM_DESCRIPTIONS: Record<string, string> = {
+// Fallback descriptions used when catalog hasn't loaded yet
+const FALLBACK_PREMIUM_DESCRIPTIONS: Record<string, string> = {
   swot_5year: '5-Year Career & Wealth Forecast with year-by-year predictions, SWOT analysis, specific timing windows, and personalized remedies.',
   cosmic_blueprint: 'Complete Cosmic Blueprint with house-by-house analysis, Ashtakvarga bindus, Yoga directory, and Harmonized interpretations.',
   shadow_integration: 'Shadow Integration analysis with vulnerability mapping, Tragic Sublimation pathways, and integration protocol for personal growth.',
@@ -1293,6 +1320,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const { toast } = useToast()
   const whopAuth = useWhopAuth()
   const adminAccess = useAdminAccess()
+  const catalog = useCatalog()
   const [selectedType, setSelectedType] = useState<AnalysisType>('overall')
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -1302,6 +1330,49 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const analysisRef = useRef<HTMLDivElement>(null)
+
+  // Build dynamic analysis types by merging static ANALYSIS_TYPES with catalog data
+  // This means admin changes to names, descriptions, prices, and new items reflect on the main page
+  const dynamicAnalysisTypes = React.useMemo(() => {
+    const types = ANALYSIS_TYPES.map(t => {
+      const catItem = catalog.catalogMap[t.id]
+      return {
+        ...t,
+        // Override with catalog data if available
+        label: catItem?.name || t.label,
+        desc: catItem?.description || t.desc,
+        isPremium: catalog.premiumTypes.has(t.id) || t.isPremium,
+        priceCents: catItem?.priceCents || 0,
+        originalPriceCents: catItem?.originalPriceCents || null,
+      }
+    })
+    // Add any NEW premium catalog items that aren't in the static list (e.g., admin-added types)
+    for (const item of catalog.catalog) {
+      if (item.analysisType.startsWith('reading_')) continue // reading types are on /reading page
+      if (!types.find(t => t.id === item.analysisType)) {
+        types.push({
+          id: item.analysisType as AnalysisType,
+          label: item.name,
+          icon: <Sparkles className="w-5 h-5" />,
+          desc: item.description || '',
+          color: '#6B1D1D',
+          category: 'Advanced',
+          isPremium: true,
+          priceCents: item.priceCents,
+          originalPriceCents: item.originalPriceCents,
+        })
+      }
+    }
+    return types
+  }, [catalog])
+
+  // Helper: get description for a premium type (from catalog or fallback)
+  const getPremiumDescription = (typeId: string): string => {
+    return catalog.catalogMap[typeId]?.description || FALLBACK_PREMIUM_DESCRIPTIONS[typeId] || 'Premium AI-powered analysis with detailed insights and remedies.'
+  }
+
+  // Helper: format price from cents
+  const formatPrice = (cents: number): string => `$${(cents / 100).toFixed(2)}`
 
   if (!chartData) {
     return (
@@ -1327,7 +1398,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalysisClick = (typeId: AnalysisType) => {
-    if (PREMIUM_ANALYSIS_TYPES.has(typeId)) {
+    if (catalog.premiumTypes.has(typeId) || PREMIUM_ANALYSIS_TYPES.has(typeId)) {
       if (whopAuth.hasAccess || adminAccess.hasAccess) {
         // User has Whop membership OR admin-granted access — allow premium analysis
         setSelectedType(typeId)
@@ -1340,7 +1411,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalyze = async () => {
-    if (PREMIUM_ANALYSIS_TYPES.has(selectedType) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
+    if ((catalog.premiumTypes.has(selectedType) || PREMIUM_ANALYSIS_TYPES.has(selectedType)) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
       setPremiumDialogType(selectedType)
       return
     }
@@ -1446,7 +1517,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const shareText = analysis
-    ? `Check out my ${ANALYSIS_TYPES.find(t => t.id === selectedType)?.label || 'Vedic astrology'} reading on AstroBidhi!`
+    ? `Check out my ${dynamicAnalysisTypes.find(t => t.id === selectedType)?.label || 'Vedic astrology'} reading on AstroBidhi!`
     : 'Check out my Vedic astrology birth chart on AstroBidhi!'
 
   return (
@@ -1466,7 +1537,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           <div>
             <p className="text-xs font-semibold text-maroon/60 uppercase tracking-wider mb-2">Standard Analysis</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {ANALYSIS_TYPES.filter(t => t.category === 'Standard').map(type => (
+              {dynamicAnalysisTypes.filter(t => t.category === 'Standard').map(type => (
                 <button
                   key={type.id}
                   onClick={() => setSelectedType(type.id)}
@@ -1493,7 +1564,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               <Badge className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white text-[9px] px-1.5 py-0">AI Powered</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ANALYSIS_TYPES.filter(t => t.category === 'Advanced').map(type => (
+              {dynamicAnalysisTypes.filter(t => t.category === 'Advanced').map(type => (
                 <button
                   key={type.id}
                   onClick={() => handleAnalysisClick(type.id)}
@@ -1516,7 +1587,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                       selectedType === type.id 
                         ? type.id === 'shadow_integration' ? 'text-red-200' : type.id === 'cosmic_blueprint' ? 'text-indigo-200' : 'text-maroon'
                         : 'text-foreground'
-                    }`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">Premium</span></p>
+                    }`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">Premium</span>{type.priceCents > 0 && <span className="text-[10px] text-amber-700 ml-1.5 font-semibold">{formatPrice(type.priceCents)}</span>}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>
@@ -1558,7 +1629,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             {loading ? (
               <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Analyzing with AI...</>
             ) : (
-              <>{selectedType === 'shadow_integration' ? <AlertCircle className="w-5 h-5 mr-2" /> : selectedType === 'cosmic_blueprint' ? <Sparkles className="w-5 h-5 mr-2" /> : selectedType === 'swot_5year' ? <BookOpen className="w-5 h-5 mr-2" /> : <Brain className="w-5 h-5 mr-2" />} Get {ANALYSIS_TYPES.find(t => t.id === selectedType)?.label}</>
+              <>{selectedType === 'shadow_integration' ? <AlertCircle className="w-5 h-5 mr-2" /> : selectedType === 'cosmic_blueprint' ? <Sparkles className="w-5 h-5 mr-2" /> : selectedType === 'swot_5year' ? <BookOpen className="w-5 h-5 mr-2" /> : <Brain className="w-5 h-5 mr-2" />} Get {dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}</>
             )}
           </Button>
         </CardContent>
@@ -1582,21 +1653,27 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             <div className="space-y-3">
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm font-semibold text-amber-900 mb-1">
-                  {ANALYSIS_TYPES.find(t => t.id === premiumDialogType)?.label}
+                  {dynamicAnalysisTypes.find(t => t.id === premiumDialogType)?.label}
+                  {(() => {
+                    const catItem = catalog.catalogMap[premiumDialogType]
+                    if (catItem && catItem.priceCents > 0) {
+                      return <span className="ml-2 text-amber-700">{formatPrice(catItem.priceCents)}{catItem.originalPriceCents ? <span className="text-xs line-through text-muted-foreground ml-1">{formatPrice(catItem.originalPriceCents)}</span> : null}</span>
+                    }
+                    return null
+                  })()}
                 </p>
                 <p className="text-sm text-amber-800">
-                  {PREMIUM_DESCRIPTIONS[premiumDialogType]}
+                  {getPremiumDescription(premiumDialogType)}
                 </p>
               </div>
               {whopAuth.configured && !whopAuth.authenticated && (
                 <div className="rounded-lg border border-saffron/30 bg-saffron/5 p-4">
                   <p className="text-sm font-semibold text-maroon mb-2">Unlock all premium features:</p>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>5-Year SWOT Forecast</li>
-                    <li>Cosmic Blueprint</li>
-                    <li>Shadow Integration</li>
+                    {catalog.catalog.filter(c => !c.analysisType.startsWith('reading_') && c.priceCents > 0).map(c => (
+                      <li key={c.analysisType}>{c.name} — {formatPrice(c.priceCents)}</li>
+                    ))}
                     <li>Unlimited chart readings</li>
-                    <li>All 10 analysis types</li>
                     <li>Priority AI response</li>
                   </ul>
                 </div>
@@ -1760,7 +1837,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                : selectedType === 'shadow_integration' ? 'Isolating Saturn-Sun collision indices, scanning ancestral trauma vectors, estimating shadow frameworks...'
                : selectedType === 'swot_5year' ? 'Analyzing career houses, wealth lords, Dasa periods, and financial growth patterns...'
                : <>Interpreting planetary positions, nakshatras, house lords, and KP SubLords for your{' '}
-               <span className="font-medium text-maroon">{ANALYSIS_TYPES.find(t => t.id === selectedType)?.label}</span> reading</>}
+               <span className="font-medium text-maroon">{dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}</span> reading</>}
             </p>
             <div className="flex justify-center gap-1 mt-4">
               {[0, 1, 2].map(i => (
@@ -1798,8 +1875,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 : selectedType === 'swot_5year' ? 'text-blue-200'
                 : 'text-maroon'
               }`}>
-                {ANALYSIS_TYPES.find(t => t.id === selectedType)?.icon}
-                {ANALYSIS_TYPES.find(t => t.id === selectedType)?.label}
+                {dynamicAnalysisTypes.find(t => t.id === selectedType)?.icon}
+                {dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}
               </CardTitle>
               <Badge className={`${
                 selectedType === 'cosmic_blueprint' 
@@ -2433,7 +2510,7 @@ function MyAnalysesPage() {
               <CardContent>
                 <div className="space-y-2">
                   {chart.analyses.map((analysis, aIdx) => {
-                    const analysisInfo = ANALYSIS_TYPES.find(a => a.id === analysis.type)
+                    const analysisInfo = dynamicAnalysisTypes.find(a => a.id === analysis.type)
                     const isLoading = loadingAnalysis === analysis.cacheKey
                     return (
                       <div key={aIdx} className="flex items-center justify-between p-3 bg-saffron/5 rounded-lg hover:bg-saffron/10 transition-colors">
@@ -2524,6 +2601,11 @@ export default function Home() {
     hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: true,
   })
 
+  // Dynamic catalog state
+  const [catalogState, setCatalogState] = useState<CatalogState>({
+    catalog: [], premiumTypes: new Set(PREMIUM_ANALYSIS_TYPES), catalogMap: {}, loading: true,
+  })
+
   // Fetch Whop auth state on mount
   useEffect(() => {
     let cancelled = false
@@ -2586,6 +2668,36 @@ export default function Home() {
       .catch(() => {
         if (!cancelled) {
           setAdminAccess({ hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: false })
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  // Fetch premium catalog on mount — this makes the main page dynamic
+  // When admin updates catalog (names, descriptions, prices, new items), it reflects here
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/catalog')
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.catalog) {
+          const catalog: CatalogItem[] = data.catalog
+          const catalogMap: Record<string, CatalogItem> = {}
+          const premiumTypes = new Set<string>()
+          for (const item of catalog) {
+            catalogMap[item.analysisType] = item
+            // Any item in PremiumCatalog with a price > 0 is premium (except reading_ types which are handled separately)
+            if (item.priceCents > 0 && !item.analysisType.startsWith('reading_')) {
+              premiumTypes.add(item.analysisType)
+            }
+          }
+          setCatalogState({ catalog, premiumTypes, catalogMap, loading: false })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          // Fall back to static premium types if catalog fetch fails
+          setCatalogState(prev => ({ ...prev, loading: false }))
         }
       })
     return () => { cancelled = true }
@@ -2975,6 +3087,7 @@ export default function Home() {
   return (
     <WhopAuthContext.Provider value={whopAuth}>
     <AdminAccessContext.Provider value={adminAccess}>
+    <CatalogContext.Provider value={catalogState}>
     <div className="min-h-screen flex flex-col bg-temple-bg">
       <VedicNav currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="flex-1">
@@ -2993,6 +3106,7 @@ export default function Home() {
       <VedicFooter />
         <BuyMeACoffeeWidget />
     </div>
+    </CatalogContext.Provider>
     </AdminAccessContext.Provider>
     </WhopAuthContext.Provider>
   )
