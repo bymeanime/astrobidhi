@@ -9,7 +9,7 @@ import {
   Brain, Star, Share2, Users, Database, TrendingUp,
   Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon,
   LogOut, Shield, Plus, Trash2, CheckCircle, XCircle, Clock,
-  Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift
+  Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift, AlertCircle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -203,7 +203,11 @@ export default function AdminDashboard() {
     setError(null)
     try {
       const res = await fetch('/api/admin/stats', { credentials: 'same-origin' })
-      if (res.status === 401) { window.location.href = '/admin/login'; return }
+      if (res.status === 401) {
+        // Don't redirect immediately - just show error so the rest of the dashboard works
+        setError('Session expired. Analytics data unavailable. Try refreshing.')
+        return
+      }
       if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`)
       const data = await res.json()
       setStats(data)
@@ -600,45 +604,28 @@ export default function AdminDashboard() {
     toast({ title: 'Copied!', description: `${text} copied to clipboard` })
   }
 
-  // ──────────────── Loading / Error states ────────────────
+  // ──────────────── Default stats for when API fails ────────────────
 
-  if (loading && !stats) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-maroon-dark to-maroon flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl text-gold animate-pulse-glow mb-4">ॐ</div>
-          <p className="text-gold-light text-lg">Loading Admin Dashboard...</p>
-        </div>
-      </div>
-    )
+  const EMPTY_STATS: StatsData = {
+    totalAnalyses: 0, totalUsage: 0, uniqueDevices: 0,
+    analysesByType: {}, usageByType: {}, providerUsage: {},
+    dailyActivity: {}, recentUsage: [], sharedCharts: [],
+    totalSharedCharts: 0, totalSharedViews: 0, eventsByType: {},
+    analyticsEvents: [],
   }
 
-  if (error && !stats) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-maroon-dark to-maroon flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl text-temple-red mb-4">⚠</div>
-          <p className="text-gold-light text-lg mb-4">{error}</p>
-          <Button onClick={fetchStats} className="bg-saffron hover:bg-saffron-light text-white">
-            <RefreshCw className="w-4 h-4 mr-2" /> Retry
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!stats) return null
+  const effectiveStats = stats || EMPTY_STATS
 
   // ──────────────── Chart data ────────────────
 
-  const usageByTypeData = Object.entries(stats.usageByType)
+  const usageByTypeData = Object.entries(effectiveStats.usageByType)
     .map(([type, count]) => ({ name: ANALYSIS_LABELS[type] || type, count }))
     .sort((a, b) => b.count - a.count)
 
-  const providerData = Object.entries(stats.providerUsage)
+  const providerData = Object.entries(effectiveStats.providerUsage)
     .map(([name, value]) => ({ name, value }))
 
-  const dailyData = Object.entries(stats.dailyActivity)
+  const dailyData = Object.entries(effectiveStats.dailyActivity)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-30)
     .map(([date, data]) => ({
@@ -647,7 +634,7 @@ export default function AdminDashboard() {
       Analyses: data.analyses,
     }))
 
-  const eventsData = Object.entries(stats.eventsByType)
+  const eventsData = Object.entries(effectiveStats.eventsByType)
     .map(([type, count]) => ({ name: type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), count }))
     .sort((a, b) => b.count - a.count)
 
@@ -689,7 +676,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Analyses</p>
-                  <p className="text-3xl font-bold text-maroon">{stats.totalAnalyses}</p>
+                  <p className="text-3xl font-bold text-maroon">{effectiveStats.totalAnalyses}</p>
                   <p className="text-xs text-muted-foreground mt-1">Cached in database</p>
                 </div>
                 <div className="w-12 h-12 bg-saffron/10 rounded-full flex items-center justify-center">
@@ -703,7 +690,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Requests</p>
-                  <p className="text-3xl font-bold text-maroon">{stats.totalUsage}</p>
+                  <p className="text-3xl font-bold text-maroon">{effectiveStats.totalUsage}</p>
                   <p className="text-xs text-muted-foreground mt-1">Analysis requests made</p>
                 </div>
                 <div className="w-12 h-12 bg-gold/10 rounded-full flex items-center justify-center">
@@ -717,7 +704,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Unique Devices</p>
-                  <p className="text-3xl font-bold text-maroon">{stats.uniqueDevices}</p>
+                  <p className="text-3xl font-bold text-maroon">{effectiveStats.uniqueDevices}</p>
                   <p className="text-xs text-muted-foreground mt-1">Distinct users</p>
                 </div>
                 <div className="w-12 h-12 bg-vedic-green/10 rounded-full flex items-center justify-center">
@@ -731,8 +718,8 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Shared Charts</p>
-                  <p className="text-3xl font-bold text-maroon">{stats.totalSharedCharts}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stats.totalSharedViews} total views</p>
+                  <p className="text-3xl font-bold text-maroon">{effectiveStats.totalSharedCharts}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{effectiveStats.totalSharedViews} total views</p>
                 </div>
                 <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center">
                   <Share2 className="w-6 h-6 text-temple-red" />
@@ -778,6 +765,20 @@ export default function AdminDashboard() {
 
           {/* ═══════════ ANALYTICS TAB ═══════════ */}
           <TabsContent value="analytics">
+            {error && (
+              <Card className="border-amber-200 bg-amber-50 mb-4">
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-800 font-medium">Analytics data unavailable</p>
+                    <p className="text-xs text-amber-600">{error}</p>
+                  </div>
+                  <Button onClick={fetchStats} size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} /> Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Tabs defaultValue="usage" className="mb-8">
               <TabsList className="bg-maroon/5">
                 <TabsTrigger value="usage" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
@@ -917,7 +918,7 @@ export default function AdminDashboard() {
                   <CardDescription>Last 50 analysis requests from users</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {stats.recentUsage.length > 0 ? (
+                  {effectiveStats.recentUsage.length > 0 ? (
                     <div className="max-h-96 overflow-auto">
                       <Table>
                         <TableHeader>
@@ -928,7 +929,7 @@ export default function AdminDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {stats.recentUsage.map((u, i) => (
+                          {effectiveStats.recentUsage.map((u, i) => (
                             <TableRow key={i} className="hover:bg-saffron/5">
                               <TableCell><Badge variant="outline" className="text-xs border-saffron/30">{ANALYSIS_LABELS[u.analysisType] || u.analysisType}</Badge></TableCell>
                               <TableCell className="font-mono text-xs text-muted-foreground">{u.deviceId ? u.deviceId.substring(0, 8) + '...' : 'N/A'}</TableCell>
@@ -950,7 +951,7 @@ export default function AdminDashboard() {
                   <CardDescription>Most viewed shared charts</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {stats.sharedCharts.length > 0 ? (
+                  {effectiveStats.sharedCharts.length > 0 ? (
                     <div className="max-h-96 overflow-auto">
                       <Table>
                         <TableHeader>
@@ -962,7 +963,7 @@ export default function AdminDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {stats.sharedCharts.map((s, i) => (
+                          {effectiveStats.sharedCharts.map((s, i) => (
                             <TableRow key={i} className="hover:bg-saffron/5">
                               <TableCell><Badge variant="outline" className="text-xs border-saffron/30">{s.analysisType ? (ANALYSIS_LABELS[s.analysisType] || s.analysisType) : 'Chart Only'}</Badge></TableCell>
                               <TableCell className="font-bold text-maroon">{s.viewCount}</TableCell>
@@ -989,9 +990,9 @@ export default function AdminDashboard() {
                 <CardDescription>Cached analysis entries by type (cache hits save AI costs)</CardDescription>
               </CardHeader>
               <CardContent>
-                {Object.keys(stats.analysesByType).length > 0 ? (
+                {Object.keys(effectiveStats.analysesByType).length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {Object.entries(stats.analysesByType).sort(([, a], [, b]) => b - a).map(([type, count]) => (
+                    {Object.entries(effectiveStats.analysesByType).sort(([, a], [, b]) => b - a).map(([type, count]) => (
                       <div key={type} className="bg-saffron/5 border border-saffron/20 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-maroon">{count}</p>
                         <p className="text-xs text-muted-foreground mt-1">{ANALYSIS_LABELS[type] || type}</p>
@@ -1495,7 +1496,7 @@ export default function AdminDashboard() {
               </Card>
 
               {/* Quick Grant by Recent Device */}
-              {stats.recentUsage.length > 0 && (
+              {effectiveStats.recentUsage.length > 0 && (
                 <Card className="border-saffron/20">
                   <CardHeader>
                     <CardTitle className="text-maroon flex items-center gap-2 text-base"><Users className="w-5 h-5" /> Quick Grant from Recent Users</CardTitle>
@@ -1503,7 +1504,7 @@ export default function AdminDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {[...new Map(stats.recentUsage.map(u => [u.deviceId, u])).values()].slice(0, 20).map((u) => (
+                      {[...new Map(effectiveStats.recentUsage.map(u => [u.deviceId, u])).values()].slice(0, 20).map((u) => (
                         <button
                           key={u.deviceId}
                           onClick={() => {
