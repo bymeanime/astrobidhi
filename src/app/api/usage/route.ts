@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, initDb } from '@/lib/db'
+import { rawQuery, initDb } from '@/lib/db'
 
 // Per-device rate limit config (must match ai-analysis route)
 const FREE_CHART_LIMIT = 3
@@ -14,11 +14,18 @@ export async function GET(request: NextRequest) {
 
     await initDb()
 
-    // Get all usage records for this device
-    const usage = await db.deviceUsage.findMany({
-      where: { deviceId },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Get all usage records for this device using raw SQL
+    // (Prisma ORM calls fail silently through the proxy layer)
+    const usage = await rawQuery<{
+      id: string
+      deviceId: string
+      analysisType: string
+      cacheKey: string
+      createdAt: string
+    }>(
+      `SELECT id, deviceId, analysisType, cacheKey, createdAt FROM DeviceUsage WHERE deviceId = ? ORDER BY createdAt DESC`,
+      [deviceId]
+    )
 
     // Count unique charts (by unique cacheKey)
     const uniqueCacheKeys = new Set(usage.map(u => u.cacheKey))

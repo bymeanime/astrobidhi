@@ -137,14 +137,25 @@ export async function rawQuery<T = Record<string, unknown>>(sql: string, args: u
 }
 
 // Execute a parameterized SQL statement directly via libsql (safe from injection)
-export async function rawExecute(sql: string, args: unknown[] = []): Promise<void> {
+// Returns the number of affected rows for verification
+export async function rawExecute(sql: string, args: unknown[] = []): Promise<number> {
   const client = getLibsqlClient()
   if (!client) {
-    console.warn('[DB] rawExecute skipped — no database configured')
-    return
+    console.error('[DB] rawExecute SKIPPED — no libsql client available. SQL:', sql.substring(0, 100))
+    return 0
   }
   await initDb()
-  await client.execute({ sql, args })
+  try {
+    const result = await client.execute({ sql, args })
+    if (result.rowsAffected === 0 && sql.trim().toUpperCase().startsWith('INSERT')) {
+      console.warn('[DB] rawExecute: INSERT affected 0 rows — possible silent failure. SQL:', sql.substring(0, 100))
+    }
+    return result.rowsAffected
+  } catch (error) {
+    console.error('[DB] rawExecute FAILED:', error instanceof Error ? error.message : 'unknown')
+    console.error('[DB] SQL:', sql.substring(0, 200))
+    throw error
+  }
 }
 
 // ============ Database URL Resolution ============

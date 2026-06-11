@@ -652,6 +652,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Save to cache ----
+    let cacheWriteSuccess = false
     try {
       await initDb()
       // Use INSERT OR REPLACE for upsert behavior (matches chart caching pattern)
@@ -660,8 +661,9 @@ export async function POST(request: NextRequest) {
         [randomUUID(), cacheKey, analysisType, compressedChart, analysis, usedProvider]
       )
       console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider}`)
+      cacheWriteSuccess = true
     } catch (dbError) {
-      console.error('[AI] Cache write FAILED:', dbError instanceof Error ? dbError.message : 'unknown')
+      console.error('[AI] Cache write FAILED (attempt 1):', dbError instanceof Error ? dbError.message : 'unknown')
       // Fallback: try with explicit timestamp
       try {
         const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -670,21 +672,74 @@ export async function POST(request: NextRequest) {
           [randomUUID(), cacheKey, analysisType, compressedChart, analysis, usedProvider, now]
         )
         console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider} (fallback timestamp)`)
+        cacheWriteSuccess = true
       } catch (fbError) {
         console.error('[AI] Cache write fallback also FAILED:', fbError instanceof Error ? fbError.message : 'unknown')
+      }
+    }
+
+    // ---- Verify cache write ----
+    if (cacheWriteSuccess) {
+      try {
+        const verifyRows = await rawQuery<{ cacheKey: string }>(
+          `SELECT cacheKey FROM CachedAnalysis WHERE cacheKey = ?`,
+          [cacheKey]
+        )
+        if (verifyRows.length > 0) {
+          console.log(`[AI] Cache write VERIFIED for ${analysisType} (${cacheKey})`)
+        } else {
+          console.error(`[AI] Cache write VERIFICATION FAILED — row not found for ${analysisType} (${cacheKey}). Retrying...`)
+          // Retry once more
+          try {
+            await rawExecute(
+              `INSERT OR REPLACE INTO CachedAnalysis (id, cacheKey, analysisType, chartData, result, provider, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+              [randomUUID(), cacheKey, analysisType, compressedChart, analysis, usedProvider]
+            )
+            console.log(`[AI] Cache retry SUCCEEDED for ${analysisType} (${cacheKey})`)
+          } catch (retryError) {
+            console.error('[AI] Cache retry FAILED:', retryError instanceof Error ? retryError.message : 'unknown')
+          }
+        }
+      } catch (verifyError) {
+        console.error('[AI] Cache verification query FAILED:', verifyError instanceof Error ? verifyError.message : 'unknown')
       }
     }
 
     // ---- Record device usage ----
     try {
       await initDb()
+      const usageId = randomUUID()
       await rawExecute(
         `INSERT INTO DeviceUsage (id, deviceId, analysisType, cacheKey, createdAt) VALUES (?, ?, ?, ?, datetime('now'))`,
-        [randomUUID(), deviceId, analysisType, cacheKey]
+        [usageId, deviceId, analysisType, cacheKey]
       )
       console.log(`[AI] Usage recorded: device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
+      // Verify usage write
+      const verifyUsage = await rawQuery<{ id: string }>(
+        `SELECT id FROM DeviceUsage WHERE id = ?`,
+        [usageId]
+      )
+      if (verifyUsage.length === 0) {
+        console.error(`[AI] Usage recording VERIFICATION FAILED — retrying with explicit timestamp`)
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+        await rawExecute(
+          `INSERT INTO DeviceUsage (id, deviceId, analysisType, cacheKey, createdAt) VALUES (?, ?, ?, ?, ?)`,
+          [`du_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, deviceId, analysisType, cacheKey, now]
+        )
+      }
     } catch (dbError) {
       console.error('[AI] Usage recording FAILED:', dbError instanceof Error ? dbError.message : 'unknown')
+      // Fallback: try with explicit timestamp
+      try {
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+        await rawExecute(
+          `INSERT INTO DeviceUsage (id, deviceId, analysisType, cacheKey, createdAt) VALUES (?, ?, ?, ?, ?)`,
+          [`du_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, deviceId, analysisType, cacheKey, now]
+        )
+        console.log(`[AI] Usage recorded (fallback timestamp): device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
+      } catch (fbError) {
+        console.error('[AI] Usage recording fallback also FAILED:', fbError instanceof Error ? fbError.message : 'unknown')
+      }
     }
 
     // ---- Record UserAnalysis for Whop-authenticated users ----

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, unlinkSync, mkdirSync, existsSync } from '
 import { randomUUID } from 'crypto'
 import { createHash } from 'crypto'
 import path from 'path'
-import { db } from '@/lib/db'
+import { db, rawQuery, rawExecute, initDb } from '@/lib/db'
 
 const PROJECT_ROOT = process.cwd()
 const PYTHON_SCRIPT = path.join(PROJECT_ROOT, 'mini-services', 'vedicastro-api', 'meanings.py')
@@ -156,10 +156,14 @@ export async function POST(request: NextRequest) {
     // ---- Check cache first ----
     const cacheKey = makeMeaningsCacheKey(chartData)
     try {
-      const cached = await db.cachedStaticMeanings.findUnique({ where: { cacheKey } })
-      if (cached) {
+      await initDb()
+      const cachedRows = await rawQuery<{ cacheKey: string; result: string }>(
+        `SELECT cacheKey, result FROM CachedStaticMeanings WHERE cacheKey = ?`,
+        [cacheKey]
+      )
+      if (cachedRows.length > 0) {
         console.log(`[Meanings] Cache HIT (${cacheKey})`)
-        return NextResponse.json(JSON.parse(cached.result))
+        return NextResponse.json(JSON.parse(cachedRows[0].result))
       }
     } catch (dbError) {
       console.log('[Meanings] Cache read failed (DB not ready?), proceeding with generation')
@@ -213,14 +217,25 @@ export async function POST(request: NextRequest) {
 
     // ---- Save to cache ----
     try {
-      await db.cachedStaticMeanings.upsert({
-        where: { cacheKey },
-        create: { cacheKey, result: JSON.stringify(data) },
-        update: { result: JSON.stringify(data) },
-      })
+      await initDb()
+      await rawExecute(
+        `INSERT OR REPLACE INTO CachedStaticMeanings (id, cacheKey, result, createdAt) VALUES (?, ?, ?, datetime('now'))`,
+        [randomUUID(), cacheKey, JSON.stringify(data)]
+      )
       console.log(`[Meanings] Cached (${cacheKey})`)
     } catch (dbError) {
-      console.log('[Meanings] Cache write failed (DB not ready?), meanings still returned')
+      console.error('[Meanings] Cache write failed:', dbError instanceof Error ? dbError.message : 'unknown')
+      // Fallback: try with explicit timestamp
+      try {
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+        await rawExecute(
+          `INSERT OR REPLACE INTO CachedStaticMeanings (id, cacheKey, result, createdAt) VALUES (?, ?, ?, ?)`,
+          [randomUUID(), cacheKey, JSON.stringify(data), now]
+        )
+        console.log(`[Meanings] Cached (${cacheKey}) (fallback timestamp)`)
+      } catch (fbError) {
+        console.error('[Meanings] Cache write fallback also failed:', fbError instanceof Error ? fbError.message : 'unknown')
+      }
     }
 
     return NextResponse.json(data)
