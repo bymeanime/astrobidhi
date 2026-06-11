@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
-import { createHash } from 'crypto'
-import { db, rawQuery, rawExecute } from '@/lib/db'
+import { createHash, randomUUID } from 'crypto'
+import { rawQuery, rawExecute, initDb } from '@/lib/db'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -478,22 +478,30 @@ export async function POST(request: NextRequest) {
     const cacheKey = makeCacheKey(analysisType, chartData)
 
     try {
-      // Has this device already used an analysis for this exact cacheKey?
-      const existingUsage = await db.deviceUsage.findFirst({
-        where: { deviceId, cacheKey }
-      })
+      await initDb()
 
-      if (!existingUsage) {
+      // Has this device already used an analysis for this exact cacheKey?
+      const existingUsage = await rawQuery<{ id: string; cacheKey: string }>(
+        `SELECT id, cacheKey FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ? LIMIT 1`,
+        [deviceId, cacheKey]
+      )
+
+      if (existingUsage.length === 0) {
         // New analysis for this chart — check limits
         // Count unique charts (by distinct cacheKey) this device has used
-        const allUsages = await db.deviceUsage.findMany({
-          where: { deviceId },
-        })
+        const allUsages = await rawQuery<{ cacheKey: string }>(
+          `SELECT DISTINCT cacheKey FROM DeviceUsage WHERE deviceId = ?`,
+          [deviceId]
+        )
         const uniqueCacheKeys = new Set(allUsages.map(u => u.cacheKey))
         const chartsCount = uniqueCacheKeys.size
 
         // Count how many analysis types this device has used for this chart's cacheKey
-        const analysesForThisChart = allUsages.filter(u => u.cacheKey === cacheKey).length
+        const analysesForThisChart = await rawQuery<{ cnt: number }>(
+          `SELECT COUNT(*) as cnt FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ?`,
+          [deviceId, cacheKey]
+        )
+        const analysesCount = analysesForThisChart[0]?.cnt || 0
 
         if (chartsCount >= FREE_CHART_LIMIT && !uniqueCacheKeys.has(cacheKey)) {
           // Device has used all free charts AND this is a new chart
@@ -506,16 +514,15 @@ export async function POST(request: NextRequest) {
           }, { status: 429 })
         }
 
-        // Check per-chart analysis limit — use >=1 because this request IS the next one
-        // (existingUsage is null, meaning this combo hasn't been recorded yet)
-        if (analysesForThisChart >= FREE_ANALYSIS_PER_CHART) {
+        // Check per-chart analysis limit
+        if (analysesCount >= FREE_ANALYSIS_PER_CHART) {
           // Device has used all free analysis types for this chart
           return NextResponse.json({
             detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
             limitReached: true,
             limitType: 'analyses_per_chart',
             limit: FREE_ANALYSIS_PER_CHART,
-            used: analysesForThisChart,
+            used: analysesCount,
           }, { status: 429 })
         }
       }
@@ -527,7 +534,15 @@ export async function POST(request: NextRequest) {
     console.log(`[AI] Cache lookup: type=${analysisType}, key=${cacheKey}, forceRefresh=${!!forceRefresh}`)
     if (!forceRefresh) {
       try {
-        const cached = await db.cachedAnalysis.findUnique({ where: { cacheKey } })
+        await initDb()
+        const cachedRows = await rawQuery<{
+          cacheKey: string; analysisType: string; chartData: string;
+          result: string; provider: string; createdAt: string;
+        }>(
+          `SELECT cacheKey, analysisType, chartData, result, provider, createdAt FROM CachedAnalysis WHERE cacheKey = ?`,
+          [cacheKey]
+        )
+        const cached = cachedRows[0] || null
         if (cached) {
           console.log(`[AI] Cache HIT for ${analysisType} (${cacheKey}), saved ${new Date(cached.createdAt).toISOString()}`)
 
@@ -638,37 +653,38 @@ export async function POST(request: NextRequest) {
 
     // ---- Save to cache ----
     try {
-      await db.cachedAnalysis.upsert({
-        where: { cacheKey },
-        create: {
-          cacheKey,
-          analysisType,
-          chartData: compressedChart,
-          result: analysis,
-          provider: usedProvider,
-        },
-        update: {
-          result: analysis,
-          provider: usedProvider,
-        },
-      })
+      await initDb()
+      // Use INSERT OR REPLACE for upsert behavior (matches chart caching pattern)
+      await rawExecute(
+        `INSERT OR REPLACE INTO CachedAnalysis (id, cacheKey, analysisType, chartData, result, provider, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [randomUUID(), cacheKey, analysisType, compressedChart, analysis, usedProvider]
+      )
       console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider}`)
     } catch (dbError) {
-      console.log('[AI] Cache write failed:', dbError instanceof Error ? dbError.message : 'unknown')
+      console.error('[AI] Cache write FAILED:', dbError instanceof Error ? dbError.message : 'unknown')
+      // Fallback: try with explicit timestamp
+      try {
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+        await rawExecute(
+          `INSERT OR REPLACE INTO CachedAnalysis (id, cacheKey, analysisType, chartData, result, provider, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [randomUUID(), cacheKey, analysisType, compressedChart, analysis, usedProvider, now]
+        )
+        console.log(`[AI] Cached ${analysisType} (${cacheKey}) via ${usedProvider} (fallback timestamp)`)
+      } catch (fbError) {
+        console.error('[AI] Cache write fallback also FAILED:', fbError instanceof Error ? fbError.message : 'unknown')
+      }
     }
 
     // ---- Record device usage ----
     try {
-      await db.deviceUsage.create({
-        data: {
-          deviceId,
-          analysisType,
-          cacheKey,
-        },
-      })
+      await initDb()
+      await rawExecute(
+        `INSERT INTO DeviceUsage (id, deviceId, analysisType, cacheKey, createdAt) VALUES (?, ?, ?, ?, datetime('now'))`,
+        [randomUUID(), deviceId, analysisType, cacheKey]
+      )
       console.log(`[AI] Usage recorded: device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
     } catch (dbError) {
-      console.log('[AI] Usage recording failed:', dbError instanceof Error ? dbError.message : 'unknown')
+      console.error('[AI] Usage recording FAILED:', dbError instanceof Error ? dbError.message : 'unknown')
     }
 
     // ---- Record UserAnalysis for Whop-authenticated users ----

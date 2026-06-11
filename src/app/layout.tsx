@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/local";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
+// Use local font fallback to avoid network dependency on Google Fonts CDN
+// In production with internet access, you can switch back to next/font/google
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  src: [
+    { path: '../../node_modules/@fontsource/geist-sans/files/geist-sans-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../../node_modules/@fontsource/geist-sans/files/geist-sans-latin-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  src: [
+    { path: '../../node_modules/@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../../node_modules/@fontsource/geist-mono/files/geist-mono-latin-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
 });
 
 export const metadata: Metadata = {

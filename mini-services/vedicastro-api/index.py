@@ -5,15 +5,76 @@ AstroBidhi - VedicAstro FastAPI Backend (Port 8089)
 import os
 import sys
 
-# Find Swiss Ephemeris files dynamically (same logic as compute.py)
+# ============ Patch flatlib.const with AY_* ayanamsa constants ============
+# flatlib 0.2.3 is missing these constants that vedicastro expects.
+# This MUST run before `from vedicastro import VedicAstro`
+try:
+    import flatlib.const as _flatlib_const
+    _MISSING_AY = {
+        'AY_LAHIRI': 1,
+        'AY_LAHIRI_1940': 3,
+        'AY_LAHIRI_VP285': 4,
+        'AY_LAHIRI_ICRC': 5,
+        'AY_RAMAN': 2,
+        'AY_KRISHNAMURTI': 6,
+        'AY_KRISHNAMURTI_SENTHILATHIBAN': 7,
+    }
+    for attr, val in _MISSING_AY.items():
+        if not hasattr(_flatlib_const, attr):
+            setattr(_flatlib_const, attr, val)
+except Exception as e:
+    print(f"[index.py] Warning: Could not patch flatlib.const: {e}", file=sys.stderr)
+
+# ============ House System & Ayanamsa Normalization ============
+HOUSE_SYSTEM_MAP = {
+    'WHOLE_SIGN': 'Whole Sign', 'WHOLE': 'Whole Sign', 'PLACIDUS': 'Placidus',
+    'EQUAL': 'Equal', 'WHOLE SIGN': 'Whole Sign', 'KOCH': 'Koch',
+    'PORPHYRIUS': 'Porphyrius', 'REGIOMONTANUS': 'Regiomontanus',
+    'CAMPANUS': 'Campanus', 'TOPOCENTRIC': 'Topocentric', 'MERIDIAN': 'Meridian',
+}
+
+AYANAMSA_MAP = {
+    'LAHIRI': 'Lahiri', 'KRISHNAMURTI': 'Krishnamurti', 'RAMAN': 'Raman',
+    'KP': 'Krishnamurti', 'KRISHNAMURTI_KP': 'Krishnamurti',
+    'FAKYRAMAN': 'Raman', 'YUKTESHWAR': 'Yukteshwar', 'USHASHASI': 'Ushashashi',
+}
+
+def normalize_house_system(val):
+    if not val:
+        return 'Placidus'
+    return HOUSE_SYSTEM_MAP.get(val.upper().replace(' ', '_'), val)
+
+def normalize_ayanamsa(val):
+    if not val:
+        return 'Lahiri'
+    return AYANAMSA_MAP.get(val.upper().replace(' ', '_'), val)
+
+def normalize_utc(val):
+    if val is None:
+        return '+05:30'
+    if isinstance(val, str) and ':' in val:
+        if not val.startswith('+') and not val.startswith('-'):
+            val = '+' + val
+        return val
+    try:
+        num = float(val)
+        sign = '+' if num >= 0 else '-'
+        num = abs(num)
+        hours = int(num)
+        minutes = int(round((num - hours) * 60))
+        if minutes == 60:
+            hours += 1
+            minutes = 0
+        return f'{sign}{hours:02d}:{minutes:02d}'
+    except (ValueError, TypeError):
+        return str(val)
+
+# ============ Find Swiss Ephemeris files ============
 def find_ephe_path():
-    """Locate Swiss Ephemeris files in the Python installation."""
-    # Check environment variable first
     env_path = os.environ.get('SE_EPHE_PATH')
     if env_path and os.path.exists(env_path):
         return env_path
 
-    # Search common locations
     import importlib.util
     spec = importlib.util.find_spec('flatlib')
     if spec and spec.origin:
@@ -22,13 +83,11 @@ def find_ephe_path():
         if os.path.exists(ephe_path):
             return ephe_path
 
-    # Search in site-packages
     for path in sys.path:
         candidate = os.path.join(path, 'flatlib', 'resources', 'swefiles')
         if os.path.exists(candidate):
             return candidate
 
-    # Fallback
     return '/usr/local/lib/python3.12/site-packages/flatlib/resources/swefiles'
 
 ephe_path = find_ephe_path()
@@ -85,11 +144,16 @@ def nt_to_dict(obj):
 
 def compute_horoscope(data: ChartInput):
     """Core computation shared across endpoints."""
+    # Normalize inputs for vedicastro compatibility
+    utc_val = normalize_utc(data.utc)
+    ayanamsa_val = normalize_ayanamsa(data.ayanamsa)
+    house_system_val = normalize_house_system(data.house_system)
+
     h = VedicAstro.VedicHoroscopeData(
         year=data.year, month=data.month, day=data.day,
         hour=data.hour, minute=data.minute, second=data.second,
-        utc=data.utc, latitude=data.latitude, longitude=data.longitude,
-        ayanamsa=data.ayanamsa, house_system=data.house_system
+        utc=utc_val, latitude=data.latitude, longitude=data.longitude,
+        ayanamsa=ayanamsa_val, house_system=house_system_val
     )
     chart = h.generate_chart()
     planets = h.get_planets_data_from_chart(chart)
@@ -157,8 +221,8 @@ def get_transit_data(data: ChartInput):
         h = VedicAstro.VedicHoroscopeData(
             year=now.year, month=now.month, day=now.day,
             hour=now.hour, minute=now.minute, second=now.second,
-            utc=data.utc, latitude=data.latitude, longitude=data.longitude,
-            ayanamsa=data.ayanamsa, house_system=data.house_system
+            utc=normalize_utc(data.utc), latitude=data.latitude, longitude=data.longitude,
+            ayanamsa=normalize_ayanamsa(data.ayanamsa), house_system=normalize_house_system(data.house_system)
         )
         chart = h.generate_chart()
         planets = h.get_planets_data_from_chart(chart)
@@ -172,8 +236,8 @@ def get_dasa_data(data: ChartInput):
         h = VedicAstro.VedicHoroscopeData(
             year=data.year, month=data.month, day=data.day,
             hour=data.hour, minute=data.minute, second=data.second,
-            utc=data.utc, latitude=data.latitude, longitude=data.longitude,
-            ayanamsa=data.ayanamsa, house_system=data.house_system
+            utc=normalize_utc(data.utc), latitude=data.latitude, longitude=data.longitude,
+            ayanamsa=normalize_ayanamsa(data.ayanamsa), house_system=normalize_house_system(data.house_system)
         )
         chart = h.generate_chart()
         dasa = h.compute_vimshottari_dasa(chart)
@@ -187,8 +251,8 @@ def get_aspects_data(data: ChartInput):
         h = VedicAstro.VedicHoroscopeData(
             year=data.year, month=data.month, day=data.day,
             hour=data.hour, minute=data.minute, second=data.second,
-            utc=data.utc, latitude=data.latitude, longitude=data.longitude,
-            ayanamsa=data.ayanamsa, house_system=data.house_system
+            utc=normalize_utc(data.utc), latitude=data.latitude, longitude=data.longitude,
+            ayanamsa=normalize_ayanamsa(data.ayanamsa), house_system=normalize_house_system(data.house_system)
         )
         chart = h.generate_chart()
         aspects = h.get_planetary_aspects(chart)

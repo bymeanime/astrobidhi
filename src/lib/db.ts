@@ -150,16 +150,28 @@ export async function rawExecute(sql: string, args: unknown[] = []): Promise<voi
 // ============ Database URL Resolution ============
 // Priority: TURSO_DATABASE_URL > DATABASE_URL > Auto-created local SQLite file
 
+// Placeholder URLs from parent project .env that should be ignored
+const PLACEHOLDER_URLS = new Set([
+  'file:./db/custom.db',
+  'file:./dev.db',
+  'file:/home/z/my-project/db/custom.db',
+  'file:/home/z/my-project/db/dev.db',
+])
+
+function isPlaceholderUrl(url: string): boolean {
+  return PLACEHOLDER_URLS.has(url) || url.startsWith('file:/home/z/my-project/db/')
+}
+
 function getDatabaseUrl(): string {
-  // 1. Check for Turso cloud URL first
+  // 1. Check for Turso cloud URL first (production)
   const tursoUrl = process.env.TURSO_DATABASE_URL
   if (tursoUrl) {
     return tursoUrl
   }
 
-  // 2. Check for explicit DATABASE_URL
+  // 2. Check for explicit DATABASE_URL (filter out placeholder URLs from parent .env)
   const dbUrl = process.env.DATABASE_URL
-  if (dbUrl && dbUrl !== 'file:./db/custom.db' && dbUrl !== 'file:./dev.db') {
+  if (dbUrl && !isPlaceholderUrl(dbUrl)) {
     return dbUrl
   }
 
@@ -229,14 +241,13 @@ function createPrismaClient(): PrismaClient | null {
     const isTurso = isTursoConnection()
     console.log(`[DB] Connecting to ${isTurso ? 'Turso cloud' : 'local SQLite'}: ${dbUrl.replace(/\/\/.*@/, '//***@')}`)
 
-    // Create libSQL client
-    const libsql = createClient({
+    // Create Prisma adapter — PrismaLibSQL is an AdapterFactory that expects
+    // a config object {url, authToken}, NOT a libsql Client instance.
+    // See: https://www.prisma.io/docs/orm/overview/databases/turso
+    const adapter = new PrismaLibSQL({
       url: dbUrl,
       authToken: isTurso && authToken ? authToken : undefined,
     })
-
-    // Create Prisma adapter using libSQL client
-    const adapter = new PrismaLibSQL(libsql)
 
     _db = globalForPrisma.prisma ?? new PrismaClient({
       adapter,
@@ -245,7 +256,17 @@ function createPrismaClient(): PrismaClient | null {
 
     if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = _db
     _dbAvailable = true
-    _libsql = libsql // Also store for rawQuery/rawExecute
+
+    // Also create a separate libsql Client for raw queries (rawQuery/rawExecute)
+    // This is needed because Prisma's adapter doesn't expose the raw client
+    try {
+      _libsql = createClient({
+        url: dbUrl,
+        authToken: isTurso && authToken ? authToken : undefined,
+      })
+    } catch (libsqlError) {
+      console.warn('[DB] Could not create libsql client for raw queries:', libsqlError instanceof Error ? libsqlError.message : 'unknown')
+    }
     return _db
   } catch (error) {
     console.error('[DB] Failed to create Prisma client:', error instanceof Error ? error.message : error)
@@ -300,6 +321,7 @@ export function initDb(): Promise<void> {
 }
 
 // Proxy that lazily creates the PrismaClient on first property access
+// Write operations THROW instead of silently returning fake IDs
 function createNoOpProxy(): PrismaClient {
   return new Proxy({} as PrismaClient, {
     get(_target, prop, _receiver) {
@@ -318,7 +340,10 @@ function createNoOpProxy(): PrismaClient {
               if (method === 'findUnique' || method === 'findFirst') return null
               if (method === 'findMany') return []
               if (method === 'count') return 0
-              if (method === 'upsert' || method === 'create' || method === 'update') return { id: 'no-db' }
+              // Write operations MUST throw — silently returning fake IDs masks bugs
+              if (method === 'upsert' || method === 'create' || method === 'update' || method === 'delete') {
+                throw new Error(`[DB] Cannot ${method}: no database connection available`)
+              }
               return null
             }
           }
@@ -361,7 +386,10 @@ export const db = new Proxy({} as PrismaClient, {
             if (method === 'findUnique' || method === 'findFirst') return null
             if (method === 'findMany') return []
             if (method === 'count') return 0
-            if (method === 'upsert' || method === 'create' || method === 'update') return { id: 'no-db' }
+            // Write operations MUST re-throw — silently returning fake IDs masks bugs
+            if (method === 'upsert' || method === 'create' || method === 'update' || method === 'delete') {
+              throw error
+            }
             return null
           }
         }
@@ -381,7 +409,10 @@ export const db = new Proxy({} as PrismaClient, {
                   if (method === 'findUnique' || method === 'findFirst') return null
                   if (method === 'findMany') return []
                   if (method === 'count') return 0
-                  if (method === 'upsert' || method === 'create' || method === 'update') return { id: 'no-db' }
+                  // Write operations MUST re-throw — silently returning fake IDs masks bugs
+                  if (method === 'upsert' || method === 'create' || method === 'update' || method === 'delete') {
+                    throw error
+                  }
                   return null
                 }
               }

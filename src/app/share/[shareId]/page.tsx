@@ -212,8 +212,8 @@ export default function SharedChartPage({ params }: { params: Promise<{ shareId:
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
   const shareText = sharedData?.analysisType
-    ? `Check out my ${ANALYSIS_LABELS[sharedData.analysisType] || sharedData.analysisType} Vedic astrology reading on AstroBidhi!`
-    : 'Check out my Vedic astrology birth chart on AstroBidhi!'
+    ? `Check out my ${ANALYSIS_LABELS[sharedData.analysisType] || sharedData.analysisType} Vedic astrology reading! 🔮 Get yours free at AstroBidhi`
+    : 'Check out my Vedic astrology reading! 🔮 Get yours free at AstroBidhi'
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl)
@@ -367,21 +367,35 @@ export default function SharedChartPage({ params }: { params: Promise<{ shareId:
                     <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
                   </Button>
                 </a>
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" className="border-saffron/30 hover:bg-saffron/10">
+                    <ExternalLink className="w-4 h-4 mr-2" /> LinkedIn
+                  </Button>
+                </a>
               </div>
             </CardContent>
           </Card>
 
-          {/* CTA */}
-          <Card className="border-saffron/20 bg-gradient-to-r from-maroon-dark to-maroon text-center">
-            <CardContent className="pt-6">
-              <div className="text-4xl text-gold animate-pulse-glow mb-3">ॐ</div>
-              <h3 className="text-xl font-bold text-gold-light mb-2">Get Your Own Kundali</h3>
-              <p className="text-saffron-light/80 mb-4 text-sm max-w-md mx-auto">
+          {/* CTA Banner - Drives new users */}
+          <Card className="border-saffron/20 bg-gradient-to-r from-maroon-dark to-maroon text-center overflow-hidden relative">
+            {/* Decorative background pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute top-2 left-4 text-6xl text-gold">ॐ</div>
+              <div className="absolute bottom-2 right-4 text-6xl text-gold">ॐ</div>
+            </div>
+            <CardContent className="pt-6 relative z-10">
+              <div className="text-5xl text-gold animate-pulse-glow mb-3">ॐ</div>
+              <h3 className="text-2xl font-bold text-gold-light mb-2">Get Your Own Free Kundali</h3>
+              <p className="text-saffron-light/80 mb-5 text-sm max-w-md mx-auto">
                 Generate your free Vedic birth chart with AI-powered analysis for career, relationships, health, and more.
               </p>
               <a href="/">
-                <Button className="bg-gradient-to-r from-saffron to-gold hover:from-saffron-light hover:to-gold-light text-maroon-dark font-bold px-8 py-5">
-                  <Star className="w-5 h-5 mr-2" /> Generate Your Kundali
+                <Button className="bg-gradient-to-r from-saffron to-gold hover:from-saffron-light hover:to-gold-light text-maroon-dark font-bold px-8 py-6 text-base">
+                  <Star className="w-5 h-5 mr-2" /> Get Your Free Kundali Now
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </Button>
               </a>
