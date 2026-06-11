@@ -101,6 +101,16 @@ const CREATE_TABLES_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS UserAnalysis_whopUserId_idx ON UserAnalysis(whopUserId)`,
   `CREATE INDEX IF NOT EXISTS UserAnalysis_whopUserId_cacheKey_idx ON UserAnalysis(whopUserId, cacheKey)`,
+  `CREATE TABLE IF NOT EXISTS UserAccess (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    accessLevel TEXT NOT NULL DEFAULT 'premium',
+    grantedBy TEXT NOT NULL DEFAULT 'admin',
+    reason TEXT,
+    expiresAt DATETIME,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS UserAccess_deviceId_idx ON UserAccess(deviceId)`,
 ]
 
 let _libsql: Client | null = null
@@ -289,7 +299,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess']
   const missingTables: string[] = []
 
   for (const table of tablesToCheck) {

@@ -172,6 +172,23 @@ function useWhopAuth() {
   return useContext(WhopAuthContext)
 }
 
+// ============ Admin-Granted Access Context ============
+interface AdminAccessState {
+  hasAccess: boolean      // true if device has premium or unlimited access
+  accessLevel: 'none' | 'premium' | 'unlimited'
+  reason: string | null   // e.g. 'free_trial', 'promo', 'early_adopter'
+  expiresAt: string | null
+  loading: boolean
+}
+
+const AdminAccessContext = createContext<AdminAccessState>({
+  hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: true,
+})
+
+function useAdminAccess() {
+  return useContext(AdminAccessContext)
+}
+
 const PREMIUM_DESCRIPTIONS: Record<string, string> = {
   swot_5year: '5-Year Career & Wealth Forecast with year-by-year predictions, SWOT analysis, specific timing windows, and personalized remedies.',
   cosmic_blueprint: 'Complete Cosmic Blueprint with house-by-house analysis, Ashtakvarga bindus, Yoga directory, and Harmonized interpretations.',
@@ -261,6 +278,7 @@ const NAV_ITEMS: { id: PageView; label: string; icon: React.ReactNode; desc: str
 
 function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNavigate: (p: PageView) => void }) {
   const whopAuth = useWhopAuth()
+  const adminAccess = useAdminAccess()
   const [loggingOut, setLoggingOut] = useState(false)
 
   const handleWhopLogout = async () => {
@@ -335,10 +353,16 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                     href="/api/auth/whop"
                     className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold transition-all"
                   >
-                    <Crown className="w-4 h-4" /> Get Pro
+                    <Crown className="w-4 h-4" /> Start Free Trial
                   </a>
                 </div>
               )
+            )}
+            {/* Admin-Granted Access Badge (shown when Whop not configured or not authenticated, but device has admin access) */}
+            {!whopAuth.hasAccess && adminAccess.hasAccess && (
+              <Badge className="bg-gradient-to-r from-emerald-600 to-green-500 text-white text-[9px] px-1.5 py-0 ml-1">
+                <Shield className="w-3 h-3 mr-0.5" /> {adminAccess.accessLevel === 'unlimited' ? 'UNLIMITED' : 'PREMIUM'}
+              </Badge>
             )}
           </div>
           <div className="md:hidden">
@@ -1256,6 +1280,7 @@ function HoraryForm({ onResult }: { onResult: (data: HoroscopeData, num: number)
 function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData | null; horaryNumber?: number }) {
   const { toast } = useToast()
   const whopAuth = useWhopAuth()
+  const adminAccess = useAdminAccess()
   const [selectedType, setSelectedType] = useState<AnalysisType>('overall')
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -1291,8 +1316,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
 
   const handleAnalysisClick = (typeId: AnalysisType) => {
     if (PREMIUM_ANALYSIS_TYPES.has(typeId)) {
-      if (whopAuth.hasAccess) {
-        // User has Whop membership — allow premium analysis
+      if (whopAuth.hasAccess || adminAccess.hasAccess) {
+        // User has Whop membership OR admin-granted access — allow premium analysis
         setSelectedType(typeId)
         return
       }
@@ -1303,7 +1328,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalyze = async () => {
-    if (PREMIUM_ANALYSIS_TYPES.has(selectedType) && !whopAuth.hasAccess) {
+    if (PREMIUM_ANALYSIS_TYPES.has(selectedType) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
       setPremiumDialogType(selectedType)
       return
     }
@@ -1323,6 +1348,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'AI analysis failed' }))
+        // Handle premium required (403)
+        if (res.status === 403 && err.premiumRequired) {
+          setPremiumDialogType(selectedType)
+          throw new Error(err.detail || 'Premium access required')
+        }
         // Handle rate limit
         if (res.status === 429 && err.limitReached) {
           setLimitReached({ type: err.limitType, used: err.used, limit: err.limit })
@@ -1513,7 +1543,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             </DialogTitle>
             <DialogDescription>
               {whopAuth.configured
-                ? 'This advanced analysis requires a premium membership via Whop.'
+                ? 'This advanced analysis requires a premium membership via Whop, or admin-granted access.'
                 : 'This advanced analysis requires a premium subscription. Coming soon!'}
             </DialogDescription>
           </DialogHeader>
@@ -1540,6 +1570,24 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                   </ul>
                 </div>
               )}
+              {/* Admin access hint */}
+              {!adminAccess.hasAccess && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Free trial access:</strong> Admins can grant free premium or unlimited access to your device.
+                    Contact support or use an admin-granted promo code to unlock premium features without payment.
+                  </p>
+                </div>
+              )}
+              {adminAccess.hasAccess && adminAccess.reason && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                  <p className="text-xs text-green-800">
+                    <strong>Admin access active:</strong> Your device has {adminAccess.accessLevel} access
+                    ({adminAccess.reason}). You should be able to use premium features.
+                    {adminAccess.expiresAt && ` Expires: ${new Date(adminAccess.expiresAt).toLocaleDateString()}`}
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Shield className="w-4 h-4" />
                 <span>Premium features include deeper analysis, extended timelines, and advanced yogic interpretations.</span>
@@ -1559,7 +1607,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 href="/api/auth/whop"
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
               >
-                <Crown className="w-4 h-4" /> Get Premium Access
+                <Crown className="w-4 h-4" /> Start Free Trial
               </a>
             ) : (
               <Button
@@ -2440,6 +2488,11 @@ export default function Home() {
     authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
   })
 
+  // Admin-granted access state
+  const [adminAccess, setAdminAccess] = useState<AdminAccessState>({
+    hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: true,
+  })
+
   // Fetch Whop auth state on mount
   useEffect(() => {
     let cancelled = false
@@ -2473,6 +2526,35 @@ export default function Home() {
       .catch(() => {
         if (!cancelled) {
           setWhopAuth(prev => ({ ...prev, loading: false, configured: false }))
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  // Fetch admin-granted access on mount
+  useEffect(() => {
+    let cancelled = false
+    const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') : null
+    if (!deviceId) {
+      setAdminAccess(prev => ({ ...prev, loading: false }))
+      return
+    }
+    fetch(`/api/access?deviceId=${encodeURIComponent(deviceId)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setAdminAccess({
+            hasAccess: data.hasAccess || false,
+            accessLevel: data.accessLevel || 'none',
+            reason: data.reason || null,
+            expiresAt: data.expiresAt || null,
+            loading: false,
+          })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAdminAccess({ hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: false })
         }
       })
     return () => { cancelled = true }
@@ -2861,6 +2943,7 @@ export default function Home() {
 
   return (
     <WhopAuthContext.Provider value={whopAuth}>
+    <AdminAccessContext.Provider value={adminAccess}>
     <div className="min-h-screen flex flex-col bg-temple-bg">
       <VedicNav currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="flex-1">
@@ -2879,6 +2962,7 @@ export default function Home() {
       <VedicFooter />
         <BuyMeACoffeeWidget />
     </div>
+    </AdminAccessContext.Provider>
     </WhopAuthContext.Provider>
   )
 }

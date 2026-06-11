@@ -447,6 +447,46 @@ function getWhopUserId(request: NextRequest): string | null {
   }
 }
 
+// ============ Admin-Granted Access Helper ============
+// Returns { hasPremium: boolean, hasUnlimited: boolean } based on UserAccess table
+async function checkAdminGrantedAccess(deviceId: string): Promise<{ hasPremium: boolean; hasUnlimited: boolean }> {
+  try {
+    const grants = await rawQuery<{
+      accessLevel: string
+      expiresAt: string | null
+    }>(
+      `SELECT accessLevel, expiresAt FROM UserAccess WHERE deviceId = ?`,
+      [deviceId]
+    )
+
+    const now = new Date().toISOString()
+    const activeGrants = grants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
+
+    const hasUnlimited = activeGrants.some(g => g.accessLevel === 'unlimited')
+    const hasPremium = hasUnlimited || activeGrants.some(g => g.accessLevel === 'premium')
+
+    return { hasPremium, hasUnlimited }
+  } catch {
+    // If DB check fails, don't block access — degrade gracefully
+    return { hasPremium: false, hasUnlimited: false }
+  }
+}
+
+// ============ Whop Access Helper ============
+// Returns whether the user has Whop membership access (premium)
+async function checkWhopAccess(request: NextRequest): Promise<boolean> {
+  const whopUserId = getWhopUserId(request)
+  if (!whopUserId) return false
+
+  try {
+    const { checkUserAccess } = await import('@/lib/whop')
+    const access = await checkUserAccess(whopUserId)
+    return access.hasAccess
+  } catch {
+    return false
+  }
+}
+
 // ============ Main Handler ============
 
 export async function POST(request: NextRequest) {
@@ -472,62 +512,82 @@ export async function POST(request: NextRequest) {
     // ---- Paywall check ----
     const isPremium = PREMIUM_TYPES.has(analysisType)
 
+    // Check access: Whop membership OR admin-granted access
+    const [whopHasAccess, adminAccess] = await Promise.all([
+      checkWhopAccess(request),
+      checkAdminGrantedAccess(deviceId),
+    ])
+    const hasPremiumAccess = whopHasAccess || adminAccess.hasPremium
+    const hasUnlimitedAccess = adminAccess.hasUnlimited
+
+    // If premium type and no access, return 403
+    if (isPremium && !hasPremiumAccess) {
+      return NextResponse.json({
+        detail: 'This premium analysis requires a subscription or admin-granted access.',
+        premiumRequired: true,
+        analysisType,
+      }, { status: 403 })
+    }
+
     // ---- Rate limit check ----
     // Count unique charts this device has read (non-cached)
     // Count analysis types used per chart for this device
+    // Users with admin-granted 'unlimited' access bypass rate limits
     const cacheKey = makeCacheKey(analysisType, chartData)
 
-    try {
-      await initDb()
+    if (!hasUnlimitedAccess) {
+      try {
+        await initDb()
 
-      // Has this device already used an analysis for this exact cacheKey?
-      const existingUsage = await rawQuery<{ id: string; cacheKey: string }>(
-        `SELECT id, cacheKey FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ? LIMIT 1`,
-        [deviceId, cacheKey]
-      )
-
-      if (existingUsage.length === 0) {
-        // New analysis for this chart — check limits
-        // Count unique charts (by distinct cacheKey) this device has used
-        const allUsages = await rawQuery<{ cacheKey: string }>(
-          `SELECT DISTINCT cacheKey FROM DeviceUsage WHERE deviceId = ?`,
-          [deviceId]
-        )
-        const uniqueCacheKeys = new Set(allUsages.map(u => u.cacheKey))
-        const chartsCount = uniqueCacheKeys.size
-
-        // Count how many analysis types this device has used for this chart's cacheKey
-        const analysesForThisChart = await rawQuery<{ cnt: number }>(
-          `SELECT COUNT(*) as cnt FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ?`,
+        // Has this device already used an analysis for this exact cacheKey?
+        const existingUsage = await rawQuery<{ id: string; cacheKey: string }>(
+          `SELECT id, cacheKey FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ? LIMIT 1`,
           [deviceId, cacheKey]
         )
-        const analysesCount = analysesForThisChart[0]?.cnt || 0
 
-        if (chartsCount >= FREE_CHART_LIMIT && !uniqueCacheKeys.has(cacheKey)) {
-          // Device has used all free charts AND this is a new chart
-          return NextResponse.json({
-            detail: `Free limit reached (${FREE_CHART_LIMIT} charts). Subscribe for unlimited readings.`,
-            limitReached: true,
-            limitType: 'charts',
-            limit: FREE_CHART_LIMIT,
-            used: chartsCount,
-          }, { status: 429 })
-        }
+        if (existingUsage.length === 0) {
+          // New analysis for this chart — check limits
+          // Count unique charts (by distinct cacheKey) this device has used
+          const allUsages = await rawQuery<{ cacheKey: string }>(
+            `SELECT DISTINCT cacheKey FROM DeviceUsage WHERE deviceId = ?`,
+            [deviceId]
+          )
+          const uniqueCacheKeys = new Set(allUsages.map(u => u.cacheKey))
+          const chartsCount = uniqueCacheKeys.size
 
-        // Check per-chart analysis limit
-        if (analysesCount >= FREE_ANALYSIS_PER_CHART) {
-          // Device has used all free analysis types for this chart
-          return NextResponse.json({
-            detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
-            limitReached: true,
-            limitType: 'analyses_per_chart',
-            limit: FREE_ANALYSIS_PER_CHART,
-            used: analysesCount,
-          }, { status: 429 })
+          // Count how many analysis types this device has used for this chart's cacheKey
+          const analysesForThisChart = await rawQuery<{ cnt: number }>(
+            `SELECT COUNT(*) as cnt FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ?`,
+            [deviceId, cacheKey]
+          )
+          const analysesCount = analysesForThisChart[0]?.cnt || 0
+
+          if (chartsCount >= FREE_CHART_LIMIT && !uniqueCacheKeys.has(cacheKey)) {
+            // Device has used all free charts AND this is a new chart
+            return NextResponse.json({
+              detail: `Free limit reached (${FREE_CHART_LIMIT} charts). Subscribe for unlimited readings.`,
+              limitReached: true,
+              limitType: 'charts',
+              limit: FREE_CHART_LIMIT,
+              used: chartsCount,
+            }, { status: 429 })
+          }
+
+          // Check per-chart analysis limit
+          if (analysesCount >= FREE_ANALYSIS_PER_CHART) {
+            // Device has used all free analysis types for this chart
+            return NextResponse.json({
+              detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
+              limitReached: true,
+              limitType: 'analyses_per_chart',
+              limit: FREE_ANALYSIS_PER_CHART,
+              used: analysesCount,
+            }, { status: 429 })
+          }
         }
+      } catch (dbError) {
+        console.log('[AI] Rate limit check failed (DB not ready?), proceeding:', dbError instanceof Error ? dbError.message : 'unknown')
       }
-    } catch (dbError) {
-      console.log('[AI] Rate limit check failed (DB not ready?), proceeding:', dbError instanceof Error ? dbError.message : 'unknown')
     }
 
     // ---- Cache check ----
