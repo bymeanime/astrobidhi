@@ -216,23 +216,32 @@ function useAdminAccess() {
 }
 
 // Fallback descriptions used when catalog hasn't loaded yet
+// These MUST match the descriptions in the PremiumCatalog database / admin panel
 const FALLBACK_PREMIUM_DESCRIPTIONS: Record<string, string> = {
-  swot_5year: '5-Year Career & Wealth Forecast with year-by-year predictions, SWOT analysis, specific timing windows, and personalized remedies.',
-  cosmic_blueprint: 'Complete Cosmic Blueprint with house-by-house analysis, Ashtakvarga bindus, Yoga directory, and Harmonized interpretations.',
-  shadow_integration: 'Shadow Integration analysis with vulnerability mapping, Tragic Sublimation pathways, and integration protocol for personal growth.',
+  swot_5year: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies',
+  cosmic_blueprint: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations',
+  shadow_integration: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol',
 }
 
-const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean }[] = [
-  { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard', isPremium: false },
-  { id: 'career', label: 'Career & Profession', icon: <Briefcase className="w-5 h-5" />, desc: 'Professional path, suitable fields, career growth periods, and financial prospects', color: '#C9721A', category: 'Standard', isPremium: false },
-  { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard', isPremium: false },
-  { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard', isPremium: false },
-  { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard', isPremium: false },
-  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: 'Dharma, spiritual path, past life karma, and moksha indications', color: '#6B1D1D', category: 'Standard', isPremium: false },
-  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: 'Current and upcoming planetary periods with timeline predictions', color: '#34495E', category: 'Standard', isPremium: false },
-  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', color: '#1a5276', category: 'Advanced', isPremium: true },
-  { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', color: '#0f0c29', category: 'Advanced', isPremium: true },
-  { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', color: '#180202', category: 'Advanced', isPremium: true },
+// Fallback prices used when catalog API is unavailable
+// These MUST match the PremiumCatalog database seed values (in cents)
+const FALLBACK_PREMIUM_PRICES: Record<string, { priceCents: number; originalPriceCents: number | null }> = {
+  swot_5year: { priceCents: 499, originalPriceCents: 999 },
+  cosmic_blueprint: { priceCents: 699, originalPriceCents: 1299 },
+  shadow_integration: { priceCents: 399, originalPriceCents: 799 },
+}
+
+const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean; priceCents: number; originalPriceCents: number | null }[] = [
+  { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'career', label: 'Career & Profession', icon: <Briefcase className="w-5 h-5" />, desc: 'Professional path, suitable fields, career growth periods, and financial prospects', color: '#C9721A', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: 'Dharma, spiritual path, past life karma, and moksha indications', color: '#6B1D1D', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: 'Current and upcoming planetary periods with timeline predictions', color: '#34495E', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.swot_5year, color: '#1a5276', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.swot_5year.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.swot_5year.originalPriceCents },
+  { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.cosmic_blueprint, color: '#0f0c29', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.originalPriceCents },
+  { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.shadow_integration, color: '#180202', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.originalPriceCents },
 ]
 
 // ============ Constants ============
@@ -1338,12 +1347,12 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       const catItem = catalog.catalogMap[t.id]
       return {
         ...t,
-        // Override with catalog data if available
+        // Override with catalog data if available, otherwise use hardcoded defaults from ANALYSIS_TYPES
         label: catItem?.name || t.label,
         desc: catItem?.description || t.desc,
         isPremium: catalog.premiumTypes.has(t.id) || t.isPremium,
-        priceCents: catItem?.priceCents || 0,
-        originalPriceCents: catItem?.originalPriceCents || null,
+        priceCents: catItem?.priceCents || t.priceCents || 0,
+        originalPriceCents: catItem?.originalPriceCents || t.originalPriceCents || null,
       }
     })
     // Add any NEW premium catalog items that aren't in the static list (e.g., admin-added types)
@@ -1369,6 +1378,15 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   // Helper: get description for a premium type (from catalog or fallback)
   const getPremiumDescription = (typeId: string): string => {
     return catalog.catalogMap[typeId]?.description || FALLBACK_PREMIUM_DESCRIPTIONS[typeId] || 'Premium AI-powered analysis with detailed insights and remedies.'
+  }
+
+  // Helper: get price for a premium type (from catalog or fallback)
+  const getPremiumPrice = (typeId: string): { priceCents: number; originalPriceCents: number | null } => {
+    const catItem = catalog.catalogMap[typeId]
+    if (catItem && catItem.priceCents > 0) {
+      return { priceCents: catItem.priceCents, originalPriceCents: catItem.originalPriceCents }
+    }
+    return FALLBACK_PREMIUM_PRICES[typeId] || { priceCents: 0, originalPriceCents: null }
   }
 
   // Helper: format price from cents
@@ -1655,9 +1673,9 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 <p className="text-sm font-semibold text-amber-900 mb-1">
                   {dynamicAnalysisTypes.find(t => t.id === premiumDialogType)?.label}
                   {(() => {
-                    const catItem = catalog.catalogMap[premiumDialogType]
-                    if (catItem && catItem.priceCents > 0) {
-                      return <span className="ml-2 text-amber-700">{formatPrice(catItem.priceCents)}{catItem.originalPriceCents ? <span className="text-xs line-through text-muted-foreground ml-1">{formatPrice(catItem.originalPriceCents)}</span> : null}</span>
+                    const price = getPremiumPrice(premiumDialogType)
+                    if (price.priceCents > 0) {
+                      return <span className="ml-2 text-amber-700">{formatPrice(price.priceCents)}{price.originalPriceCents ? <span className="text-xs line-through text-muted-foreground ml-1">{formatPrice(price.originalPriceCents)}</span> : null}</span>
                     }
                     return null
                   })()}
@@ -2601,9 +2619,21 @@ export default function Home() {
     hasAccess: false, accessLevel: 'none', reason: null, expiresAt: null, loading: true,
   })
 
-  // Dynamic catalog state
-  const [catalogState, setCatalogState] = useState<CatalogState>({
-    catalog: [], premiumTypes: new Set(PREMIUM_ANALYSIS_TYPES), catalogMap: {}, loading: true,
+  // Dynamic catalog state — initialized with hardcoded defaults so prices show immediately
+  // When /api/catalog responds, these defaults get replaced with database values
+  const [catalogState, setCatalogState] = useState<CatalogState>(() => {
+    const defaultCatalog: CatalogItem[] = [
+      { id: 'fallback-swot', analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: FALLBACK_PREMIUM_DESCRIPTIONS.swot_5year, priceCents: FALLBACK_PREMIUM_PRICES.swot_5year.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.swot_5year.originalPriceCents, sortOrder: 1 },
+      { id: 'fallback-cosmic', analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: FALLBACK_PREMIUM_DESCRIPTIONS.cosmic_blueprint, priceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.originalPriceCents, sortOrder: 2 },
+      { id: 'fallback-shadow', analysisType: 'shadow_integration', name: 'Shadow Integration', description: FALLBACK_PREMIUM_DESCRIPTIONS.shadow_integration, priceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.originalPriceCents, sortOrder: 3 },
+    ]
+    const catalogMap: Record<string, CatalogItem> = {}
+    const premiumTypes = new Set<string>()
+    for (const item of defaultCatalog) {
+      catalogMap[item.analysisType] = item
+      premiumTypes.add(item.analysisType)
+    }
+    return { catalog: defaultCatalog, premiumTypes, catalogMap, loading: true }
   })
 
   // Fetch Whop auth state on mount
