@@ -10,10 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detail: 'Password is required' }, { status: 400 })
     }
 
+    console.log('[Admin Login] Attempt with password length:', password.length)
+
     // verifyAdminPassword is now async (uses Web Crypto API)
-    if (!(await verifyAdminPassword(password))) {
+    const isValid = await verifyAdminPassword(password)
+    if (!isValid) {
+      console.log('[Admin Login] Invalid password attempt')
       return NextResponse.json({ detail: 'Invalid password' }, { status: 401 })
     }
+
+    console.log('[Admin Login] Password verified, creating session token')
 
     // createSessionToken is now async (uses Web Crypto API)
     const token = await createSessionToken()
@@ -21,15 +27,16 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set(getCookieName(), token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Must be false when behind reverse proxy (Railway/Caddy terminates SSL)
       sameSite: 'lax',
       path: '/',
       maxAge: getSessionDuration() / 1000, // Convert ms to seconds
     })
 
+    console.log('[Admin Login] Session cookie set, login successful')
     return response
   } catch (error) {
-    console.error('Admin login error:', error)
-    return NextResponse.json({ detail: 'Login failed' }, { status: 500 })
+    console.error('[Admin Login] Error:', error)
+    return NextResponse.json({ detail: 'Login failed: ' + (error instanceof Error ? error.message : 'Unknown error') }, { status: 500 })
   }
 }
