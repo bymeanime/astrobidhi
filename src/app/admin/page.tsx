@@ -9,7 +9,8 @@ import {
   Brain, Star, Share2, Users, Database, TrendingUp,
   Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon,
   LogOut, Shield, Plus, Trash2, CheckCircle, XCircle, Clock,
-  Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift, AlertCircle
+  Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift, AlertCircle,
+  BookOpen, UserCheck, Video, Mail
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -108,6 +109,52 @@ interface PromoCode {
   createdAt: string
 }
 
+interface ReadingBooking {
+  id: string
+  bookingRef: string
+  tier: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string | null
+  birthDate: string | null
+  birthTime: string | null
+  birthCity: string | null
+  questions: string | null
+  focusAreas: string | null
+  preferredLanguage: string
+  status: string
+  scheduledAt: string | null
+  completedAt: string | null
+  meetingLink: string | null
+  notes: string | null
+  priceCents: number
+  paidAt: string | null
+  paymentRef: string | null
+  astrologerId: string | null
+  astrologerName: string | null
+  astrologerTitle: string | null
+  deviceId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface AstrologerProfile {
+  id: string
+  name: string
+  title: string | null
+  bio: string | null
+  specialties: string
+  experienceYears: number
+  qualifications: string | null
+  languages: string
+  rating: number
+  reviewCount: number
+  photoUrl: string | null
+  isAvailable: number
+  sortOrder: number
+  createdAt: string
+}
+
 // ──────────────────── Constants ────────────────────
 
 const COLORS = ['#C9721A', '#D4A843', '#6B1D1D', '#2D6A4F', '#9B59B6', '#B33A3A', '#34495E', '#E8A84C', '#4A0E0E', '#8E44AD']
@@ -124,6 +171,10 @@ const ANALYSIS_LABELS: Record<string, string> = {
   swot_5year: '5-Year SWOT',
   cosmic_blueprint: 'Cosmic Blueprint',
   shadow_integration: 'Shadow Integration',
+  reading_basic: 'Basic Reading',
+  reading_standard: 'Standard Reading',
+  reading_premium: 'Premium Reading',
+  reading_ultimate: 'Ultimate Reading',
 }
 
 const centsToDollar = (cents: number) => `$${(cents / 100).toFixed(2)}`
@@ -192,6 +243,31 @@ export default function AdminDashboard() {
     maxUses: '' as string, validFrom: '', validUntil: '', isActive: true,
   })
   const [promoSubmitting, setPromoSubmitting] = useState(false)
+
+  // ── Readings state ──
+  const [bookings, setBookings] = useState<ReadingBooking[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(false)
+  const [bookingsError, setBookingsError] = useState<string | null>(null)
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all')
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<ReadingBooking | null>(null)
+  const [bookingUpdateForm, setBookingUpdateForm] = useState({
+    status: '', astrologerId: '', scheduledAt: '', meetingLink: '', notes: '',
+  })
+  const [bookingUpdateSubmitting, setBookingUpdateSubmitting] = useState(false)
+
+  // ── Astrologers state ──
+  const [astrologers, setAstrologers] = useState<AstrologerProfile[]>([])
+  const [astrologersLoading, setAstrologersLoading] = useState(false)
+  const [astrologersError, setAstrologersError] = useState<string | null>(null)
+  const [astrologerDialogOpen, setAstrologerDialogOpen] = useState(false)
+  const [astrologerEditItem, setAstrologerEditItem] = useState<AstrologerProfile | null>(null)
+  const [astrologerForm, setAstrologerForm] = useState({
+    name: '', title: '', bio: '', specialties: 'vedic_reading', experienceYears: 0,
+    qualifications: '', languages: 'English,Hindi', rating: 0, reviewCount: 0,
+    photoUrl: '', isAvailable: true, sortOrder: 0,
+  })
+  const [astrologerSubmitting, setAstrologerSubmitting] = useState(false)
 
   // ──────────────── Fetch functions ────────────────
 
@@ -315,7 +391,48 @@ export default function AdminDashboard() {
   useEffect(() => { fetchAccessGrants() }, [fetchAccessGrants])
   useEffect(() => { fetchCatalog() }, [fetchCatalog])
   useEffect(() => { fetchBundles() }, [fetchBundles])
+  const fetchBookings = useCallback(async () => {
+    setBookingsLoading(true)
+    setBookingsError(null)
+    try {
+      const url = bookingStatusFilter !== 'all' ? `/api/admin/readings?status=${bookingStatusFilter}` : '/api/admin/readings'
+      const res = await fetch(url, { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        setBookings(data.bookings || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setBookingsError(data.detail || `Failed to fetch bookings (${res.status})`)
+      }
+    } catch (err) {
+      setBookingsError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setBookingsLoading(false)
+    }
+  }, [bookingStatusFilter])
+
+  const fetchAstrologers = useCallback(async () => {
+    setAstrologersLoading(true)
+    setAstrologersError(null)
+    try {
+      const res = await fetch('/api/admin/astrologers', { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        setAstrologers(data.astrologers || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setAstrologersError(data.detail || `Failed to fetch astrologers (${res.status})`)
+      }
+    } catch (err) {
+      setAstrologersError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setAstrologersLoading(false)
+    }
+  }, [])
+
   useEffect(() => { fetchPromos() }, [fetchPromos])
+  useEffect(() => { fetchBookings() }, [fetchBookings])
+  useEffect(() => { fetchAstrologers() }, [fetchAstrologers])
 
   // ──────────────── Access handlers ────────────────
 
@@ -636,6 +753,141 @@ export default function AdminDashboard() {
     toast({ title: 'Copied!', description: `${text} copied to clipboard` })
   }
 
+  // ──────────────── Astrologer CRUD handlers ────────────────
+
+  const openAstrologerCreate = () => {
+    setAstrologerEditItem(null)
+    setAstrologerForm({ name: '', title: '', bio: '', specialties: 'vedic_reading', experienceYears: 0, qualifications: '', languages: 'English,Hindi', rating: 0, reviewCount: 0, photoUrl: '', isAvailable: true, sortOrder: 0 })
+    setAstrologerDialogOpen(true)
+  }
+
+  const openAstrologerEdit = (astro: AstrologerProfile) => {
+    setAstrologerEditItem(astro)
+    setAstrologerForm({
+      name: astro.name, title: astro.title || '', bio: astro.bio || '',
+      specialties: astro.specialties, experienceYears: astro.experienceYears,
+      qualifications: astro.qualifications || '', languages: astro.languages,
+      rating: astro.rating, reviewCount: astro.reviewCount,
+      photoUrl: astro.photoUrl || '', isAvailable: astro.isAvailable === 1, sortOrder: astro.sortOrder,
+    })
+    setAstrologerDialogOpen(true)
+  }
+
+  const handleAstrologerSubmit = async () => {
+    if (!astrologerForm.name.trim()) return
+    setAstrologerSubmitting(true)
+    try {
+      const body = { ...astrologerForm, isAvailable: astrologerForm.isAvailable }
+      if (astrologerEditItem) {
+        const res = await fetch(`/api/admin/astrologers/${encodeURIComponent(astrologerEditItem.id)}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), credentials: 'same-origin',
+        })
+        if (res.ok) {
+          toast({ title: 'Astrologer Updated', description: `${astrologerForm.name} updated` })
+          fetchAstrologers()
+          setAstrologerDialogOpen(false)
+        } else {
+          const data = await res.json()
+          toast({ title: 'Error', description: data.detail || 'Failed to update', variant: 'destructive' })
+        }
+      } else {
+        const res = await fetch('/api/admin/astrologers', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), credentials: 'same-origin',
+        })
+        if (res.ok) {
+          toast({ title: 'Astrologer Added', description: `${astrologerForm.name} added` })
+          fetchAstrologers()
+          setAstrologerDialogOpen(false)
+        } else {
+          const data = await res.json()
+          toast({ title: 'Error', description: data.detail || 'Failed to add', variant: 'destructive' })
+        }
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Network error', variant: 'destructive' })
+    } finally {
+      setAstrologerSubmitting(false)
+    }
+  }
+
+  const handleAstrologerDelete = async (astrologerId: string) => {
+    if (!confirm('Delete this astrologer? They will be unassigned from any bookings.')) return
+    try {
+      const res = await fetch(`/api/admin/astrologers/${encodeURIComponent(astrologerId)}`, { method: 'DELETE', credentials: 'same-origin' })
+      if (res.ok) {
+        toast({ title: 'Deleted', description: 'Astrologer deleted' })
+        fetchAstrologers()
+      } else {
+        const data = await res.json()
+        toast({ title: 'Error', description: data.detail || 'Failed to delete', variant: 'destructive' })
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Network error', variant: 'destructive' })
+    }
+  }
+
+  const openBookingDetail = (booking: ReadingBooking) => {
+    setSelectedBooking(booking)
+    setBookingUpdateForm({
+      status: booking.status,
+      astrologerId: booking.astrologerId || '',
+      scheduledAt: booking.scheduledAt ? booking.scheduledAt.substring(0, 16) : '',
+      meetingLink: booking.meetingLink || '',
+      notes: booking.notes || '',
+    })
+    setBookingDialogOpen(true)
+  }
+
+  const handleBookingUpdate = async () => {
+    if (!selectedBooking) return
+    setBookingUpdateSubmitting(true)
+    try {
+      const body: Record<string, unknown> = {}
+      if (bookingUpdateForm.status) body.status = bookingUpdateForm.status
+      if (bookingUpdateForm.astrologerId) body.astrologerId = bookingUpdateForm.astrologerId
+      else if (bookingUpdateForm.astrologerId === '' && selectedBooking.astrologerId) body.astrologerId = null
+      if (bookingUpdateForm.scheduledAt) body.scheduledAt = new Date(bookingUpdateForm.scheduledAt).toISOString()
+      if (bookingUpdateForm.meetingLink) body.meetingLink = bookingUpdateForm.meetingLink
+      if (bookingUpdateForm.notes) body.notes = bookingUpdateForm.notes
+
+      const res = await fetch(`/api/admin/readings/${encodeURIComponent(selectedBooking.id)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body), credentials: 'same-origin',
+      })
+      if (res.ok) {
+        toast({ title: 'Booking Updated', description: `Booking ${selectedBooking.bookingRef} updated` })
+        fetchBookings()
+        setBookingDialogOpen(false)
+      } else {
+        const data = await res.json()
+        toast({ title: 'Error', description: data.detail || 'Failed to update', variant: 'destructive' })
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Network error', variant: 'destructive' })
+    } finally {
+      setBookingUpdateSubmitting(false)
+    }
+  }
+
+  const handleBookingDelete = async (bookingId: string) => {
+    if (!confirm('Delete this booking?')) return
+    try {
+      const res = await fetch(`/api/admin/readings/${encodeURIComponent(bookingId)}`, { method: 'DELETE', credentials: 'same-origin' })
+      if (res.ok) {
+        toast({ title: 'Deleted', description: 'Booking deleted' })
+        fetchBookings()
+        setBookingDialogOpen(false)
+      } else {
+        const data = await res.json()
+        toast({ title: 'Error', description: data.detail || 'Failed to delete', variant: 'destructive' })
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Network error', variant: 'destructive' })
+    }
+  }
+
   // ──────────────── Default stats for when API fails ────────────────
 
   const EMPTY_STATS: StatsData = {
@@ -792,6 +1044,12 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="access" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
               <Shield className="w-4 h-4 mr-1" /> Access
+            </TabsTrigger>
+            <TabsTrigger value="readings" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
+              <BookOpen className="w-4 h-4 mr-1" /> Readings
+            </TabsTrigger>
+            <TabsTrigger value="astrologers" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
+              <UserCheck className="w-4 h-4 mr-1" /> Astrologers
             </TabsTrigger>
           </TabsList>
 
@@ -1611,10 +1869,419 @@ export default function AdminDashboard() {
               )}
             </div>
           </TabsContent>
+          {/* ═══════════ READINGS TAB ═══════════ */}
+          <TabsContent value="readings">
+            <Card className="border-saffron/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2"><BookOpen className="w-5 h-5" /> Reading Bookings</CardTitle>
+                    <CardDescription>Manage live reading bookings</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={bookingStatusFilter} onValueChange={setBookingStatusFilter}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Filter status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={fetchBookings} variant="ghost" size="sm" className="text-saffron hover:bg-saffron/10">
+                      <RefreshCw className={`w-4 h-4 ${bookingsLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {bookingsError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    <span className="text-sm text-red-700">{bookingsError}</span>
+                    <Button onClick={fetchBookings} size="sm" variant="outline" className="ml-auto border-red-300 text-red-700 hover:bg-red-100">
+                      <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                    </Button>
+                  </div>
+                )}
+                {bookingsLoading && bookings.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    Loading bookings...
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p>No reading bookings found</p>
+                    <p className="text-xs mt-1">Bookings will appear when customers purchase readings</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-maroon font-semibold">Ref</TableHead>
+                          <TableHead className="text-maroon font-semibold">Tier</TableHead>
+                          <TableHead className="text-maroon font-semibold">Customer</TableHead>
+                          <TableHead className="text-maroon font-semibold">Email</TableHead>
+                          <TableHead className="text-maroon font-semibold">Status</TableHead>
+                          <TableHead className="text-maroon font-semibold">Astrologer</TableHead>
+                          <TableHead className="text-maroon font-semibold">Price</TableHead>
+                          <TableHead className="text-maroon font-semibold">Scheduled</TableHead>
+                          <TableHead className="text-maroon font-semibold">Created</TableHead>
+                          <TableHead className="text-maroon font-semibold">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bookings.map((b) => (
+                          <TableRow key={b.id}>
+                            <TableCell className="font-mono text-xs">{b.bookingRef.substring(0, 8)}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-xs">{ANALYSIS_LABELS[b.tier] || b.tier}</Badge></TableCell>
+                            <TableCell className="text-sm">{b.customerName}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{b.customerEmail}</TableCell>
+                            <TableCell>
+                              <Badge className={`text-xs ${
+                                b.status === 'pending' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                b.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                b.status === 'scheduled' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                b.status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' :
+                                b.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-200' :
+                                'bg-gray-100 text-gray-800 border-gray-200'
+                              }`}>{b.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">{b.astrologerName || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                            <TableCell className="text-sm font-medium">{centsToDollar(b.priceCents)}</TableCell>
+                            <TableCell className="text-xs">{b.scheduledAt ? new Date(b.scheduledAt).toLocaleDateString() : '—'}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{new Date(b.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" onClick={() => openBookingDetail(b)} className="text-saffron hover:bg-saffron/10">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════ ASTROLOGERS TAB ═══════════ */}
+          <TabsContent value="astrologers">
+            <Card className="border-saffron/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2"><UserCheck className="w-5 h-5" /> Astrologer Profiles</CardTitle>
+                    <CardDescription>Manage astrologer profiles and availability</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button onClick={openAstrologerCreate} size="sm" className="bg-gradient-to-r from-saffron to-gold text-white hover:from-saffron-light hover:to-gold-light">
+                      <Plus className="w-4 h-4 mr-1" /> Add Astrologer
+                    </Button>
+                    <Button onClick={fetchAstrologers} variant="ghost" size="sm" className="text-saffron hover:bg-saffron/10">
+                      <RefreshCw className={`w-4 h-4 ${astrologersLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {astrologersError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    <span className="text-sm text-red-700">{astrologersError}</span>
+                    <Button onClick={fetchAstrologers} size="sm" variant="outline" className="ml-auto border-red-300 text-red-700 hover:bg-red-100">
+                      <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                    </Button>
+                  </div>
+                )}
+                {astrologersLoading && astrologers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    Loading astrologers...
+                  </div>
+                ) : astrologers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <UserCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p>No astrologers yet</p>
+                    <p className="text-xs mt-1">Add astrologers to assign them to reading bookings</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-maroon font-semibold">Name</TableHead>
+                          <TableHead className="text-maroon font-semibold">Title</TableHead>
+                          <TableHead className="text-maroon font-semibold">Specialties</TableHead>
+                          <TableHead className="text-maroon font-semibold">Experience</TableHead>
+                          <TableHead className="text-maroon font-semibold">Rating</TableHead>
+                          <TableHead className="text-maroon font-semibold">Languages</TableHead>
+                          <TableHead className="text-maroon font-semibold">Available</TableHead>
+                          <TableHead className="text-maroon font-semibold">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {astrologers.map((astro) => (
+                          <TableRow key={astro.id}>
+                            <TableCell className="font-medium text-sm">{astro.name}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{astro.title || '—'}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {astro.specialties.split(',').map((s) => (
+                                  <Badge key={s} variant="outline" className="text-xs">{ANALYSIS_LABELS[s.trim()] || s.trim()}</Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{astro.experienceYears} yr{astro.experienceYears !== 1 ? 's' : ''}</TableCell>
+                            <TableCell className="text-sm">{astro.rating > 0 ? `⭐ ${astro.rating.toFixed(1)}` : '—'} <span className="text-xs text-muted-foreground">({astro.reviewCount})</span></TableCell>
+                            <TableCell className="text-xs">{astro.languages}</TableCell>
+                            <TableCell>
+                              {astro.isAvailable === 1 ? (
+                                <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Available</Badge>
+                              ) : (
+                                <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-xs">Offline</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => openAstrologerEdit(astro)} className="text-saffron hover:bg-saffron/10">
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleAstrologerDelete(astro.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
 
       {/* ═══════════ DIALOGS ═══════════ */}
+
+      {/* Booking Detail / Update Dialog */}
+      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-maroon flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-saffron" /> Booking Details
+            </DialogTitle>
+            <DialogDescription>View and update reading booking</DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4 py-2">
+              {/* Booking Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Booking Ref</Label>
+                  <p className="font-mono text-sm font-medium">{selectedBooking.bookingRef}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Tier</Label>
+                  <p className="text-sm">{ANALYSIS_LABELS[selectedBooking.tier] || selectedBooking.tier}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Customer Name</Label>
+                  <p className="text-sm">{selectedBooking.customerName}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="text-sm">{selectedBooking.customerEmail}</p>
+                </div>
+                {selectedBooking.customerPhone && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <p className="text-sm">{selectedBooking.customerPhone}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Language</Label>
+                  <p className="text-sm">{selectedBooking.preferredLanguage}</p>
+                </div>
+                {selectedBooking.birthDate && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Birth Date</Label>
+                    <p className="text-sm">{selectedBooking.birthDate}</p>
+                  </div>
+                )}
+                {selectedBooking.birthTime && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Birth Time</Label>
+                    <p className="text-sm">{selectedBooking.birthTime}</p>
+                  </div>
+                )}
+                {selectedBooking.birthCity && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Birth City</Label>
+                    <p className="text-sm">{selectedBooking.birthCity}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Price</Label>
+                  <p className="text-sm font-medium">{centsToDollar(selectedBooking.priceCents)}</p>
+                </div>
+              </div>
+              {selectedBooking.questions && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Questions</Label>
+                  <p className="text-sm bg-amber-50 border border-amber-200 rounded p-2 mt-1">{selectedBooking.questions}</p>
+                </div>
+              )}
+              {selectedBooking.focusAreas && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Focus Areas</Label>
+                  <p className="text-sm bg-amber-50 border border-amber-200 rounded p-2 mt-1">{selectedBooking.focusAreas}</p>
+                </div>
+              )}
+              <div className="border-t pt-4 space-y-3">
+                <h4 className="font-semibold text-maroon text-sm">Update Booking</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Status</Label>
+                    <Select value={bookingUpdateForm.status} onValueChange={(v) => setBookingUpdateForm(prev => ({ ...prev, status: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Assign Astrologer</Label>
+                    <Select value={bookingUpdateForm.astrologerId} onValueChange={(v) => setBookingUpdateForm(prev => ({ ...prev, astrologerId: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Unassigned</SelectItem>
+                        {astrologers.filter(a => a.isAvailable === 1).map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}{a.title ? ` — ${a.title}` : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Scheduled At</Label>
+                    <Input type="datetime-local" value={bookingUpdateForm.scheduledAt} onChange={(e) => setBookingUpdateForm(prev => ({ ...prev, scheduledAt: e.target.value }))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-1"><Video className="w-3 h-3" /> Meeting Link</Label>
+                    <Input value={bookingUpdateForm.meetingLink} onChange={(e) => setBookingUpdateForm(prev => ({ ...prev, meetingLink: e.target.value }))} placeholder="https://meet.google.com/..." className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Notes</Label>
+                  <Textarea value={bookingUpdateForm.notes} onChange={(e) => setBookingUpdateForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Internal notes about this booking..." rows={3} className="mt-1" />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex items-center gap-2">
+            {selectedBooking && (
+              <Button variant="destructive" size="sm" onClick={() => handleBookingDelete(selectedBooking.id)} className="mr-auto">
+                <Trash2 className="w-4 h-4 mr-1" /> Delete
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setBookingDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleBookingUpdate} disabled={bookingUpdateSubmitting} className="bg-gradient-to-r from-saffron to-gold text-white hover:from-saffron-light hover:to-gold-light">
+              {bookingUpdateSubmitting ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Saving...</> : <><CheckCircle className="w-4 h-4 mr-1" /> Update Booking</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Astrologer Create/Edit Dialog */}
+      <Dialog open={astrologerDialogOpen} onOpenChange={setAstrologerDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-maroon flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-saffron" /> {astrologerEditItem ? 'Edit Astrologer' : 'Add Astrologer'}
+            </DialogTitle>
+            <DialogDescription>{astrologerEditItem ? 'Update astrologer profile' : 'Add a new astrologer to the platform'}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Name *</Label>
+                <Input value={astrologerForm.name} onChange={(e) => setAstrologerForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={astrologerForm.title} onChange={(e) => setAstrologerForm(prev => ({ ...prev, title: e.target.value }))} placeholder="e.g., Vedic Astrologer" className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Bio</Label>
+              <Textarea value={astrologerForm.bio} onChange={(e) => setAstrologerForm(prev => ({ ...prev, bio: e.target.value }))} placeholder="Brief biography..." rows={3} className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Specialties (comma-separated)</Label>
+                <Input value={astrologerForm.specialties} onChange={(e) => setAstrologerForm(prev => ({ ...prev, specialties: e.target.value }))} placeholder="vedic_reading,career" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Experience (years)</Label>
+                <Input type="number" value={astrologerForm.experienceYears} onChange={(e) => setAstrologerForm(prev => ({ ...prev, experienceYears: parseInt(e.target.value) || 0 }))} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Qualifications</Label>
+                <Input value={astrologerForm.qualifications} onChange={(e) => setAstrologerForm(prev => ({ ...prev, qualifications: e.target.value }))} placeholder="Jyotish Acharya, etc." className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Languages (comma-separated)</Label>
+                <Input value={astrologerForm.languages} onChange={(e) => setAstrologerForm(prev => ({ ...prev, languages: e.target.value }))} placeholder="English,Hindi" className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Rating</Label>
+                <Input type="number" step="0.1" min="0" max="5" value={astrologerForm.rating} onChange={(e) => setAstrologerForm(prev => ({ ...prev, rating: parseFloat(e.target.value) || 0 }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Review Count</Label>
+                <Input type="number" min="0" value={astrologerForm.reviewCount} onChange={(e) => setAstrologerForm(prev => ({ ...prev, reviewCount: parseInt(e.target.value) || 0 }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Photo URL</Label>
+              <Input value={astrologerForm.photoUrl} onChange={(e) => setAstrologerForm(prev => ({ ...prev, photoUrl: e.target.value }))} placeholder="https://..." className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={astrologerForm.isAvailable} onCheckedChange={(v) => setAstrologerForm(prev => ({ ...prev, isAvailable: v }))} />
+                <Label className="text-sm font-medium">Available for bookings</Label>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Sort Order</Label>
+                <Input type="number" value={astrologerForm.sortOrder} onChange={(e) => setAstrologerForm(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))} className="mt-1" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAstrologerDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAstrologerSubmit} disabled={astrologerSubmitting || !astrologerForm.name.trim()} className="bg-gradient-to-r from-saffron to-gold text-white hover:from-saffron-light hover:to-gold-light">
+              {astrologerSubmitting ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Saving...</> : <><UserCheck className="w-4 h-4 mr-1" /> {astrologerEditItem ? 'Update' : 'Create'}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Grant Access Dialog */}
       <Dialog open={grantDialogOpen} onOpenChange={setGrantDialogOpen}>

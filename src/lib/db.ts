@@ -182,6 +182,59 @@ const CREATE_TABLES_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS DeviceAccess_deviceId_idx ON DeviceAccess(deviceId)`,
   `CREATE INDEX IF NOT EXISTS DeviceAccess_deviceId_type_idx ON DeviceAccess(deviceId, analysisType)`,
+
+  // Astrologer profiles for in-person readings
+  `CREATE TABLE IF NOT EXISTS Astrologer (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    title TEXT,
+    bio TEXT,
+    specialties TEXT NOT NULL DEFAULT 'vedic_reading',
+    experienceYears INTEGER NOT NULL DEFAULT 0,
+    qualifications TEXT,
+    languages TEXT NOT NULL DEFAULT 'English,Hindi',
+    rating REAL NOT NULL DEFAULT 0,
+    reviewCount INTEGER NOT NULL DEFAULT 0,
+    photoUrl TEXT,
+    isAvailable INTEGER NOT NULL DEFAULT 1,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+
+  // Reading bookings
+  `CREATE TABLE IF NOT EXISTS ReadingBooking (
+    id TEXT PRIMARY KEY,
+    bookingRef TEXT NOT NULL UNIQUE,
+    tier TEXT NOT NULL,
+    customerName TEXT NOT NULL,
+    customerEmail TEXT NOT NULL,
+    customerPhone TEXT,
+    birthDate TEXT,
+    birthTime TEXT,
+    birthCity TEXT,
+    birthLat REAL,
+    birthLng REAL,
+    birthUtc TEXT,
+    questions TEXT,
+    focusAreas TEXT,
+    preferredLanguage TEXT NOT NULL DEFAULT 'English',
+    astrologerId TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    scheduledAt DATETIME,
+    completedAt DATETIME,
+    meetingLink TEXT,
+    notes TEXT,
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    paidAt DATETIME,
+    paymentRef TEXT,
+    deviceId TEXT,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (astrologerId) REFERENCES Astrologer(id)
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ReadingBooking_bookingRef_idx ON ReadingBooking(bookingRef)`,
+  `CREATE INDEX IF NOT EXISTS ReadingBooking_status_idx ON ReadingBooking(status)`,
+  `CREATE INDEX IF NOT EXISTS ReadingBooking_tier_idx ON ReadingBooking(tier)`,
 ]
 
 let _libsql: Client | null = null
@@ -371,7 +424,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
@@ -509,6 +562,43 @@ async function seedDefaultData(): Promise<void> {
         )
       }
       console.log('[DB] Seeded default All Premium Bundle')
+    }
+
+    // Seed reading tiers if not already present
+    const readingTiers = [
+      { analysisType: 'reading_basic', name: 'Basic Vedic Consultation', description: '30-minute personal reading with a certified Vedic astrologer. Get answers to 1 specific question with basic Dasa period analysis and simple remedies based on your birth chart.', priceCents: 2999, originalPriceCents: 4999, sortOrder: 10 },
+      { analysisType: 'reading_standard', name: 'Standard Vedic Reading', description: '45-minute in-depth reading with a senior Vedic astrologer. Ask up to 3 questions covering career, relationships, or health. Includes detailed Dasa analysis, planetary transit impacts, and personalized remedies with gemstone recommendations.', priceCents: 4999, originalPriceCents: 7999, sortOrder: 11 },
+      { analysisType: 'reading_premium', name: 'Premium Vedic Consultation', description: '60-minute comprehensive consultation with an expert Vedic astrologer. Up to 5 questions, full Dasa-bhukti analysis, Kundali matching for marriage compatibility, detailed transit forecast, and complete remedies including mantras, gemstones, and rituals.', priceCents: 7999, originalPriceCents: 11999, sortOrder: 12 },
+      { analysisType: 'reading_ultimate', name: 'Ultimate Vedic Session', description: '90-minute complete life consultation with a master Vedic astrologer. Unlimited questions, full birth chart analysis, Dasa-bhukti-antara deep dive, Kundali matching, Prasna (horary) for urgent questions, yearly forecast, and comprehensive remedies with follow-up email support for 30 days.', priceCents: 14999, originalPriceCents: 21999, sortOrder: 13 },
+    ]
+    const existingReadingTiers = await rawQuery<{ analysisType: string }>('SELECT analysisType FROM PremiumCatalog WHERE analysisType LIKE ?', ['reading_%'])
+    const existingTierTypes = new Set(existingReadingTiers.map(t => t.analysisType))
+    for (const tier of readingTiers) {
+      if (!existingTierTypes.has(tier.analysisType)) {
+        const id = randomUUID()
+        await rawExecute(
+          `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          [id, tier.analysisType, tier.name, tier.description, tier.priceCents, tier.originalPriceCents, tier.sortOrder]
+        )
+      }
+    }
+
+    // Seed default astrologer if empty
+    const astrologerCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM Astrologer')
+    if (astrologerCount[0]?.cnt === 0) {
+      const defaultAstrologers = [
+        { name: 'Pandit Ramesh Sharma', title: 'Jyotish Acharya', bio: '35+ years of experience in Vedic astrology, specializing in career guidance and marriage compatibility. Trained in the Parashari system with deep knowledge of Ashtakvarga and Vimshottari Dasa analysis.', specialties: 'vedic_reading,career,kundali_matching,dasa', experienceYears: 35, qualifications: 'Jyotish Acharya, Vedic Astrology Research Institute', languages: 'English,Hindi,Sanskrit', rating: 4.9, reviewCount: 284 },
+        { name: 'Acharya Priya Devi', title: 'Jyotish Maharathi', bio: 'Expert in KP (Krishnamurti Paddhati) system and Prasna (horary) astrology. Known for precise timing predictions and spiritual guidance. 25+ years helping seekers find clarity through Vedic wisdom.', specialties: 'vedic_reading,horary,spiritual,remedies', experienceYears: 25, qualifications: 'KP System Certified, Jyotish Bharati', languages: 'English,Hindi,Tamil', rating: 4.8, reviewCount: 192 },
+        { name: 'Dr. Vikram Joshi', title: 'PhD in Jyotish', bio: 'Academic scholar and practitioner combining traditional Jyotish with modern counseling approaches. Specializes in health astrology, gem therapy, and Vastu consultation. Published author of three books on Vedic astrology.', specialties: 'vedic_reading,health,gem_therapy,vastu,remedies', experienceYears: 20, qualifications: 'PhD Jyotish, Vastu Shastra Certified, Gem Therapy Diploma', languages: 'English,Hindi,Marathi', rating: 4.7, reviewCount: 156 },
+      ]
+      for (const astro of defaultAstrologers) {
+        const id = randomUUID()
+        await rawExecute(
+          `INSERT INTO Astrologer (id, name, title, bio, specialties, experienceYears, qualifications, languages, rating, reviewCount, isAvailable, sortOrder) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)`,
+          [id, astro.name, astro.title, astro.bio, astro.specialties, astro.experienceYears, astro.qualifications, astro.languages, astro.rating, astro.reviewCount]
+        )
+      }
+      console.log('[DB] Seeded default astrologers')
     }
   } catch (error) {
     console.error('[DB] Seed default data error:', error instanceof Error ? error.message : 'unknown')

@@ -315,6 +315,12 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                 <span className="hidden lg:inline">{item.label}</span>
               </button>
             ))}
+            <a
+              href="/reading"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold transition-all ml-1"
+            >
+              <BookOpen className="w-4 h-4" /> Book a Reading
+            </a>
             {/* Whop Auth Button */}
             {whopAuth.configured && (
               whopAuth.authenticated ? (
@@ -395,6 +401,12 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
               {item.label}
             </button>
           ))}
+          <a
+            href="/reading"
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-amber-700 hover:bg-amber-50 font-semibold"
+          >
+            <BookOpen className="w-4 h-4" /> Book a Reading
+          </a>
         </div>
       )}
     </div>
@@ -1510,6 +1522,25 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 </button>
               ))}
             </div>
+            <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 mt-4">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-400 rounded-full flex items-center justify-center">
+                    <BookOpen className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-amber-900">Get a Personal Vedic Reading</h3>
+                    <p className="text-xs text-amber-700">With certified Jyotish astrologers</p>
+                  </div>
+                </div>
+                <p className="text-sm text-amber-800 mb-3">
+                  Connect with experienced Vedic astrologers for an in-person consultation. Get answers to your questions, detailed Dasa analysis, Kundali matching, and personalized remedies.
+                </p>
+                <a href="/reading" className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-500 text-white rounded-lg text-sm font-semibold hover:from-amber-500 hover:to-yellow-400 transition-all">
+                  Book a Reading <ArrowRight className="w-4 h-4" />
+                </a>
+              </CardContent>
+            </Card>
           </div>
           <Button
             onClick={handleAnalyze}
