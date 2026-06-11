@@ -11,6 +11,7 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient, type Client } from '@libsql/client'
+import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
 
@@ -111,6 +112,76 @@ const CREATE_TABLES_SQL = [
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS UserAccess_deviceId_idx ON UserAccess(deviceId)`,
+
+  // Premium analysis catalog: defines each premium analysis with its price
+  `CREATE TABLE IF NOT EXISTS PremiumCatalog (
+    id TEXT PRIMARY KEY,
+    analysisType TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    originalPriceCents INTEGER,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS PremiumCatalog_analysisType_idx ON PremiumCatalog(analysisType)`,
+
+  // Product bundles: group of analyses at a discounted price
+  `CREATE TABLE IF NOT EXISTS ProductBundle (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    originalPriceCents INTEGER,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ProductBundle_slug_idx ON ProductBundle(slug)`,
+
+  // Bundle items: which analyses are in each bundle
+  `CREATE TABLE IF NOT EXISTS ProductBundleItem (
+    id TEXT PRIMARY KEY,
+    bundleId TEXT NOT NULL,
+    analysisType TEXT NOT NULL,
+    FOREIGN KEY (bundleId) REFERENCES ProductBundle(id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS ProductBundleItem_bundleId_idx ON ProductBundleItem(bundleId)`,
+
+  // Promo codes for discounts and free access
+  `CREATE TABLE IF NOT EXISTS PromoCode (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    description TEXT,
+    type TEXT NOT NULL DEFAULT 'percent_off',
+    value INTEGER NOT NULL DEFAULT 0,
+    applicableType TEXT NOT NULL DEFAULT 'all',
+    applicableItems TEXT,
+    maxUses INTEGER,
+    useCount INTEGER NOT NULL DEFAULT 0,
+    validFrom DATETIME,
+    validUntil DATETIME,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS PromoCode_code_idx ON PromoCode(code)`,
+
+  // Granular device access: per-analysis-type grants
+  `CREATE TABLE IF NOT EXISTS DeviceAccess (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    analysisType TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'admin_grant',
+    sourceRef TEXT,
+    grantedBy TEXT NOT NULL DEFAULT 'admin',
+    reason TEXT,
+    expiresAt DATETIME,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS DeviceAccess_deviceId_idx ON DeviceAccess(deviceId)`,
+  `CREATE INDEX IF NOT EXISTS DeviceAccess_deviceId_type_idx ON DeviceAccess(deviceId, analysisType)`,
 ]
 
 let _libsql: Client | null = null
@@ -299,7 +370,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess']
   const missingTables: string[] = []
 
   for (const table of tablesToCheck) {
@@ -337,8 +408,51 @@ export function initDb(): Promise<void> {
     _dbInitPromise = Promise.resolve()
     return _dbInitPromise
   }
-  _dbInitPromise = ensureTablesExist(client)
+  _dbInitPromise = ensureTablesExist(client).then(() => seedDefaultData())
   return _dbInitPromise
+}
+
+// Seed default catalog and bundle data if tables are empty
+async function seedDefaultData(): Promise<void> {
+  try {
+    // Seed default premium catalog items if empty
+    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog')
+    if (catalogCount[0]?.cnt === 0) {
+      const defaults = [
+        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 1 },
+        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 699, originalPriceCents: 1299, sortOrder: 2 },
+        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 399, originalPriceCents: 799, sortOrder: 3 },
+      ]
+      for (const item of defaults) {
+        const id = randomUUID()
+        await rawExecute(
+          `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          [id, item.analysisType, item.name, item.description, item.priceCents, item.originalPriceCents, item.sortOrder]
+        )
+      }
+      console.log('[DB] Seeded default PremiumCatalog entries')
+    }
+
+    // Seed default bundle if empty
+    const bundleCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM ProductBundle')
+    if (bundleCount[0]?.cnt === 0) {
+      const bundleId = randomUUID()
+      await rawExecute(
+        `INSERT INTO ProductBundle (id, slug, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, 1)`,
+        [bundleId, 'all-premium-pack', 'All Premium Pack', 'Get all three premium analyses at a discounted price', 1199, 2097]
+      )
+      for (const type of ['swot_5year', 'cosmic_blueprint', 'shadow_integration']) {
+        const itemId = randomUUID()
+        await rawExecute(
+          `INSERT INTO ProductBundleItem (id, bundleId, analysisType) VALUES (?, ?, ?)`,
+          [itemId, bundleId, type]
+        )
+      }
+      console.log('[DB] Seeded default All Premium Bundle')
+    }
+  } catch (error) {
+    console.error('[DB] Seed default data error:', error instanceof Error ? error.message : 'unknown')
+  }
 }
 
 // Proxy that lazily creates the PrismaClient on first property access

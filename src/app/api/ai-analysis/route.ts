@@ -26,8 +26,8 @@ const OPENROUTER_MODELS = [
 type Provider = 'openrouter' | 'groq' | 'xai' | 'gemini' | 'z-ai-sdk'
 
 // ============ Paywall Config ============
-// Premium types require subscription in the future; standard types are free (one-time AI call, then cached)
-const PREMIUM_TYPES = new Set(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
+// Premium types are now determined by PremiumCatalog table instead of hardcoded set
+// The checkDeviceAccess function queries PremiumCatalog to determine if an analysisType is premium
 
 // ============ Rate Limit Config ============
 // Per-device limits for AI analysis requests
@@ -447,11 +447,60 @@ function getWhopUserId(request: NextRequest): string | null {
   }
 }
 
-// ============ Admin-Granted Access Helper ============
-// Returns { hasPremium: boolean, hasUnlimited: boolean } based on UserAccess table
-async function checkAdminGrantedAccess(deviceId: string): Promise<{ hasPremium: boolean; hasUnlimited: boolean }> {
+// ============ Device Access Helper (Granular) ============
+// Checks DeviceAccess table for specific analysisType, 'all_premium', and 'unlimited' grants
+// Falls back to UserAccess table for backward compatibility
+// Also checks PremiumCatalog to determine if an analysisType is premium
+async function checkDeviceAccess(deviceId: string, analysisType: string): Promise<{
+  isPremium: boolean
+  hasAccess: boolean
+  hasAllPremium: boolean
+  hasUnlimited: boolean
+}> {
   try {
-    const grants = await rawQuery<{
+    await initDb()
+
+    // 1. Check PremiumCatalog to determine if this analysisType is premium
+    const catalogEntry = await rawQuery<{ id: string; isActive: number }>(
+      `SELECT id, isActive FROM PremiumCatalog WHERE analysisType = ?`,
+      [analysisType]
+    )
+    const isPremium = catalogEntry.length > 0 && catalogEntry[0].isActive === 1
+
+    // If not premium, access is free
+    if (!isPremium) {
+      return { isPremium: false, hasAccess: true, hasAllPremium: false, hasUnlimited: false }
+    }
+
+    // 2. Check DeviceAccess table for this specific analysisType
+    const deviceAccessGrants = await rawQuery<{
+      analysisType: string
+      source: string
+      expiresAt: string | null
+    }>(
+      `SELECT analysisType, source, expiresAt FROM DeviceAccess WHERE deviceId = ?`,
+      [deviceId]
+    )
+
+    const now = new Date().toISOString()
+    const activeGrants = deviceAccessGrants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
+
+    // Check for specific type grant
+    const hasSpecificAccess = activeGrants.some(g => g.analysisType === analysisType)
+
+    // Check for 'all_premium' grant
+    const hasAllPremium = activeGrants.some(g => g.analysisType === 'all_premium')
+
+    // Check for 'unlimited' grant
+    const hasUnlimited = activeGrants.some(g => g.analysisType === 'unlimited')
+
+    // If DeviceAccess grants access, return immediately
+    if (hasSpecificAccess || hasAllPremium || hasUnlimited) {
+      return { isPremium: true, hasAccess: true, hasAllPremium, hasUnlimited }
+    }
+
+    // 3. Fall back to UserAccess table for backward compatibility
+    const legacyGrants = await rawQuery<{
       accessLevel: string
       expiresAt: string | null
     }>(
@@ -459,16 +508,20 @@ async function checkAdminGrantedAccess(deviceId: string): Promise<{ hasPremium: 
       [deviceId]
     )
 
-    const now = new Date().toISOString()
-    const activeGrants = grants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
+    const activeLegacyGrants = legacyGrants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
 
-    const hasUnlimited = activeGrants.some(g => g.accessLevel === 'unlimited')
-    const hasPremium = hasUnlimited || activeGrants.some(g => g.accessLevel === 'premium')
+    const legacyUnlimited = activeLegacyGrants.some(g => g.accessLevel === 'unlimited')
+    const legacyPremium = legacyUnlimited || activeLegacyGrants.some(g => g.accessLevel === 'premium')
 
-    return { hasPremium, hasUnlimited }
+    return {
+      isPremium: true,
+      hasAccess: legacyPremium,
+      hasAllPremium: legacyPremium,
+      hasUnlimited: legacyUnlimited,
+    }
   } catch {
     // If DB check fails, don't block access — degrade gracefully
-    return { hasPremium: false, hasUnlimited: false }
+    return { isPremium: false, hasAccess: true, hasAllPremium: false, hasUnlimited: false }
   }
 }
 
@@ -510,15 +563,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Paywall check ----
-    const isPremium = PREMIUM_TYPES.has(analysisType)
+    // Check granular device access (queries PremiumCatalog + DeviceAccess + UserAccess)
+    const deviceAccess = await checkDeviceAccess(deviceId, analysisType)
+    const isPremium = deviceAccess.isPremium
 
-    // Check access: Whop membership OR admin-granted access
-    const [whopHasAccess, adminAccess] = await Promise.all([
-      checkWhopAccess(request),
-      checkAdminGrantedAccess(deviceId),
-    ])
-    const hasPremiumAccess = whopHasAccess || adminAccess.hasPremium
-    const hasUnlimitedAccess = adminAccess.hasUnlimited
+    // Check Whop access as additional channel
+    const whopHasAccess = await checkWhopAccess(request)
+
+    const hasPremiumAccess = deviceAccess.hasAccess || whopHasAccess
+    const hasUnlimitedAccess = deviceAccess.hasUnlimited
 
     // If premium type and no access, return 403
     if (isPremium && !hasPremiumAccess) {

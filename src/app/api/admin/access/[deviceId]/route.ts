@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 import { initDb, rawQuery, rawExecute } from '@/lib/db'
 
-// GET /api/admin/access/[deviceId] — Check access for a specific device
+// GET /api/admin/access/[deviceId] — Check access for a specific device (both legacy and new)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ deviceId: string }> }
@@ -20,7 +20,8 @@ export async function GET(
 
     await initDb()
 
-    const grants = await rawQuery<{
+    // Legacy UserAccess grants
+    const legacyGrants = await rawQuery<{
       id: string
       deviceId: string
       accessLevel: string
@@ -33,31 +34,64 @@ export async function GET(
       [deviceId]
     )
 
+    // New DeviceAccess grants
+    const deviceAccessGrants = await rawQuery<{
+      id: string
+      deviceId: string
+      analysisType: string
+      source: string
+      sourceRef: string | null
+      grantedBy: string
+      reason: string | null
+      expiresAt: string | null
+      createdAt: string
+    }>(
+      `SELECT id, deviceId, analysisType, source, sourceRef, grantedBy, reason, expiresAt, createdAt FROM DeviceAccess WHERE deviceId = ? ORDER BY createdAt DESC`,
+      [deviceId]
+    )
+
     // Filter to active (non-expired) grants
     const now = new Date().toISOString()
-    const activeGrants = grants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
+    const activeLegacyGrants = legacyGrants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
+    const activeDeviceAccessGrants = deviceAccessGrants.filter(g => !g.expiresAt || new Date(g.expiresAt).toISOString() >= now)
 
-    // Determine effective access level
+    // Determine effective access level from legacy
     let effectiveAccess: 'none' | 'premium' | 'unlimited' = 'none'
-    for (const g of activeGrants) {
+    for (const g of activeLegacyGrants) {
       if (g.accessLevel === 'unlimited') {
         effectiveAccess = 'unlimited'
-        break // unlimited is the highest
+        break
       }
       if (g.accessLevel === 'premium' && effectiveAccess === 'none') {
         effectiveAccess = 'premium'
       }
     }
 
+    // Determine granular access from DeviceAccess
+    const grantedTypes = activeDeviceAccessGrants.map(g => g.analysisType)
+    const allPremiumAccess = grantedTypes.includes('all_premium')
+    const unlimitedAccess = grantedTypes.includes('unlimited')
+
     return NextResponse.json({
       deviceId,
-      hasAccess: effectiveAccess !== 'none',
+      hasAccess: effectiveAccess !== 'none' || activeDeviceAccessGrants.length > 0,
       accessLevel: effectiveAccess,
-      grants: grants.map(g => ({
+      grantedTypes,
+      allPremiumAccess,
+      unlimitedAccess,
+      legacyGrants: legacyGrants.map(g => ({
         ...g,
         isExpired: g.expiresAt ? new Date(g.expiresAt).toISOString() < now : false,
       })),
-      activeGrants: activeGrants.map(g => ({
+      activeLegacyGrants: activeLegacyGrants.map(g => ({
+        ...g,
+        isExpired: false,
+      })),
+      deviceAccessGrants: deviceAccessGrants.map(g => ({
+        ...g,
+        isExpired: g.expiresAt ? new Date(g.expiresAt).toISOString() < now : false,
+      })),
+      activeDeviceAccessGrants: activeDeviceAccessGrants.map(g => ({
         ...g,
         isExpired: false,
       })),
@@ -71,7 +105,7 @@ export async function GET(
   }
 }
 
-// DELETE /api/admin/access/[deviceId] — Revoke access for a device
+// DELETE /api/admin/access/[deviceId] — Revoke access for a device (both legacy and new)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ deviceId: string }> }
@@ -89,26 +123,35 @@ export async function DELETE(
 
     await initDb()
 
-    // Check if grant exists
-    const existing = await rawQuery<{ id: string }>(
+    // Check if any grants exist
+    const existingLegacy = await rawQuery<{ id: string }>(
       `SELECT id FROM UserAccess WHERE deviceId = ?`,
       [deviceId]
     )
+    const existingDeviceAccess = await rawQuery<{ id: string }>(
+      `SELECT id FROM DeviceAccess WHERE deviceId = ?`,
+      [deviceId]
+    )
 
-    if (existing.length === 0) {
-      return NextResponse.json({ detail: 'No access grant found for this device' }, { status: 404 })
+    if (existingLegacy.length === 0 && existingDeviceAccess.length === 0) {
+      return NextResponse.json({ detail: 'No access grants found for this device' }, { status: 404 })
     }
 
-    // Delete all grants for this device
-    const deleted = await rawExecute(
+    // Delete all grants for this device from both tables
+    const deletedLegacy = await rawExecute(
       `DELETE FROM UserAccess WHERE deviceId = ?`,
+      [deviceId]
+    )
+    const deletedDeviceAccess = await rawExecute(
+      `DELETE FROM DeviceAccess WHERE deviceId = ?`,
       [deviceId]
     )
 
     return NextResponse.json({
       message: 'Access revoked',
       deviceId,
-      grantsRemoved: deleted,
+      legacyGrantsRemoved: deletedLegacy,
+      deviceAccessGrantsRemoved: deletedDeviceAccess,
     })
   } catch (error) {
     console.error('[Admin Access] DELETE device error:', error)
