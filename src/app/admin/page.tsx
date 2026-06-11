@@ -90,7 +90,12 @@ export default function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/stats')
+      const res = await fetch('/api/admin/stats', { credentials: 'same-origin' })
+      if (res.status === 401) {
+        // Session expired, redirect to login
+        window.location.href = '/admin/login'
+        return
+      }
       if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`)
       const data = await res.json()
       setStats(data)
@@ -104,10 +109,12 @@ export default function AdminDashboard() {
   const fetchAccessGrants = async () => {
     setAccessLoading(true)
     try {
-      const res = await fetch('/api/admin/access')
+      const res = await fetch('/api/admin/access', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setAccessGrants(data.grants || [])
+      } else {
+        console.error('[Access Grants] Fetch failed:', res.status, await res.text().catch(() => ''))
       }
     } catch (err) {
       console.error('Failed to fetch access grants:', err)
@@ -132,6 +139,7 @@ export default function AdminDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'same-origin',
       })
 
       const data = await res.json()
@@ -142,7 +150,12 @@ export default function AdminDashboard() {
         setGrantExpiresAt('')
         fetchAccessGrants()
       } else {
-        setGrantMessage({ type: 'error', text: data.detail || 'Failed to grant access' })
+        console.error('[Grant Access] Failed:', res.status, data)
+        if (res.status === 401) {
+          setGrantMessage({ type: 'error', text: 'Session expired. Please refresh the page and log in again.' })
+        } else {
+          setGrantMessage({ type: 'error', text: data.detail || 'Failed to grant access' })
+        }
       }
     } catch (err) {
       setGrantMessage({ type: 'error', text: err instanceof Error ? err.message : 'Network error' })
@@ -154,7 +167,7 @@ export default function AdminDashboard() {
   const handleRevokeAccess = async (deviceId: string) => {
     if (!confirm(`Revoke access for device ${deviceId.substring(0, 8)}...?`)) return
     try {
-      const res = await fetch(`/api/admin/access/${encodeURIComponent(deviceId)}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/access/${encodeURIComponent(deviceId)}`, { method: 'DELETE', credentials: 'same-origin' })
       if (res.ok) {
         fetchAccessGrants()
       } else {

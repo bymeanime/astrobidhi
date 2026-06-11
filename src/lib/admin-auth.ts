@@ -103,16 +103,45 @@ export function getSessionDuration(): number {
 
 /**
  * Verify admin session from a Request object (for use in API routes and middleware)
+ * Tries NextRequest.cookies.get() first (most reliable), then falls back to manual header parsing
  */
 export async function verifyAdminRequest(request: Request): Promise<boolean> {
-  const cookieHeader = request.headers.get('cookie') || ''
-  const cookies = Object.fromEntries(
-    cookieHeader.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=')
-      return [k, v.join('=')]
-    })
-  )
-  const token = cookies[COOKIE_NAME]
-  if (!token) return false
-  return verifySessionToken(token)
+  let token: string | undefined
+
+  // Method 1: Use NextRequest.cookies if available (most reliable, matches proxy.ts behavior)
+  if ('cookies' in request && typeof (request as NextRequestLike).cookies?.get === 'function') {
+    token = (request as NextRequestLike).cookies.get(COOKIE_NAME)?.value
+  }
+
+  // Method 2: Manual cookie header parsing (fallback)
+  if (!token) {
+    const cookieHeader = request.headers.get('cookie') || ''
+    if (cookieHeader) {
+      const cookies = Object.fromEntries(
+        cookieHeader.split(';').map(c => {
+          const [k, ...v] = c.trim().split('=')
+          return [k.trim(), v.join('=')]
+        }).filter(([k]) => k) // skip empty keys
+      )
+      token = cookies[COOKIE_NAME]
+    }
+  }
+
+  if (!token) {
+    console.warn('[Admin Auth] No session token found in cookies')
+    return false
+  }
+
+  const isValid = await verifySessionToken(token)
+  if (!isValid) {
+    console.warn('[Admin Auth] Session token invalid or expired')
+  }
+  return isValid
+}
+
+// Type for NextRequest-like objects that have a cookies property
+type NextRequestLike = {
+  cookies: {
+    get(name: string): { value: string } | undefined
+  }
 }

@@ -16,7 +16,13 @@ export async function proxy(request: NextRequest) {
   // Protect /api/admin/* routes (except /api/admin/login and /api/admin/logout)
   if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/login' && pathname !== '/api/admin/logout') {
     const token = request.cookies.get(getCookieName())?.value
-    if (!token || !(await verifySessionToken(token))) {
+    if (!token) {
+      console.warn(`[Proxy] No admin session cookie for ${pathname}`)
+      return NextResponse.json({ detail: 'Unauthorized. Admin authentication required.' }, { status: 401 })
+    }
+    const isValid = await verifySessionToken(token)
+    if (!isValid) {
+      console.warn(`[Proxy] Invalid/expired admin session for ${pathname}`)
       return NextResponse.json({ detail: 'Unauthorized. Admin authentication required.' }, { status: 401 })
     }
   }
