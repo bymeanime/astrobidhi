@@ -54,8 +54,8 @@ interface BookingResult {
   message: string
 }
 
-// ============ Constants ============
-const READING_TIERS: ReadingTier[] = [
+// ============ Fallback Tiers (used while API loads or if fetch fails) ============
+const FALLBACK_TIERS: ReadingTier[] = [
   {
     id: 'basic',
     name: 'Basic Vedic Consultation',
@@ -493,9 +493,13 @@ function TierCard({
 function ReadingTiersSection({
   selectedTier,
   onSelectTier,
+  tiers,
+  loading,
 }: {
   selectedTier: string | null
   onSelectTier: (id: string) => void
+  tiers: ReadingTier[]
+  loading: boolean
 }) {
   return (
     <section id="tiers" className="py-16 md:py-20 bg-gradient-to-b from-temple-bg to-white">
@@ -507,16 +511,37 @@ function ReadingTiersSection({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-          {READING_TIERS.map((tier) => (
-            <TierCard
-              key={tier.id}
-              tier={tier}
-              selected={selectedTier === tier.id}
-              onSelect={() => onSelectTier(tier.id)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+            {[1,2,3,4].map(i => (
+              <Card key={i} className="h-80 animate-pulse border-saffron/20">
+                <CardHeader className="pb-2 pt-6">
+                  <div className="h-5 bg-saffron/20 rounded w-3/4 mx-auto mb-3" />
+                  <div className="h-8 bg-saffron/15 rounded w-1/2 mx-auto mb-1" />
+                  <div className="h-4 bg-saffron/10 rounded w-1/3 mx-auto" />
+                </CardHeader>
+                <CardContent className="pt-2 pb-6">
+                  <div className="space-y-2">
+                    {[1,2,3,4].map(j => (
+                      <div key={j} className="h-4 bg-saffron/10 rounded w-full" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+            {tiers.map((tier) => (
+              <TierCard
+                key={tier.id}
+                tier={tier}
+                selected={selectedTier === tier.id}
+                onSelect={() => onSelectTier(tier.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -530,6 +555,7 @@ function BookingFormSection({
   onToggleFocusArea,
   onSubmit,
   submitting,
+  tiers,
 }: {
   selectedTier: string | null
   form: BookingFormState
@@ -538,6 +564,7 @@ function BookingFormSection({
   onToggleFocusArea: (area: string) => void
   onSubmit: (e: React.FormEvent) => void
   submitting: boolean
+  tiers: ReadingTier[]
 }) {
   const popularCities = getPopularCities()
   const searchRef = useRef<HTMLDivElement>(null)
@@ -579,7 +606,7 @@ function BookingFormSection({
     setShowCityDropdown(false)
   }, [onFormChange])
 
-  const tier = READING_TIERS.find(t => t.id === selectedTier)
+  const tier = tiers.find(t => t.id === selectedTier)
 
   if (!selectedTier) {
     return (
@@ -1127,6 +1154,8 @@ export default function ReadingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null)
   const [focusAreas, setFocusAreas] = useState<string[]>([])
+  const [tiers, setTiers] = useState<ReadingTier[]>(FALLBACK_TIERS)
+  const [tiersLoading, setTiersLoading] = useState(true)
   const [form, setForm] = useState<BookingFormState>({
     customerName: '',
     customerEmail: '',
@@ -1141,6 +1170,27 @@ export default function ReadingPage() {
     focusAreas: [],
     preferredLanguage: 'english',
   })
+
+  // Fetch live tier prices from the database on mount
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/readings')
+        if (!res.ok) throw new Error('Failed to fetch tiers')
+        const data = await res.json()
+        if (mounted && data.tiers && data.tiers.length > 0) {
+          setTiers(data.tiers)
+        }
+      } catch (err) {
+        console.error('[ReadingPage] Failed to load tiers from API, using fallback:', err)
+        // Keep FALLBACK_TIERS already set in state
+      } finally {
+        if (mounted) setTiersLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
 
   const handleFormChange = useCallback((field: keyof BookingFormState, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -1239,7 +1289,7 @@ export default function ReadingPage() {
             <>
               <HeroSection />
               <HowItWorksSection />
-              <ReadingTiersSection selectedTier={selectedTier} onSelectTier={handleSelectTier} />
+              <ReadingTiersSection selectedTier={selectedTier} onSelectTier={handleSelectTier} tiers={tiers} loading={tiersLoading} />
               <BookingFormSection
                 selectedTier={selectedTier}
                 form={form}
@@ -1248,6 +1298,7 @@ export default function ReadingPage() {
                 onToggleFocusArea={handleToggleFocusArea}
                 onSubmit={handleSubmit}
                 submitting={submitting}
+                tiers={tiers}
               />
               <AstrologersSection />
               <TrustSection />

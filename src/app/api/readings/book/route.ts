@@ -11,13 +11,6 @@ function generateBookingRef(): string {
   return `RD-${year}-${ref}`
 }
 
-const TIER_PRICES: Record<string, number> = {
-  reading_basic: 2999,
-  reading_standard: 4999,
-  reading_premium: 7999,
-  reading_ultimate: 14999,
-}
-
 export async function POST(request: NextRequest) {
   try {
     await initDb()
@@ -26,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { tier, customerName, customerEmail, customerPhone, birthDate, birthTime, birthCity, birthLat, birthLng, birthUtc, questions, focusAreas, preferredLanguage, deviceId } = body
 
     // Validate required fields
-    if (!tier || !TIER_PRICES[tier]) {
+    if (!tier) {
       return NextResponse.json({ detail: 'Invalid reading tier selected' }, { status: 400 })
     }
     if (!customerName || !customerEmail) {
@@ -35,6 +28,22 @@ export async function POST(request: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
       return NextResponse.json({ detail: 'Please provide a valid email address' }, { status: 400 })
     }
+
+    // Look up price from PremiumCatalog (single source of truth)
+    const catalogEntry = await rawQuery<{ priceCents: number; isActive: number }>(
+      'SELECT priceCents, isActive FROM PremiumCatalog WHERE analysisType = ?',
+      [tier]
+    )
+
+    if (catalogEntry.length === 0 || !catalogEntry[0]) {
+      return NextResponse.json({ detail: `Invalid reading tier: '${tier}'. This tier does not exist in the catalog.` }, { status: 400 })
+    }
+
+    if (!catalogEntry[0].isActive) {
+      return NextResponse.json({ detail: `This reading tier is currently unavailable. Please select a different tier.` }, { status: 400 })
+    }
+
+    const priceCents = catalogEntry[0].priceCents
 
     const id = randomUUID()
     let bookingRef = generateBookingRef()
@@ -47,8 +56,6 @@ export async function POST(request: NextRequest) {
       bookingRef = generateBookingRef()
       attempts++
     }
-
-    const priceCents = TIER_PRICES[tier]
 
     await rawExecute(
       `INSERT INTO ReadingBooking (id, bookingRef, tier, customerName, customerEmail, customerPhone, birthDate, birthTime, birthCity, birthLat, birthLng, birthUtc, questions, focusAreas, preferredLanguage, status, priceCents, deviceId, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
