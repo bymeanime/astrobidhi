@@ -147,6 +147,7 @@ export default function AdminDashboard() {
   const [accessGrants, setAccessGrants] = useState<AccessGrant[]>([])
   const [deviceAccessGrants, setDeviceAccessGrants] = useState<DeviceAccessGrant[]>([])
   const [accessLoading, setAccessLoading] = useState(false)
+  const [accessError, setAccessError] = useState<string | null>(null)
   const [grantDialogOpen, setGrantDialogOpen] = useState(false)
   const [grantDeviceId, setGrantDeviceId] = useState('')
   const [grantMode, setGrantMode] = useState<'legacy' | 'granular'>('granular')
@@ -160,6 +161,7 @@ export default function AdminDashboard() {
   // ── Catalog state ──
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
   const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false)
   const [catalogEditItem, setCatalogEditItem] = useState<CatalogItem | null>(null)
   const [catalogForm, setCatalogForm] = useState({
@@ -170,6 +172,7 @@ export default function AdminDashboard() {
   // ── Bundles state ──
   const [bundles, setBundles] = useState<BundleItem[]>([])
   const [bundlesLoading, setBundlesLoading] = useState(false)
+  const [bundlesError, setBundlesError] = useState<string | null>(null)
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false)
   const [bundleEditItem, setBundleEditItem] = useState<BundleItem | null>(null)
   const [bundleForm, setBundleForm] = useState({
@@ -180,6 +183,7 @@ export default function AdminDashboard() {
   // ── Promo state ──
   const [promos, setPromos] = useState<PromoCode[]>([])
   const [promosLoading, setPromosLoading] = useState(false)
+  const [promosError, setPromosError] = useState<string | null>(null)
   const [promoDialogOpen, setPromoDialogOpen] = useState(false)
   const [promoEditItem, setPromoEditItem] = useState<PromoCode | null>(null)
   const [promoForm, setPromoForm] = useState({
@@ -220,14 +224,21 @@ export default function AdminDashboard() {
 
   const fetchAccessGrants = useCallback(async () => {
     setAccessLoading(true)
+    setAccessError(null)
     try {
       const res = await fetch('/api/admin/access', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setAccessGrants(data.grants || [])
         setDeviceAccessGrants(data.deviceAccessGrants || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setAccessError(data.detail || `Failed to fetch access grants (${res.status})`)
+        if (res.status === 401) setAccessError('Session expired. Please refresh the page.')
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error'
+      setAccessError(msg)
       console.error('Failed to fetch access grants:', err)
     } finally {
       setAccessLoading(false)
@@ -236,13 +247,20 @@ export default function AdminDashboard() {
 
   const fetchCatalog = useCallback(async () => {
     setCatalogLoading(true)
+    setCatalogError(null)
     try {
       const res = await fetch('/api/admin/catalog', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setCatalogItems(data.items || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setCatalogError(data.detail || `Failed to fetch catalog (${res.status})`)
+        if (res.status === 401) setCatalogError('Session expired. Please refresh the page.')
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error'
+      setCatalogError(msg)
       console.error('Failed to fetch catalog:', err)
     } finally {
       setCatalogLoading(false)
@@ -251,13 +269,20 @@ export default function AdminDashboard() {
 
   const fetchBundles = useCallback(async () => {
     setBundlesLoading(true)
+    setBundlesError(null)
     try {
       const res = await fetch('/api/admin/bundles', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setBundles(data.bundles || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setBundlesError(data.detail || `Failed to fetch bundles (${res.status})`)
+        if (res.status === 401) setBundlesError('Session expired. Please refresh the page.')
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error'
+      setBundlesError(msg)
       console.error('Failed to fetch bundles:', err)
     } finally {
       setBundlesLoading(false)
@@ -266,13 +291,20 @@ export default function AdminDashboard() {
 
   const fetchPromos = useCallback(async () => {
     setPromosLoading(true)
+    setPromosError(null)
     try {
       const res = await fetch('/api/admin/promos', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setPromos(data.promos || [])
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setPromosError(data.detail || `Failed to fetch promo codes (${res.status})`)
+        if (res.status === 401) setPromosError('Session expired. Please refresh the page.')
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error'
+      setPromosError(msg)
       console.error('Failed to fetch promos:', err)
     } finally {
       setPromosLoading(false)
@@ -1008,6 +1040,20 @@ export default function AdminDashboard() {
 
           {/* ═══════════ CATALOG TAB ═══════════ */}
           <TabsContent value="catalog">
+            {catalogError && (
+              <Card className="border-red-200 bg-red-50 mb-4">
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Failed to load catalog</p>
+                    <p className="text-xs text-red-600">{catalogError}</p>
+                  </div>
+                  <Button onClick={fetchCatalog} size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${catalogLoading ? 'animate-spin' : ''}`} /> Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card className="border-saffron/20">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1100,6 +1146,20 @@ export default function AdminDashboard() {
 
           {/* ═══════════ BUNDLES TAB ═══════════ */}
           <TabsContent value="bundles">
+            {bundlesError && (
+              <Card className="border-red-200 bg-red-50 mb-4">
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Failed to load bundles</p>
+                    <p className="text-xs text-red-600">{bundlesError}</p>
+                  </div>
+                  <Button onClick={fetchBundles} size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${bundlesLoading ? 'animate-spin' : ''}`} /> Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-maroon flex items-center gap-2"><Gift className="w-5 h-5" /> Product Bundles</h2>
@@ -1191,6 +1251,20 @@ export default function AdminDashboard() {
 
           {/* ═══════════ PROMOS TAB ═══════════ */}
           <TabsContent value="promos">
+            {promosError && (
+              <Card className="border-red-200 bg-red-50 mb-4">
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Failed to load promo codes</p>
+                    <p className="text-xs text-red-600">{promosError}</p>
+                  </div>
+                  <Button onClick={fetchPromos} size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${promosLoading ? 'animate-spin' : ''}`} /> Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card className="border-saffron/20">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1314,6 +1388,20 @@ export default function AdminDashboard() {
 
           {/* ═══════════ ACCESS TAB ═══════════ */}
           <TabsContent value="access">
+            {accessError && (
+              <Card className="border-red-200 bg-red-50 mb-4">
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Failed to load access grants</p>
+                    <p className="text-xs text-red-600">{accessError}</p>
+                  </div>
+                  <Button onClick={fetchAccessGrants} size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${accessLoading ? 'animate-spin' : ''}`} /> Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <div className="space-y-6">
               {/* How to Find Device ID */}
               <Card className="border-blue-200 bg-blue-50/30">

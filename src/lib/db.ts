@@ -212,7 +212,8 @@ export async function rawQuery<T = Record<string, unknown>>(sql: string, args: u
     console.warn('[DB] rawQuery skipped — no database configured')
     return []
   }
-  await initDb()
+  // Only wait for init if tables haven't been set up yet (avoids deadlock when called from seedDefaultData)
+  if (!_dbReady) await initDb()
   const result = await client.execute({ sql, args })
   return result.rows as unknown as T[]
 }
@@ -225,7 +226,7 @@ export async function rawExecute(sql: string, args: unknown[] = []): Promise<num
     console.error('[DB] rawExecute SKIPPED — no libsql client available. SQL:', sql.substring(0, 100))
     return 0
   }
-  await initDb()
+  if (!_dbReady) await initDb()
   try {
     const result = await client.execute({ sql, args })
     if (result.rowsAffected === 0 && sql.trim().toUpperCase().startsWith('INSERT')) {
@@ -373,11 +374,24 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess']
   const missingTables: string[] = []
 
-  for (const table of tablesToCheck) {
-    try {
-      await prisma.$queryRawUnsafe(`SELECT 1 FROM ${table} LIMIT 1`)
-    } catch {
-      missingTables.push(table)
+  // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
+  const client = getLibsqlClient()
+  if (client) {
+    for (const table of tablesToCheck) {
+      try {
+        await client.execute(`SELECT 1 FROM ${table} LIMIT 1`)
+      } catch {
+        missingTables.push(table)
+      }
+    }
+  } else {
+    // Fallback to Prisma if libsql client isn't available
+    for (const table of tablesToCheck) {
+      try {
+        await prisma.$queryRawUnsafe(`SELECT 1 FROM ${table} LIMIT 1`)
+      } catch {
+        missingTables.push(table)
+      }
     }
   }
 
@@ -389,14 +403,54 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
 
   console.log(`[DB] Creating missing tables: ${missingTables.join(', ')}`)
 
-  try {
-    for (const sql of CREATE_TABLES_SQL) {
-      await prisma.$executeRawUnsafe(sql)
+  // Try creating tables using the libsql client first (more reliable for DDL)
+  let createdWithLibsql = false
+  if (client) {
+    try {
+      for (const sql of CREATE_TABLES_SQL) {
+        await client.execute(sql)
+      }
+      _dbReady = true
+      createdWithLibsql = true
+      console.log('[DB] All tables created successfully via libsql client — database is ready')
+    } catch (error) {
+      console.error('[DB] Failed to create tables via libsql client:', error instanceof Error ? error.message : error)
     }
-    _dbReady = true
-    console.log('[DB] All tables created successfully — database is ready')
-  } catch (error) {
-    console.error('[DB] Failed to create tables:', error instanceof Error ? error.message : error)
+  }
+
+  // Fallback: try Prisma if libsql client failed
+  if (!createdWithLibsql) {
+    try {
+      for (const sql of CREATE_TABLES_SQL) {
+        await prisma.$executeRawUnsafe(sql)
+      }
+      _dbReady = true
+      console.log('[DB] All tables created successfully via Prisma — database is ready')
+    } catch (error) {
+      console.error('[DB] Failed to create tables via Prisma:', error instanceof Error ? error.message : error)
+      // Try one more time: create only the missing tables using individual statements
+      try {
+        for (const sql of CREATE_TABLES_SQL) {
+          try {
+            if (client) {
+              await client.execute(sql)
+            } else {
+              await prisma.$executeRawUnsafe(sql)
+            }
+          } catch (singleError) {
+            // Individual statement might fail if table already exists, which is OK
+            const msg = singleError instanceof Error ? singleError.message : String(singleError)
+            if (!msg.toLowerCase().includes('already exists')) {
+              console.warn('[DB] Individual CREATE statement warning:', msg.substring(0, 100))
+            }
+          }
+        }
+        _dbReady = true
+        console.log('[DB] Tables created (with some individual statement warnings) — database is ready')
+      } catch (finalError) {
+        console.error('[DB] All table creation methods failed:', finalError instanceof Error ? finalError.message : finalError)
+      }
+    }
   }
 }
 
@@ -408,7 +462,13 @@ export function initDb(): Promise<void> {
     _dbInitPromise = Promise.resolve()
     return _dbInitPromise
   }
-  _dbInitPromise = ensureTablesExist(client).then(() => seedDefaultData())
+  _dbInitPromise = ensureTablesExist(client)
+    .then(() => seedDefaultData())
+    .catch((error) => {
+      // If init fails, clear the cached promise so it can be retried
+      console.error('[DB] initDb failed, clearing cache for retry:', error instanceof Error ? error.message : error)
+      _dbInitPromise = null
+    })
   return _dbInitPromise
 }
 

@@ -107,34 +107,60 @@ export function getSessionDuration(): number {
  */
 export async function verifyAdminRequest(request: Request): Promise<boolean> {
   let token: string | undefined
+  let method = 'none'
 
   // Method 1: Use NextRequest.cookies if available (most reliable, matches proxy.ts behavior)
-  if ('cookies' in request && typeof (request as NextRequestLike).cookies?.get === 'function') {
-    token = (request as NextRequestLike).cookies.get(COOKIE_NAME)?.value
+  try {
+    if ('cookies' in request && typeof (request as NextRequestLike).cookies?.get === 'function') {
+      const cookieVal = (request as NextRequestLike).cookies.get(COOKIE_NAME)?.value
+      if (cookieVal) {
+        token = cookieVal
+        method = 'cookies.get'
+      }
+    }
+  } catch (e) {
+    console.warn('[Admin Auth] Method 1 (cookies.get) failed:', e instanceof Error ? e.message : e)
   }
 
   // Method 2: Manual cookie header parsing (fallback)
   if (!token) {
     const cookieHeader = request.headers.get('cookie') || ''
     if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map(c => {
-          const [k, ...v] = c.trim().split('=')
-          return [k.trim(), v.join('=')]
-        }).filter(([k]) => k) // skip empty keys
-      )
-      token = cookies[COOKIE_NAME]
+      try {
+        const cookies = Object.fromEntries(
+          cookieHeader.split(';').map(c => {
+            const eqIdx = c.indexOf('=')
+            if (eqIdx === -1) return ['', '']
+            const k = c.substring(0, eqIdx).trim()
+            const v = c.substring(eqIdx + 1).trim()
+            return [k, v]
+          }).filter(([k]) => k)
+        )
+        const rawToken = cookies[COOKIE_NAME]
+        if (rawToken) {
+          // URL-decode the cookie value (browsers may encode colons as %3A)
+          token = decodeURIComponent(rawToken)
+          method = 'manual_header'
+        }
+      } catch (e) {
+        console.warn('[Admin Auth] Method 2 (manual header) failed:', e instanceof Error ? e.message : e)
+      }
     }
   }
 
   if (!token) {
-    console.warn('[Admin Auth] No session token found in cookies')
+    const cookieHeader = request.headers.get('cookie') || ''
+    const hasCookieHeader = cookieHeader.length > 0
+    const hasAdminCookie = cookieHeader.includes(COOKIE_NAME)
+    console.warn(`[Admin Auth] No session token found. cookieHeader present: ${hasCookieHeader}, admin_session in header: ${hasAdminCookie}`)
     return false
   }
 
   const isValid = await verifySessionToken(token)
   if (!isValid) {
-    console.warn('[Admin Auth] Session token invalid or expired')
+    console.warn(`[Admin Auth] Session token invalid or expired (method: ${method}, token length: ${token.length})`)
+  } else {
+    console.log(`[Admin Auth] Token verified successfully via ${method}`)
   }
   return isValid
 }

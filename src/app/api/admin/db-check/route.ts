@@ -93,6 +93,12 @@ export async function GET(request: NextRequest) {
     'SharedChart',
     'UserAccount',
     'UserAnalysis',
+    'UserAccess',
+    'PremiumCatalog',
+    'ProductBundle',
+    'ProductBundleItem',
+    'PromoCode',
+    'DeviceAccess',
   ]
 
   const tableResults: Record<string, { exists: boolean; rowCount: number }> = {}
