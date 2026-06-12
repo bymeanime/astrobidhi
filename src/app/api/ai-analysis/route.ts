@@ -571,7 +571,7 @@ export async function POST(request: NextRequest) {
     const whopHasAccess = await checkWhopAccess(request)
 
     const hasPremiumAccess = deviceAccess.hasAccess || whopHasAccess
-    const hasUnlimitedAccess = deviceAccess.hasUnlimited
+    const hasUnlimitedAccess = deviceAccess.hasUnlimited || (whopHasAccess && deviceAccess.hasAllPremium)
 
     // If premium type and no access, return 403
     if (isPremium && !hasPremiumAccess) {
@@ -585,10 +585,10 @@ export async function POST(request: NextRequest) {
     // ---- Rate limit check ----
     // Count unique charts this device has read (non-cached)
     // Count analysis types used per chart for this device
-    // Users with admin-granted 'unlimited' access bypass rate limits
+    // Users with any premium/unlimited access bypass rate limits entirely
     const cacheKey = makeCacheKey(analysisType, chartData)
 
-    if (!hasUnlimitedAccess) {
+    if (!hasPremiumAccess) {
       try {
         await initDb()
 
