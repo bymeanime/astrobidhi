@@ -529,12 +529,25 @@ export function initDb(): Promise<void> {
 async function seedDefaultData(): Promise<void> {
   try {
     // Seed default premium catalog items if empty
-    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog')
+    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog WHERE analysisType NOT LIKE \'reading_%\'')
     if (catalogCount[0]?.cnt === 0) {
       const defaults = [
-        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 1 },
-        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 699, originalPriceCents: 1299, sortOrder: 2 },
-        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 399, originalPriceCents: 799, sortOrder: 3 },
+        // Pro tier ($5 each)
+        { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications', priceCents: 500, originalPriceCents: 999, sortOrder: 1 },
+        { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming planetary periods with timeline predictions', priceCents: 500, originalPriceCents: 999, sortOrder: 2 },
+        { analysisType: 'vedic_master', name: 'Vedic Master Reading', description: 'Strict Vedic Jyotishi master reading with Parashara/Jaimini/KP systems, divisional charts, yogas, ashtakavarga, and karmic verdict', priceCents: 500, originalPriceCents: 999, sortOrder: 3 },
+        { analysisType: 'trik_bhava', name: 'Trik Bhava Analysis', description: 'Deep 6th/8th/12th house analysis with karmic-psychological insight, relationship and career snapshots, and future trajectory', priceCents: 500, originalPriceCents: 999, sortOrder: 4 },
+        { analysisType: 'forecast_12month', name: '12-Month Forecast', description: '12-month deep forecast covering career shifts, money patterns, emotional cycles, key turning points, love life, and financial outlook', priceCents: 500, originalPriceCents: 999, sortOrder: 5 },
+        // Advanced tier ($9 each)
+        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 900, originalPriceCents: 1499, sortOrder: 6 },
+        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 500, originalPriceCents: 999, sortOrder: 7 },
+        { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 900, originalPriceCents: 1499, sortOrder: 8 },
+        { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 900, originalPriceCents: 1499, sortOrder: 9 },
+        { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 900, originalPriceCents: 1499, sortOrder: 10 },
+        { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 900, originalPriceCents: 1499, sortOrder: 11 },
+        { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 12 },
+        { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 13 },
+        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 14 },
       ]
       for (const item of defaults) {
         const id = randomUUID()

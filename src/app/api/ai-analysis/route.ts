@@ -242,6 +242,52 @@ Horary Number: {horaryNumber}
 
 {chartData}`,
 
+  vedic_master: `Strict Vedic Jyotishi Master Reading (Parashara/Jaimini/KP system — state which you use):
+1. Verification: Confirm Lagna degree, verify chart data integrity
+2. Lagna Deep Analysis: Ascendant lord, strength, aspects, Arudha Lagna
+3. Planetary Summary: Each graha — sign, house, dignity, aspects, retrograde effects
+4. Divisional Charts: D9 (Navamsha), D10 (Dashamsha), D12 (Dwadamsha) key findings
+5. Yogas: Identify ALL yogas (Raj, Dhana, Daridra, Kemadruma, etc.) with activation status
+6. Ashtakavarga: Total & Bhinna scores for key houses
+7. Dasa Effects: Current + next 2 Maha periods, event timing
+8. Blunt Strengths & Weaknesses: No sugar-coating
+9. Karmic Verdict: This life's core lesson and path
+
+Use ONLY sidereal Lahiri ayanamsa. NO Western astrology references.
+
+{chartData}`,
+
+  trik_bhava: `Trik Bhava Deep Analysis (6th/8th/12th houses — Dusthana):
+1. Dominant Trik Energy: Which house dominates, ruling planet's influence on psyche
+2. 6th House: Enemies, debts, diseases, service — karmic lessons in struggle
+3. 8th House: Transformation, hidden wealth, chronic issues, sudden events, longevity indicators
+4. 12th House: Losses, moksha potential, foreign connections, sleep, subconscious patterns
+5. Karmic-Psychological Insight: How Trik houses shape your inner world
+6. Relationship Snapshots (4-5): Honest love judgments based on Trik influences
+7. Career Snapshots (4-5): Where struggle transforms into strength
+8. Future Love/Marriage Trajectory: When and how Trik energy shifts in relationships
+9. Future Career Trajectory: Turning struggles into power
+10. Trik Closing: Transform your Dusthana into your greatest gift
+
+{chartData}`,
+
+  forecast_12month: `12-Month Deep Forecast:
+1. Current Transits: Major planetary transits affecting your chart NOW
+2. Career Shifts: Job changes, promotions, business opportunities in next 12 months
+3. Money Patterns: Income trends, investment windows, expense periods
+4. Emotional Cycles: Mental health periods, stress windows, joy periods
+5. Hidden Opportunities: What's brewing beneath the surface
+6. Key Turning Points: Exact months where life pivots
+7. Love Life: Relationship developments, marriage windows, singles' prospects
+8. Financial Outlook: Month-by-month wealth guidance
+9. Practical Action Items: What to DO each quarter
+
+Be specific with months and dates. Reference Dasa periods and transits.
+
+Current Date: {currentDate}
+
+{chartData}`,
+
   swot_5year: `5-Year Career & Wealth Forecast (primary focus):
 1. Chart foundation: Lagna, Moon/Sun signs, career/wealth planet positions, current Dasa
 2. Year-by-year career predictions: growth, changes, breakthroughs, suitable industries
@@ -270,6 +316,92 @@ Current Date: {currentDate}
 4. Tragic Sublimation: destructive potential → sublimation pathway → career suggestions → daily practices
 5. Deficiency Map: weak vs strong houses, energy drainage pathways
 6. Integration Protocol: top 3 shadows to address, warning periods, remedies, psychological practices
+
+Current Date: {currentDate}
+
+{chartData}`,
+
+  life_decoder: `Life Decoder (Numerology + Chart Deep Dive):
+Using birth date for numerology:
+1. Life Path Number: Core purpose and destiny
+2. Destiny Number: What you're meant to become
+3. Soul Urge Number: Inner motivations and desires
+Combined with chart analysis:
+4. Personality Traits: Confirmed and hidden from chart
+5. Hidden Strengths: Talents you don't fully use yet
+6. Blindspot Weaknesses: Patterns that sabotage you
+7. Destiny Blueprint: The intersection of numbers and planets
+8. Single Biggest Life Purpose: One sentence that defines your mission
+
+{chartData}`,
+
+  career_destiny: `Career Destiny Finder:
+1. Natural Talents: What you were born to do (chart-based)
+2. Decision-Making Style: How you process choices (Mercury/Moon analysis)
+3. Top 3 Career/Business Paths: Where extraordinary success is destined — be specific with industries and roles
+4. 1 Field to Avoid: Where you'll struggle no matter how hard you try
+5. Authority vs Independence: Does your success come through hierarchy or autonomy?
+6. Growth Pattern: Linear, exponential, or cyclical — and what it means
+7. Timing: When career breakthroughs are most likely (Dasa-based)
+8. Action Plan: 3 immediate steps toward your destined career
+
+{chartData}`,
+
+  relationship_destiny: `Deep Relationship Destiny Analysis:
+1. Compatible Partner Types: Specific personality traits your chart attracts
+2. Love Lessons: What each relationship teaches you (5th/7th/9th house analysis)
+3. Hidden Compatibility Patterns: What you truly need vs what you think you want
+4. Red Flags You Overlook: Patterns you repeatedly miss in partners
+5. Exact Traits of Growth Partner: The partner who accelerates your evolution
+6. Trust Patterns: How you give and receive trust (Venus/Moon analysis)
+7. Intimacy Blocks: What prevents deep connection
+8. Emotional Withdrawal Patterns: When and why you pull away
+9. Marriage Timeline: Dasa-based windows for commitment
+10. Relationship Remedy: One practice to transform your love life
+
+{chartData}`,
+
+  soul_purpose: `Soul Purpose & Life Mission:
+1. Core Mission: Why your soul chose this lifetime (9th/12th house + Atmakaraka)
+2. Lessons to Learn: Karmic debts and growth edges
+3. Contribution to Make: What you're here to give humanity
+4. Dharma vs Karma: Your righteous path vs karmic baggage
+5. Soul Contracts: Key people and situations pre-arranged
+6. Actionable Daily Alignment Steps: 5 things to do every day
+7. How to Start Living on Purpose Today: Immediate action plan
+8. Signs You're On Track: Indicators of alignment
+9. Signs You're Off Track: Warning signals from the universe
+
+{chartData}`,
+
+  wealth_code: `Wealth & Abundance Code:
+1. Money Personality: Spender/saver/investor based on chart
+2. Mental Blocks Limiting Income: Subconscious patterns from planetary positions
+3. Exact Wealth Attraction Strategy: Personalized for your chart (not generic advice)
+4. Natural Financial Talents: What makes money come easily to you
+5. Mistakes Blocking Growth: Financial self-sabotage patterns
+6. Wealth-Building Strategy: Fits your true nature — not someone else's
+7. 2nd/11th House Deep Dive: Income sources and gain channels
+8. Dhana Yogas: Activation timing and how to maximize
+9. Dasa-Based Wealth Windows: When to invest, save, and spend
+10. Money Mantra: One guiding principle for your financial life
+
+{chartData}`,
+
+  future_timeline: `Future Timeline & 5-Year Roadmap:
+1. Key Turning Points: Past events that shaped you (confirm chart accuracy)
+2. Current Phase: Where you are RIGHT NOW in your life cycle
+3. Next 5 Years — Year by Year:
+   - Year 1: Foundation/shift period
+   - Year 2: Growth/expansion
+   - Year 3: Breakthrough/crossroads
+   - Year 4: Consolidation/mastery
+   - Year 5: Harvest/new beginning
+4. Transformation Phases: When identity shifts occur
+5. Ideal 5-Year Route: Best-case path aligned with your chart
+6. Age-Based Life Stage Analysis: What this decade is fundamentally about
+7. Unconscious Strengths Being Developed: Skills growing beneath awareness
+8. Opportunities Uniquely Positioned For: Advantages only YOU have right now
 
 Current Date: {currentDate}
 

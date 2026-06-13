@@ -93,7 +93,27 @@ interface HoroscopeData {
 
 type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspects' | 'transit' | 'ai-analysis' | 'my-analyses'
 
-type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'swot_5year' | 'cosmic_blueprint' | 'shadow_integration'
+// ============ Saved Chart Interface ============
+interface SavedChart {
+  id: string
+  name: string
+  birthYear: number
+  birthMonth: number
+  birthDay: number
+  birthHour: number
+  birthMinute: number
+  birthCity: string
+  birthLat: number
+  birthLng: number
+  birthUtc: string
+  ayanamsa: string
+  houseSystem: string
+  savedAt: string
+}
+
+const SAVED_CHARTS_KEY = 'astrobidhi_saved_charts'
+
+type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'vedic_master' | 'trik_bhava' | 'forecast_12month' | 'cosmic_blueprint' | 'shadow_integration' | 'life_decoder' | 'career_destiny' | 'relationship_destiny' | 'soul_purpose' | 'wealth_code' | 'future_timeline' | 'swot_5year'
 
 // ============ Static Meanings Types ============
 interface SignHouseMeaning {
@@ -152,7 +172,7 @@ interface StaticMeanings {
   key_aspects: KeyAspectMeaning[]
 }
 
-const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['swot_5year', 'cosmic_blueprint', 'shadow_integration'])
+const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year'])
 
 // ============ Catalog Context ============
 interface CatalogItem {
@@ -218,30 +238,64 @@ function useAdminAccess() {
 // Fallback descriptions used when catalog hasn't loaded yet
 // These MUST match the descriptions in the PremiumCatalog database / admin panel
 const FALLBACK_PREMIUM_DESCRIPTIONS: Record<string, string> = {
+  spiritual: 'Dharma, spiritual path, past life karma, and moksha indications',
+  dasa: 'Current and upcoming planetary periods with timeline predictions',
+  vedic_master: 'Strict Vedic Jyotishi master reading with Parashara/Jaimini/KP systems, divisional charts, yogas, ashtakavarga, and karmic verdict',
+  trik_bhava: 'Deep 6th/8th/12th house analysis with karmic-psychological insight, relationship and career snapshots, and future trajectory',
+  forecast_12month: '12-month deep forecast covering career shifts, money patterns, emotional cycles, key turning points, love life, and financial outlook',
   swot_5year: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies',
   cosmic_blueprint: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations',
   shadow_integration: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol',
+  life_decoder: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose',
+  career_destiny: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan',
+  relationship_destiny: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline',
+  soul_purpose: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators',
+  wealth_code: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows',
+  future_timeline: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis',
 }
 
 // Fallback prices used when catalog API is unavailable
 // These MUST match the PremiumCatalog database seed values (in cents)
 const FALLBACK_PREMIUM_PRICES: Record<string, { priceCents: number; originalPriceCents: number | null }> = {
+  spiritual: { priceCents: 500, originalPriceCents: 999 },
+  dasa: { priceCents: 500, originalPriceCents: 999 },
+  vedic_master: { priceCents: 500, originalPriceCents: 999 },
+  trik_bhava: { priceCents: 500, originalPriceCents: 999 },
+  forecast_12month: { priceCents: 500, originalPriceCents: 999 },
+  cosmic_blueprint: { priceCents: 900, originalPriceCents: 1499 },
+  shadow_integration: { priceCents: 500, originalPriceCents: 999 },
+  life_decoder: { priceCents: 900, originalPriceCents: 1499 },
+  career_destiny: { priceCents: 900, originalPriceCents: 1499 },
+  relationship_destiny: { priceCents: 900, originalPriceCents: 1499 },
+  soul_purpose: { priceCents: 900, originalPriceCents: 1499 },
+  wealth_code: { priceCents: 900, originalPriceCents: 1499 },
+  future_timeline: { priceCents: 900, originalPriceCents: 1499 },
   swot_5year: { priceCents: 499, originalPriceCents: 999 },
-  cosmic_blueprint: { priceCents: 699, originalPriceCents: 1299 },
-  shadow_integration: { priceCents: 399, originalPriceCents: 799 },
 }
 
 const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean; priceCents: number; originalPriceCents: number | null }[] = [
+  // Standard (Free)
   { id: 'overall', label: 'Overall Reading', icon: <Star className="w-5 h-5" />, desc: 'Complete birth chart interpretation covering personality, strengths, and life purpose', color: '#D4A843', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'career', label: 'Career & Profession', icon: <Briefcase className="w-5 h-5" />, desc: 'Professional path, suitable fields, career growth periods, and financial prospects', color: '#C9721A', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
-  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: 'Dharma, spiritual path, past life karma, and moksha indications', color: '#6B1D1D', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
-  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: 'Current and upcoming planetary periods with timeline predictions', color: '#34495E', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
-  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.swot_5year, color: '#1a5276', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.swot_5year.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.swot_5year.originalPriceCents },
+  // Pro ($5 each)
+  { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.spiritual, color: '#6B1D1D', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.spiritual.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.spiritual.originalPriceCents },
+  { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.dasa, color: '#34495E', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.dasa.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.dasa.originalPriceCents },
+  { id: 'vedic_master', label: 'Vedic Master Reading', icon: <Crown className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.vedic_master, color: '#8B6914', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.vedic_master.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.vedic_master.originalPriceCents },
+  { id: 'trik_bhava', label: 'Trik Bhava Analysis', icon: <Shield className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.trik_bhava, color: '#5B2C6F', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.trik_bhava.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.trik_bhava.originalPriceCents },
+  { id: 'forecast_12month', label: '12-Month Forecast', icon: <Orbit className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.forecast_12month, color: '#1a5276', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.forecast_12month.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.forecast_12month.originalPriceCents },
+  // Advanced ($9+)
   { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.cosmic_blueprint, color: '#0f0c29', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.originalPriceCents },
   { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.shadow_integration, color: '#180202', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.originalPriceCents },
+  { id: 'life_decoder', label: 'Life Decoder', icon: <Brain className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.life_decoder, color: '#2E4053', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.life_decoder.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.life_decoder.originalPriceCents },
+  { id: 'career_destiny', label: 'Career Destiny', icon: <Briefcase className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.career_destiny, color: '#7D6608', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.career_destiny.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.career_destiny.originalPriceCents },
+  { id: 'relationship_destiny', label: 'Relationship Destiny', icon: <Heart className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.relationship_destiny, color: '#78281F', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.relationship_destiny.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.relationship_destiny.originalPriceCents },
+  { id: 'soul_purpose', label: 'Soul Purpose', icon: <Flower2 className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.soul_purpose, color: '#1B4F72', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.soul_purpose.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.soul_purpose.originalPriceCents },
+  { id: 'wealth_code', label: 'Wealth Code', icon: <DollarSign className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.wealth_code, color: '#7D6608', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.wealth_code.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.wealth_code.originalPriceCents },
+  { id: 'future_timeline', label: 'Future Timeline', icon: <Orbit className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.future_timeline, color: '#4A235A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.future_timeline.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.future_timeline.originalPriceCents },
+  { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.swot_5year, color: '#1a5276', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.swot_5year.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.swot_5year.originalPriceCents },
 ]
 
 // ============ Constants ============
@@ -357,6 +411,25 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
             >
               <BookOpen className="w-4 h-4" /> Book a Reading
             </a>
+            {/* Social Contact Buttons */}
+            <a
+              href="https://wa.me/977979735537"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm bg-[#25D366] text-white hover:bg-[#25D366]/90 transition-all ml-1"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61590513489073"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm bg-[#1877F2] text-white hover:bg-[#1877F2]/90 transition-all"
+              title="Follow on Facebook"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
             {/* Whop Auth Button */}
             {whopAuth.configured && (
               whopAuth.authenticated ? (
@@ -468,6 +541,24 @@ function VedicFooter() {
           </div>
           <p className="text-xs text-center">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI Analysis</p>
           <div className="flex items-center gap-3">
+            {/* WhatsApp */}
+            <a
+              href="https://wa.me/977979735537"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </a>
+            {/* Facebook */}
+            <a
+              href="https://www.facebook.com/profile.php?id=61590513489073"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <Facebook className="w-3.5 h-3.5" /> Facebook
+            </a>
             {/* Buy Me a Coffee Button */}
             <a
               href={`https://buymeacoffee.com/${bmcSlug}`}
@@ -535,10 +626,12 @@ function SouthIndianChart({ rasiPlanets, houseChart }: {
 }
 
 // ============ Birth Chart Form ============
-function BirthChartForm({ onSubmit, loading }: {
+function BirthChartForm({ onSubmit, loading, onSaveChart }: {
   onSubmit: (data: Record<string, unknown>) => void
   loading: boolean
+  onSaveChart?: (chart: SavedChart) => void
 }) {
+  const { toast } = useToast()
   const popularCities = getPopularCities()
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -554,10 +647,12 @@ function BirthChartForm({ onSubmit, loading }: {
   const [manualLat, setManualLat] = useState(0)
   const [manualLng, setManualLng] = useState(0)
   const [manualUtc, setManualUtc] = useState('+05:30')
-  const [ayanamsa, setAyanamsa] = useState('Lahiri')
+  const [ayanamsa, setAyanamsa] = useState('Krishnamurti')
   const [houseSystem, setHouseSystem] = useState('Whole Sign')
   const [overrideUtc, setOverrideUtc] = useState('')
   const [useUtcOverride, setUseUtcOverride] = useState(false)
+  const [savedCharts, setSavedCharts] = useState<SavedChart[]>([])
+  const [showSavedCharts, setShowSavedCharts] = useState(false)
 
   // Click outside handler for city dropdown
   useEffect(() => {
@@ -598,6 +693,80 @@ function BirthChartForm({ onSubmit, loading }: {
     }
   }, [dontKnowBirthTime])
 
+  // Load saved charts from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SAVED_CHARTS_KEY)
+      if (stored) {
+        setSavedCharts(JSON.parse(stored))
+      }
+    } catch {}
+  }, [])
+
+  // Load a saved chart into the form
+  const loadSavedChart = (chart: SavedChart) => {
+    setBirthDate(`${chart.birthYear}-${String(chart.birthMonth).padStart(2, '0')}-${String(chart.birthDay).padStart(2, '0')}`)
+    setBirthTime(`${String(chart.birthHour).padStart(2, '0')}:${String(chart.birthMinute).padStart(2, '0')}`)
+    setAyanamsa(chart.ayanamsa)
+    setHouseSystem(chart.houseSystem)
+    // Set city info
+    if (chart.birthCity) {
+      setCitySearch(chart.birthCity)
+    }
+    setManualLat(chart.birthLat)
+    setManualLng(chart.birthLng)
+    setManualUtc(chart.birthUtc)
+    // If we have lat/lng, use manual coords
+    if (chart.birthLat !== 0 || chart.birthLng !== 0) {
+      setSelectedCity(null)
+      setShowManualCoords(true)
+    }
+    setShowSavedCharts(false)
+    toast({ title: 'Chart Loaded', description: `${chart.name} loaded into form` })
+  }
+
+  // Delete a saved chart
+  const deleteSavedChart = (chartId: string) => {
+    const updated = savedCharts.filter(c => c.id !== chartId)
+    setSavedCharts(updated)
+    localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(updated))
+    toast({ title: 'Chart Deleted', description: 'Saved chart removed' })
+  }
+
+  // Save current chart data
+  const handleSaveChart = () => {
+    const [year, month, day] = birthDate.split('-').map(Number)
+    const timeToUse = dontKnowBirthTime ? '12:00' : birthTime
+    const [hour, minute] = timeToUse.split(':').map(Number)
+    const latitude = selectedCity ? selectedCity.lat : manualLat
+    const longitude = selectedCity ? selectedCity.lng : manualLng
+    const utc = useUtcOverride && overrideUtc ? overrideUtc : (selectedCity ? selectedCity.tz : manualUtc)
+    const cityName = selectedCity ? `${selectedCity.name}, ${selectedCity.country}` : `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const chart: SavedChart = {
+      id: crypto.randomUUID(),
+      name: `${cityName} - ${monthNames[month - 1]} ${day} ${year}`,
+      birthYear: year,
+      birthMonth: month,
+      birthDay: day,
+      birthHour: hour,
+      birthMinute: minute,
+      birthCity: cityName,
+      birthLat: latitude,
+      birthLng: longitude,
+      birthUtc: utc,
+      ayanamsa,
+      houseSystem,
+      savedAt: new Date().toISOString(),
+    }
+    const updated = [...savedCharts, chart]
+    setSavedCharts(updated)
+    localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(updated))
+    onSaveChart?.(chart)
+    toast({ title: 'Chart Saved', description: `${chart.name} saved for quick access` })
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const [year, month, day] = birthDate.split('-').map(Number)
@@ -606,10 +775,12 @@ function BirthChartForm({ onSubmit, loading }: {
     const latitude = selectedCity ? selectedCity.lat : manualLat
     const longitude = selectedCity ? selectedCity.lng : manualLng
     const utc = useUtcOverride && overrideUtc ? overrideUtc : (selectedCity ? selectedCity.tz : manualUtc)
+    const cityName = selectedCity ? `${selectedCity.name}, ${selectedCity.country}` : `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`
     onSubmit({
       year, month, day, hour, minute, second: 0,
       utc, latitude, longitude,
       ayanamsa, house_system: houseSystem,
+      cityName,
     })
   }
 
@@ -620,6 +791,59 @@ function BirthChartForm({ onSubmit, loading }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* ====== Saved Charts ====== */}
+      {savedCharts.length > 0 && (
+        <Card className="border-saffron/20">
+          <button
+            type="button"
+            onClick={() => setShowSavedCharts(!showSavedCharts)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-saffron/5 transition-colors rounded-lg"
+          >
+            <span className="text-maroon flex items-center gap-2 text-sm font-medium">
+              <History className="w-4 h-4 text-saffron" /> Saved Charts ({savedCharts.length})
+            </span>
+            {showSavedCharts
+              ? <ChevronDown className="w-4 h-4 text-saffron" />
+              : <ChevronRight className="w-4 h-4 text-saffron" />
+            }
+          </button>
+          <AnimatePresence>
+            {showSavedCharts && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="pt-0 space-y-2 max-h-48 overflow-y-auto">
+                  {savedCharts.map(chart => (
+                    <div key={chart.id} className="flex items-center gap-2 p-2 bg-saffron/5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => loadSavedChart(chart)}
+                        className="flex-1 text-left text-sm text-maroon hover:text-saffron transition-colors"
+                      >
+                        <span className="font-medium">{chart.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{chart.ayanamsa}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteSavedChart(chart.id)}
+                        className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
+                        title="Delete saved chart"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+      )}
+
       {/* ====== City Selection ====== */}
       <Card className="border-saffron/20">
         <CardHeader className="pb-3">
@@ -898,18 +1122,29 @@ function BirthChartForm({ onSubmit, loading }: {
         </AnimatePresence>
       </Card>
 
-      {/* ====== Submit Button ====== */}
-      <Button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold py-5 text-base"
-      >
-        {loading ? (
-          <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Calculating Chart...</>
-        ) : (
-          <><Star className="w-5 h-5 mr-2" /> Generate Kundali</>
-        )}
-      </Button>
+      {/* ====== Submit & Save Buttons ====== */}
+      <div className="flex gap-3">
+        <Button
+          type="submit"
+          disabled={loading}
+          className="flex-1 bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold py-5 text-base"
+        >
+          {loading ? (
+            <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Calculating Chart...</>
+          ) : (
+            <><Star className="w-5 h-5 mr-2" /> Generate Kundali</>
+          )}
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSaveChart}
+          variant="outline"
+          className="px-4 border-saffron/30 text-maroon hover:bg-saffron/10"
+          title="Save chart data for quick access later"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </Button>
+      </div>
     </form>
   )
 }
@@ -1343,16 +1578,25 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   // Build dynamic analysis types by merging static ANALYSIS_TYPES with catalog data
   // This means admin changes to names, descriptions, prices, and new items reflect on the main page
   const dynamicAnalysisTypes = React.useMemo(() => {
+    // Helper: determine category from price (Pro = $5/500¢, Advanced = $9+/900+¢)
+    const getCategoryFromPrice = (cents: number): string => {
+      if (cents === 0) return 'Standard'
+      if (cents <= 500) return 'Pro'
+      return 'Advanced'
+    }
     const types = ANALYSIS_TYPES.map(t => {
       const catItem = catalog.catalogMap[t.id]
+      const priceCents = catItem?.priceCents || t.priceCents || 0
       return {
         ...t,
         // Override with catalog data if available, otherwise use hardcoded defaults from ANALYSIS_TYPES
         label: catItem?.name || t.label,
         desc: catItem?.description || t.desc,
         isPremium: catalog.premiumTypes.has(t.id) || t.isPremium,
-        priceCents: catItem?.priceCents || t.priceCents || 0,
+        priceCents,
         originalPriceCents: catItem?.originalPriceCents || t.originalPriceCents || null,
+        // Update category based on actual price from catalog
+        category: catItem?.priceCents ? getCategoryFromPrice(catItem.priceCents) : t.category,
       }
     })
     // Add any NEW premium catalog items that aren't in the static list (e.g., admin-added types)
@@ -1365,7 +1609,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           icon: <Sparkles className="w-5 h-5" />,
           desc: item.description || '',
           color: '#6B1D1D',
-          category: 'Advanced',
+          category: getCategoryFromPrice(item.priceCents),
           isPremium: true,
           priceCents: item.priceCents,
           originalPriceCents: item.originalPriceCents,
@@ -1553,8 +1797,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
         <CardContent className="space-y-5">
           {/* Standard Analysis Types */}
           <div>
-            <p className="text-xs font-semibold text-maroon/60 uppercase tracking-wider mb-2">Standard Analysis</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            <p className="text-xs font-semibold text-maroon/60 uppercase tracking-wider mb-2">Standard Analysis — Free</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {dynamicAnalysisTypes.filter(t => t.category === 'Standard').map(type => (
                 <button
                   key={type.id}
@@ -1567,7 +1811,38 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 >
                   <div className="mt-0.5" style={{ color: type.color }}>{type.icon}</div>
                   <div>
-                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-maroon' : 'text-foreground'}`}>{type.label} {type.isPremium && <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">PRO</span>}</p>
+                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-maroon' : 'text-foreground'}`}>{type.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pro Analysis Types */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Pro Analysis</p>
+              <Badge className="bg-gradient-to-r from-amber-600 to-yellow-500 text-white text-[9px] px-1.5 py-0 font-bold tracking-wide">PRO</Badge>
+              <span className="text-[10px] text-amber-600 font-medium">$5 each</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {dynamicAnalysisTypes.filter(t => t.category === 'Pro').map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => handleAnalysisClick(type.id)}
+                  className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
+                    selectedType === type.id
+                      ? 'border-amber-500 bg-amber-50 shadow-md'
+                      : 'border-amber-200 hover:border-amber-400 hover:bg-amber-50/50'
+                  }`}
+                >
+                  <div className="mt-0.5 relative" style={{ color: type.color }}>
+                    {type.icon}
+                    <Lock className="w-3 h-3 absolute -top-1 -right-1 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-amber-900' : 'text-foreground'}`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">PRO</span>{type.priceCents > 0 && <span className="text-[10px] text-amber-700 ml-1.5 font-semibold">{formatPrice(type.priceCents)}</span>}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>
@@ -1578,34 +1853,27 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           {/* Advanced Analysis Types */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#0f0c29' }}>Advanced AI Analysis</p>
-              <Badge className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white text-[9px] px-1.5 py-0">AI Powered</Badge>
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#4A235A' }}>Advanced AI Analysis</p>
+              <Badge className="bg-gradient-to-r from-purple-900 to-indigo-900 text-white text-[9px] px-1.5 py-0 font-bold tracking-wide">ADVANCED</Badge>
+              <span className="text-[10px] text-purple-700 font-medium">$9 each</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {dynamicAnalysisTypes.filter(t => t.category === 'Advanced').map(type => (
                 <button
                   key={type.id}
                   onClick={() => handleAnalysisClick(type.id)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all opacity-75 ${
+                  className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
                     selectedType === type.id
-                      ? type.id === 'shadow_integration'
-                        ? 'border-red-800 bg-red-950/30 shadow-md'
-                        : type.id === 'cosmic_blueprint'
-                        ? 'border-indigo-800 bg-indigo-950/30 shadow-md'
-                        : 'border-saffron bg-saffron/10 shadow-md'
-                      : 'border-saffron/10 hover:border-saffron/30 hover:bg-saffron/5'
+                      ? 'border-purple-600 bg-purple-50 shadow-md'
+                      : 'border-purple-200 hover:border-purple-400 hover:bg-purple-50/50'
                   }`}
                 >
                   <div className="mt-0.5 relative" style={{ color: type.color }}>
                     {type.icon}
-                    <Lock className="w-3 h-3 absolute -top-1 -right-1 text-amber-600" />
+                    <Lock className="w-3 h-3 absolute -top-1 -right-1 text-purple-600" />
                   </div>
                   <div>
-                    <p className={`text-sm font-semibold ${
-                      selectedType === type.id 
-                        ? type.id === 'shadow_integration' ? 'text-red-200' : type.id === 'cosmic_blueprint' ? 'text-indigo-200' : 'text-maroon'
-                        : 'text-foreground'
-                    }`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">Premium</span>{type.priceCents > 0 && <span className="text-[10px] text-amber-700 ml-1.5 font-semibold">{formatPrice(type.priceCents)}</span>}</p>
+                    <p className={`text-sm font-semibold ${selectedType === type.id ? 'text-purple-900' : 'text-foreground'}`}>{type.label} <span className="text-[9px] bg-gradient-to-r from-purple-800 to-indigo-900 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle font-bold tracking-wide">ADVANCED</span>{type.priceCents > 0 && <span className="text-[10px] text-purple-700 ml-1.5 font-semibold">{formatPrice(type.priceCents)}</span>}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{type.desc}</p>
                   </div>
                 </button>
@@ -1628,6 +1896,15 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 <a href="/reading" className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-500 text-white rounded-lg text-sm font-semibold hover:from-amber-500 hover:to-yellow-400 transition-all">
                   Book a Reading <ArrowRight className="w-4 h-4" />
                 </a>
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="text-xs text-amber-700">Or reach us directly:</span>
+                  <a href="https://wa.me/977979735537" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-[#25D366] text-white rounded text-xs font-medium hover:bg-[#25D366]/90 transition-all">
+                    <MessageCircle className="w-3 h-3" /> WhatsApp
+                  </a>
+                  <a href="https://www.facebook.com/profile.php?id=61590513489073" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-[#1877F2] text-white rounded text-xs font-medium hover:bg-[#1877F2]/90 transition-all">
+                    <Facebook className="w-3 h-3" /> Facebook
+                  </a>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1635,19 +1912,17 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             onClick={handleAnalyze}
             disabled={loading}
             className={`w-full font-semibold py-5 text-base ${
-              selectedType === 'cosmic_blueprint'
-                ? 'bg-gradient-to-r from-indigo-800 to-purple-900 hover:from-indigo-700 hover:to-purple-800 text-white'
-                : selectedType === 'shadow_integration'
-                ? 'bg-gradient-to-r from-red-900 to-red-950 hover:from-red-800 hover:to-red-900 text-white'
-                : selectedType === 'swot_5year'
-                ? 'bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-700 hover:to-indigo-800 text-white'
+              selectedType === 'cosmic_blueprint' || dynamicAnalysisTypes.find(t => t.id === selectedType)?.category === 'Advanced'
+                ? 'bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white'
+                : dynamicAnalysisTypes.find(t => t.id === selectedType)?.category === 'Pro'
+                ? 'bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white'
                 : 'bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white'
             }`}
           >
             {loading ? (
               <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Analyzing with AI...</>
             ) : (
-              <>{selectedType === 'shadow_integration' ? <AlertCircle className="w-5 h-5 mr-2" /> : selectedType === 'cosmic_blueprint' ? <Sparkles className="w-5 h-5 mr-2" /> : selectedType === 'swot_5year' ? <BookOpen className="w-5 h-5 mr-2" /> : <Brain className="w-5 h-5 mr-2" />} Get {dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}</>
+              <>{selectedType === 'shadow_integration' ? <AlertCircle className="w-5 h-5 mr-2" /> : selectedType === 'cosmic_blueprint' ? <Sparkles className="w-5 h-5 mr-2" /> : selectedType === 'swot_5year' ? <BookOpen className="w-5 h-5 mr-2" /> : dynamicAnalysisTypes.find(t => t.id === selectedType)?.category === 'Pro' ? <Crown className="w-5 h-5 mr-2" /> : dynamicAnalysisTypes.find(t => t.id === selectedType)?.category === 'Advanced' ? <Sparkles className="w-5 h-5 mr-2" /> : <Brain className="w-5 h-5 mr-2" />} Get {dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}</>
             )}
           </Button>
         </CardContent>
@@ -2861,9 +3136,47 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-maroon">Your Kundali</h3>
-                  <Button variant="outline" size="sm" onClick={() => { setHoroscopeData(null); setStaticMeanings(null) }} className="border-saffron text-maroon">
-                    Generate New Chart
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      // Save chart from lastFormData
+                      if (lastFormData) {
+                        const saved = JSON.parse(localStorage.getItem(SAVED_CHARTS_KEY) || '[]') as SavedChart[]
+                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        const cityName = lastFormData.cityName ? String(lastFormData.cityName) : `${Number(lastFormData.latitude).toFixed(2)}°, ${Number(lastFormData.longitude).toFixed(2)}°`
+                        const chart: SavedChart = {
+                          id: crypto.randomUUID(),
+                          name: `${cityName} - ${monthNames[(Number(lastFormData.month) || 1) - 1]} ${lastFormData.day} ${lastFormData.year}`,
+                          birthYear: Number(lastFormData.year),
+                          birthMonth: Number(lastFormData.month),
+                          birthDay: Number(lastFormData.day),
+                          birthHour: Number(lastFormData.hour),
+                          birthMinute: Number(lastFormData.minute),
+                          birthCity: cityName,
+                          birthLat: Number(lastFormData.latitude),
+                          birthLng: Number(lastFormData.longitude),
+                          birthUtc: String(lastFormData.utc),
+                          ayanamsa: String(lastFormData.ayanamsa || 'Krishnamurti'),
+                          houseSystem: String(lastFormData.house_system || 'Whole Sign'),
+                          savedAt: new Date().toISOString(),
+                        }
+                        // Check if already saved (by matching data)
+                        const isDuplicate = saved.some(s => s.birthYear === chart.birthYear && s.birthMonth === chart.birthMonth && s.birthDay === chart.birthDay && s.birthHour === chart.birthHour && s.birthMinute === chart.birthMinute && Math.abs(s.birthLat - chart.birthLat) < 0.01)
+                        if (!isDuplicate) {
+                          saved.push(chart)
+                          localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved))
+                          toast({ title: 'Chart Saved', description: `${chart.name} saved for quick access` })
+                        } else {
+                          toast({ title: 'Already Saved', description: 'This chart is already in your saved charts' })
+                        }
+                      }
+                    }} className="border-saffron text-maroon">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                      Save Chart
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setHoroscopeData(null); setStaticMeanings(null) }} className="border-saffron text-maroon">
+                      Generate New Chart
+                    </Button>
+                  </div>
                 </div>
 
                 <Tabs defaultValue="chart" className="w-full">
