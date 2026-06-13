@@ -406,7 +406,157 @@ Combined with chart analysis:
 Current Date: {currentDate}
 
 {chartData}`,
+
+  education: `Education & Learning reading: 4th house/lord (formal education), 5th (intelligence/creativity), 9th (higher learning), Mercury (academic ability). Academic fields suited, higher education timing by Dasa, learning style, competitive exam prospects, remedies for academic success.
+
+{chartData}`,
+
+  family: `Family & Children reading: 4th house/lord (home/mother), 5th (children/intelligence), 9th (father/fortune), Jupiter (progeny), Putra Bhava analysis. Relationship with parents, siblings from 3rd house, children prospects and timing, family harmony, remedies for family peace.
+
+{chartData}`,
+
+  cosmic_love_letter: `Cosmic Love Letter — The universe speaks to your heart:
+1. Cosmic Love Signature: How you love (Venus sign, 7th house, Moon Nakshatra) — poetic, not data
+2. What Stars Whisper: Hidden emotional needs you've never spoken
+3. Karmic Love Story: Past-life connections (Rahu-Ketu axis through relationship houses)
+4. Love You Give vs Need: Venus (expression) vs Moon (nourishment) — the gap
+5. Heart's Timetable: When love enters/deepens — Dasa windows with emotional texture
+6. Letter for Future Partner: The partner your soul truly calls for
+7. Healing the Heart: One relationship wound needing tending + Vedic remedy
+8. Star Blessing: Poetic closing blessing crafted from your chart
+
+Tone: Warm, intimate, spiritual. Use "you/your" throughout. No clinical language.
+
+{chartData}`,
+
+  name_numerology: `Vedic Name Numerology & Correction:
+1. Current Name Analysis: Chaldeon value, Lo Shu grid, destiny/life path/soul urge numbers from name
+2. Birth Date Numerology: Life Path, Destiny, Soul Urge numbers from DOB
+3. Name-Birth Harmony: Does your name align with your birth numbers? Gap analysis
+4. Career Impact: How your name number affects professional success
+5. Health Impact: Name number and vulnerable body areas
+6. Relationship Impact: Name number and love/marriage harmony
+7. Suggested Correction: If needed, specific letter additions/changes with numerical reasoning
+8. Lucky Numbers & Colors: Based on your numerological profile
+
+Use Chaldeon numerology system. Be specific with letter suggestions.
+
+{chartData}`,
+
+  gemstone_remedy: `Gemstone & Remedy Report:
+1. Primary Gemstone: Based on Ascendant lord — stone, weight, metal, finger, day to wear, mantra
+2. Secondary Gemstone: Based on weakest benefic — same details
+3. Rudraksha Recommendation: Mukhi based on ruling planet
+4. Mantras: Lagna lord mantra, Navagraha mantra, specific problem mantras
+5. Fasting Days: Which day and for which planet
+6. Daan (Charity): What to donate, when, to whom — planet-specific
+7. Color Therapy: Favorable colors for daily wear by planet
+8. Caution: Gemstones to AVOID (enemy planets, 6/8/12 lords)
+9. Monthly Remedy Calendar: Which remedy on which day for next 30 days
+
+Current Date: {currentDate}
+
+{chartData}`,
+
+  compatibility_profile: `Ideal Partner Compatibility Profile:
+1. Partner Traits from Chart: 7th house sign/lord, Venus/Moon position — physical, emotional, mental traits
+2. Nakshatra-Based Partner: Your Nakshatra's ideal match Nakshatras
+3. What You Truly Need vs Want: Moon (emotional needs) vs Venus (attraction) gap
+4. Mangal Dosha Status: Do you have it? Impact on partner selection
+5. Best Zodiac Matches: Top 3 Moon sign matches with reasons
+6. Red Flags to Watch: Patterns your chart attracts that harm you
+7. Ideal Meeting Period: Dasa-based windows when you're most likely to meet your partner
+8. Relationship Advice: One key shift to attract the right partner
+
+{chartData}`,
+
+  past_life_karma: `Past Life Karma Reading:
+1. Karmic Origin: Rahu-Ketu axis — which past life theme dominates this incarnation
+2. 12th House Past Life: Hidden past-life talents and debts from 12th house/lord
+3. 8th House Karmic Debt: Transformation, inheritance, chronic patterns from past lives
+4. Saturn's Karmic Lesson: Where Saturn sits = your specific karmic homework
+5. Unfinished Business: Moon Nakshatra — the emotional thread from past to present
+6. Karmic Relationships: People who carry past-life connections (5th/9th house lords)
+7. Karmic Rewards: Jupiter's placement = blessings earned from past lives
+8. This Life's Karmic Purpose: The ONE karmic knot your soul chose to untie
+9. Liberation Path: Specific practices to clear karmic debt (12th house remedies)
+
+{chartData}`,
+
+  mangal_dosha: `Mangal Dosha Deep Report:
+1. Dosha Status: Present/Absent — which houses Mars occupies, degree of severity (Mild/Moderate/Severe)
+2. Cancellation Checks: Mars in own sign/exalted, Mars in Aries/Scorpio/Cancer/Leo, conjunct Jupiter/Sun, aspect from Jupiter
+3. Impact on Marriage: 7th house affliction, delay in marriage, spouse health, conflict patterns
+4. Impact on Relationships: Aggression, dominance patterns, emotional volatility
+5. Impact on Career: Competitive drive, conflict with authority — how to channel positively
+6. Mangal Dosha Matching Rules: Which partner types neutralize your dosha (Anshik/Purna matching)
+7. Dosha Cancellation by Partner: Compatible Mars placements for marriage
+8. Remedies: Specific mantras, fasting, gemstone, charity for Mars pacification
+9. Marriage Timing: Best Dasa periods for Manglik marriage
+10. Post-Marriage Guidance: Practices to maintain harmony after marriage
+
+{chartData}`,
+
+  sade_sati: `Sade Sati Report (Saturn's 7.5-Year Transit):
+1. Current Phase: Rising/Peak/Setting — which phase you're in RIGHT NOW
+2. Moon Sign Position: Saturn's current transit relative to your natal Moon
+3. Phase-wise Breakdown:
+   - Rising (before Moon): Mental pressure, anxiety, preparation
+   - Peak (over Moon): Maximum intensity, health, career tests, identity crisis
+   - Setting (after Moon): Financial strain, gradual relief, lessons integrating
+4. Career Impact: Job changes, delays, promotions blocked, lessons in perseverance
+5. Health Impact: Vulnerable areas, chronic issues, mental health periods
+6. Relationship Impact: Family tension, marriage stress, isolation periods
+7. Financial Impact: Expense periods, investment cautions, savings strategy
+8. Dhaiya (Small Sade Sati): If Saturn transits 4th or 8th from Moon
+9. Key Dates: Exact months when Sade Sati intensifies or shifts
+10. Silver Lining: What Sade Sati is giving you that you'll be grateful for later
+11. Remedies: Saturn-specific mantras, Shani temple visits, charity, fasting
+
+Current Date: {currentDate}
+
+{chartData}`,
+
+  kp_prashna: `KP Prashna — Advanced Horary (One Burning Question):
+Using Krishnamurti Paddhati Sub-Lord theory for precise timing:
+1. Question Verification: Rephrase the question astrologically
+2. Horary Number: {horaryNumber} — construct chart from this number
+3. Significators: Ruling planets, Sub-Lords for relevant houses
+4. Sub-Lord Judgment: Whether the Sub-Lord favors or denies the question
+5. Ruling Planets: Current Lagna lord, Moon sign lord, Moon star lord, day lord — confirm significators
+6. Yes/No Verdict: Clear answer with confidence level (High/Medium/Low)
+7. Conditions: What must happen for the answer to manifest
+8. Timing: When — using Dasa, Bhukti, Antra, and transit confirmations
+9. Obstacles: What could delay or deny the outcome
+10. Advice: What to DO to improve the outcome
+
+Be precise. Use KP terminology with explanations. Give specific time frames.
+
+Horary Number: {horaryNumber}
+
+{chartData}`,
 }
+
+// ============ Horoscope Prompt (Daily/Monthly Subscription) ============
+const HOROSCOPE_PROMPT = `Generate a personalized daily horoscope based on the birth chart. Use Moon sign (Rasi) and current planetary transits.
+
+Include:
+1. Today's Vibe: One-line mood/energy summary
+2. Career: Work and professional guidance for today
+3. Love: Relationship and romantic energy
+4. Health: Physical and mental wellness tip
+5. Lucky: Color, number, and time for today
+6. Caution: One thing to avoid today
+7. Affirmation: A personalized Vedic affirmation based on chart
+
+Keep it personal (not generic zodiac), concise, and actionable. Use Dasa period context for deeper insight.
+
+Moon Sign: {moonSign}
+Nakshatra: {nakshatra}
+Current Dasa: {currentDasa}
+Current Date: {currentDate}
+
+{chartData}`
 
 // ============ Provider Call Functions ============
 

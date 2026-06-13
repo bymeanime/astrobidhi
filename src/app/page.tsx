@@ -10,7 +10,8 @@ import {
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
   Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink,
-  Coffee, History, RefreshCw
+  Coffee, History, RefreshCw, Hash, Gem, UserCheck, RotateCcw, Flame, Users,
+  Send, CheckCircle
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -113,7 +114,7 @@ interface SavedChart {
 
 const SAVED_CHARTS_KEY = 'astrobidhi_saved_charts'
 
-type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'spiritual' | 'dasa' | 'horary' | 'vedic_master' | 'trik_bhava' | 'forecast_12month' | 'cosmic_blueprint' | 'shadow_integration' | 'life_decoder' | 'career_destiny' | 'relationship_destiny' | 'soul_purpose' | 'wealth_code' | 'future_timeline' | 'swot_5year'
+type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'education' | 'family' | 'horary' | 'spiritual' | 'dasa' | 'vedic_master' | 'trik_bhava' | 'forecast_12month' | 'cosmic_love_letter' | 'name_numerology' | 'gemstone_remedy' | 'compatibility_profile' | 'kp_prashna' | 'cosmic_blueprint' | 'shadow_integration' | 'life_decoder' | 'career_destiny' | 'relationship_destiny' | 'soul_purpose' | 'wealth_code' | 'future_timeline' | 'swot_5year' | 'past_life_karma' | 'mangal_dosha' | 'sade_sati'
 
 // ============ Static Meanings Types ============
 interface SignHouseMeaning {
@@ -172,7 +173,7 @@ interface StaticMeanings {
   key_aspects: KeyAspectMeaning[]
 }
 
-const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year'])
+const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'kp_prashna', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'past_life_karma', 'mangal_dosha', 'sade_sati'])
 
 // ============ Catalog Context ============
 interface CatalogItem {
@@ -252,6 +253,16 @@ const FALLBACK_PREMIUM_DESCRIPTIONS: Record<string, string> = {
   soul_purpose: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators',
   wealth_code: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows',
   future_timeline: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis',
+  education: 'Academic fields, higher education timing, learning style, and competitive exam prospects',
+  family: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava',
+  cosmic_love_letter: 'A poetic love letter from the stars — your love signature, karmic love story, heart\'s timetable, and star blessing',
+  name_numerology: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions',
+  gemstone_remedy: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar',
+  compatibility_profile: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches',
+  past_life_karma: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path',
+  mangal_dosha: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies',
+  sade_sati: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies',
+  kp_prashna: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing',
 }
 
 // Fallback prices used when catalog API is unavailable
@@ -271,6 +282,16 @@ const FALLBACK_PREMIUM_PRICES: Record<string, { priceCents: number; originalPric
   wealth_code: { priceCents: 900, originalPriceCents: 1499 },
   future_timeline: { priceCents: 900, originalPriceCents: 1499 },
   swot_5year: { priceCents: 499, originalPriceCents: 999 },
+  education: { priceCents: 0, originalPriceCents: null },
+  family: { priceCents: 0, originalPriceCents: null },
+  cosmic_love_letter: { priceCents: 500, originalPriceCents: 999 },
+  name_numerology: { priceCents: 500, originalPriceCents: 999 },
+  gemstone_remedy: { priceCents: 500, originalPriceCents: 999 },
+  compatibility_profile: { priceCents: 500, originalPriceCents: 999 },
+  kp_prashna: { priceCents: 700, originalPriceCents: 1299 },
+  past_life_karma: { priceCents: 900, originalPriceCents: 1499 },
+  mangal_dosha: { priceCents: 700, originalPriceCents: 1299 },
+  sade_sati: { priceCents: 900, originalPriceCents: 1499 },
 }
 
 const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean; priceCents: number; originalPriceCents: number | null }[] = [
@@ -280,13 +301,20 @@ const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; 
   { id: 'relationships', label: 'Love & Marriage', icon: <Heart className="w-5 h-5" />, desc: 'Marriage timing, spouse characteristics, compatibility, and relationship dynamics', color: '#9B59B6', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'health', label: 'Health & Wellness', icon: <Activity className="w-5 h-5" />, desc: 'Health vulnerabilities, body constitution, and preventive guidance', color: '#2D6A4F', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   { id: 'finance', label: 'Wealth & Finance', icon: <DollarSign className="w-5 h-5" />, desc: 'Income sources, wealth yogas, investment periods, and financial growth', color: '#B33A3A', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'education', label: 'Education & Learning', icon: <BookOpen className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.education, color: '#1B6B93', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'family', label: 'Family & Children', icon: <Users className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.family, color: '#6B4E71', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
+  { id: 'horary', label: 'Horary (Prasna)', icon: <Compass className="w-5 h-5" />, desc: 'Quick Yes/No answer using KP Sub-Lord theory for one burning question', color: '#5B2C6F', category: 'Standard', isPremium: false, priceCents: 0, originalPriceCents: null },
   // Pro ($5 each)
   { id: 'spiritual', label: 'Spiritual Growth', icon: <Flower2 className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.spiritual, color: '#6B1D1D', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.spiritual.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.spiritual.originalPriceCents },
   { id: 'dasa', label: 'Dasa Periods', icon: <Calendar className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.dasa, color: '#34495E', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.dasa.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.dasa.originalPriceCents },
   { id: 'vedic_master', label: 'Vedic Master Reading', icon: <Crown className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.vedic_master, color: '#8B6914', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.vedic_master.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.vedic_master.originalPriceCents },
   { id: 'trik_bhava', label: 'Trik Bhava Analysis', icon: <Shield className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.trik_bhava, color: '#5B2C6F', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.trik_bhava.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.trik_bhava.originalPriceCents },
   { id: 'forecast_12month', label: '12-Month Forecast', icon: <Orbit className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.forecast_12month, color: '#1a5276', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.forecast_12month.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.forecast_12month.originalPriceCents },
-  // Advanced ($9+)
+  { id: 'cosmic_love_letter', label: 'Cosmic Love Letter', icon: <Heart className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.cosmic_love_letter, color: '#C0392B', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.cosmic_love_letter.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.cosmic_love_letter.originalPriceCents },
+  { id: 'name_numerology', label: 'Name Numerology', icon: <Hash className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.name_numerology, color: '#2E4053', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.name_numerology.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.name_numerology.originalPriceCents },
+  { id: 'gemstone_remedy', label: 'Gemstone & Remedy', icon: <Gem className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.gemstone_remedy, color: '#1ABC9C', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.gemstone_remedy.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.gemstone_remedy.originalPriceCents },
+  { id: 'compatibility_profile', label: 'Compatibility Profile', icon: <UserCheck className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.compatibility_profile, color: '#E74C3C', category: 'Pro', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.compatibility_profile.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.compatibility_profile.originalPriceCents },
+  // Advanced (Variable pricing — NOT $9 flat)
   { id: 'cosmic_blueprint', label: 'Cosmic Blueprint', icon: <Sparkles className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.cosmic_blueprint, color: '#0f0c29', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.cosmic_blueprint.originalPriceCents },
   { id: 'shadow_integration', label: 'Shadow Integration', icon: <AlertCircle className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.shadow_integration, color: '#180202', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.shadow_integration.originalPriceCents },
   { id: 'life_decoder', label: 'Life Decoder', icon: <Brain className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.life_decoder, color: '#2E4053', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.life_decoder.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.life_decoder.originalPriceCents },
@@ -296,6 +324,10 @@ const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; 
   { id: 'wealth_code', label: 'Wealth Code', icon: <DollarSign className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.wealth_code, color: '#7D6608', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.wealth_code.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.wealth_code.originalPriceCents },
   { id: 'future_timeline', label: 'Future Timeline', icon: <Orbit className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.future_timeline, color: '#4A235A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.future_timeline.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.future_timeline.originalPriceCents },
   { id: 'swot_5year', label: '5-Year SWOT Forecast', icon: <BookOpen className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.swot_5year, color: '#1a5276', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.swot_5year.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.swot_5year.originalPriceCents },
+  { id: 'kp_prashna', label: 'KP Prashna (Advanced)', icon: <Compass className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.kp_prashna, color: '#8E44AD', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.kp_prashna.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.kp_prashna.originalPriceCents },
+  { id: 'past_life_karma', label: 'Past Life Karma', icon: <RotateCcw className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.past_life_karma, color: '#4A235A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.past_life_karma.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.past_life_karma.originalPriceCents },
+  { id: 'mangal_dosha', label: 'Mangal Dosha Report', icon: <Flame className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.mangal_dosha, color: '#B33A3A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.mangal_dosha.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.mangal_dosha.originalPriceCents },
+  { id: 'sade_sati', label: 'Sade Sati Report', icon: <Clock className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.sade_sati, color: '#2C3E50', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.sade_sati.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.sade_sati.originalPriceCents },
 ]
 
 // ============ Constants ============
@@ -1575,6 +1607,13 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [copied, setCopied] = useState(false)
   const analysisRef = useRef<HTMLDivElement>(null)
 
+  // Chat follow-up states
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatLimitReached, setChatLimitReached] = useState(false)
+  const [chatUsedCount, setChatUsedCount] = useState(0)
+
   // Build dynamic analysis types by merging static ANALYSIS_TYPES with catalog data
   // This means admin changes to names, descriptions, prices, and new items reflect on the main page
   const dynamicAnalysisTypes = React.useMemo(() => {
@@ -1775,6 +1814,49 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       navigator.clipboard.writeText(shareUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  // ============ AI Chat Follow-up ============
+  const handleChatSubmit = async () => {
+    if (!chatInput.trim() || !chartData || !selectedType) return
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setChatLoading(true)
+
+    try {
+      const deviceId = getDeviceId()
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: userMessage,
+          analysisType: selectedType,
+          analysisResult: analysis,
+          chartData,
+          deviceId,
+          conversationHistory: chatMessages.slice(-6), // last 3 exchanges
+        }),
+      })
+
+      if (res.status === 403) {
+        const data = await res.json()
+        if (data.limitReached) {
+          setChatLimitReached(true)
+          setChatUsedCount(data.usedCount || 3)
+        }
+        setChatLoading(false)
+        return
+      }
+
+      if (!res.ok) throw new Error('Chat request failed')
+      const data = await res.json()
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I could not process your question. Please try again.' }])
+    } finally {
+      setChatLoading(false)
     }
   }
 
@@ -2287,7 +2369,214 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           </CardContent>
         </Card>
       )}
+
+      {/* AI Chat Follow-up */}
+      {analysis && !loading && (
+        <Card className="border-saffron/20 mt-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-maroon flex items-center gap-2 text-sm">
+              <MessageCircle className="w-4 h-4" /> Ask a Follow-up Question
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {chatLimitReached 
+                ? `Free limit reached (${chatUsedCount}/3). Upgrade for unlimited follow-ups.`
+                : `Free: 3 follow-up questions per analysis • Premium: Unlimited`}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {/* Chat Messages */}
+            {chatMessages.length > 0 && (
+              <div className="max-h-64 overflow-y-auto mb-3 space-y-2">
+                {chatMessages.map((msg, i) => (
+                  <div key={i} className={`p-2.5 rounded-lg text-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-saffron/10 text-maroon ml-8' 
+                      : 'bg-muted text-foreground mr-8'
+                  }`}>
+                    <p className="text-xs font-semibold mb-1">{msg.role === 'user' ? 'You' : 'AstroBidhi AI'}</p>
+                    <div className="prose prose-xs max-w-none">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="bg-muted mr-8 p-2.5 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Thinking...
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Chat Input */}
+            {!chatLimitReached ? (
+              <div className="flex gap-2">
+                <Input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSubmit() } }}
+                  placeholder="Ask about your chart, a specific planet, timing, remedies..."
+                  disabled={chatLoading}
+                  className="text-sm h-9"
+                />
+                <Button
+                  onClick={handleChatSubmit}
+                  disabled={chatLoading || !chatInput.trim()}
+                  size="sm"
+                  className="bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white h-9"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Follow-up limit reached</p>
+                  <p className="text-xs text-amber-600">Upgrade to Premium for unlimited questions</p>
+                </div>
+                <a
+                  href="/api/auth/whop"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-saffron to-maroon text-white text-xs font-semibold rounded-md"
+                >
+                  <Crown className="w-3 h-3" /> Upgrade
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
+  )
+}
+
+// ============ Horoscope Widget ============
+function HoroscopeWidget({ chartData }: { chartData: HoroscopeData | null }) {
+  const [horoscopeResult, setHoroscopeResult] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [daysLeft, setDaysLeft] = useState(0)
+  const [price, setPrice] = useState('$4.99/month')
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (!chartData) return
+    const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+    fetch(`/api/horoscope?deviceId=${encodeURIComponent(deviceId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setIsSubscribed(d.isSubscribed)
+          setDaysLeft(d.daysRemaining || 0)
+          setPrice(d.priceFormatted || '$4.99/month')
+        }
+      })
+      .catch(() => {})
+  }, [chartData])
+
+  const generate = async () => {
+    if (!chartData) return
+    setIsLoading(true)
+    const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+    try {
+      const res = await fetch('/api/horoscope', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', deviceId, chartData }),
+      })
+      if (res.status === 403) { setIsSubscribed(false); setIsLoading(false); return }
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      setHoroscopeResult(data.horoscope)
+      setIsSubscribed(true)
+    } catch { setHoroscopeResult(null) }
+    finally { setIsLoading(false) }
+  }
+
+  const subscribe = async () => {
+    const deviceId = typeof window !== 'undefined' ? localStorage.getItem('astrobidi_device_id') || '' : ''
+    try {
+      const res = await fetch('/api/horoscope', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'subscribe', deviceId }),
+      })
+      if (res.ok) {
+        setIsSubscribed(true)
+        setDaysLeft(30)
+        toast({ title: 'Subscribed!', description: 'Daily horoscope subscription active for 30 days.' })
+        generate()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Could not activate subscription', variant: 'destructive' })
+    }
+  }
+
+  if (!chartData) return null
+
+  return (
+    <Card className="border-saffron/20 overflow-hidden mt-8">
+      <CardHeader className="bg-gradient-to-r from-maroon/10 via-saffron/10 to-maroon/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-maroon flex items-center gap-2">
+              <Sun className="w-5 h-5 text-saffron" /> Daily Horoscope
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">Personalized daily reading based on your birth chart</p>
+          </div>
+          {isSubscribed && daysLeft > 0 && (
+            <Badge className="bg-vedic-green/20 text-vedic-green border-vedic-green/30">
+              <CheckCircle className="w-3 h-3 mr-1" /> {daysLeft} days left
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {horoscopeResult ? (
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown>{horoscopeResult}</ReactMarkdown>
+          </div>
+        ) : isLoading ? (
+          <div className="py-8 text-center">
+            <Loader2 className="w-8 h-8 text-saffron animate-spin mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Generating your personalized horoscope...</p>
+          </div>
+        ) : isSubscribed ? (
+          <div className="py-6 text-center">
+            <Sun className="w-12 h-12 text-saffron/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-3">Get your personalized horoscope for today</p>
+            <Button onClick={generate} className="bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white">
+              <Sun className="w-4 h-4 mr-2" /> Generate Today&apos;s Horoscope
+            </Button>
+          </div>
+        ) : (
+          <div className="py-6">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-saffron/30 rounded-lg p-6 text-center">
+              <Sun className="w-12 h-12 text-saffron mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-maroon mb-2">Daily Horoscope Subscription</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Get a personalized daily horoscope based on your unique birth chart — not generic zodiac readings. Updated every day with current planetary transits.
+              </p>
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-maroon">{price}</p>
+                  <p className="text-xs text-muted-foreground">30 days of daily readings</p>
+                </div>
+              </div>
+              <ul className="text-sm text-left max-w-xs mx-auto space-y-1 mb-4">
+                <li className="flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-vedic-green shrink-0" /> Personalized to YOUR birth chart</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-vedic-green shrink-0" /> Moon sign &amp; Nakshatra-based</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-vedic-green shrink-0" /> Career, love, health &amp; lucky guidance</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-vedic-green shrink-0" /> Updated daily with transit insights</li>
+              </ul>
+              <Button onClick={subscribe} className="bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-8">
+                <Crown className="w-4 h-4 mr-2" /> Subscribe Now — {price}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2325,6 +2614,7 @@ function AIAnalysisPage({ horoscopeData, horaryData, horaryNumber, onNavigate }:
       ) : (
         <AIAnalysisPanel chartData={activeData} horaryNumber={horaryNumber} />
       )}
+      <HoroscopeWidget chartData={activeData} />
     </div>
   )
 }

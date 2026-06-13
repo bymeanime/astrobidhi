@@ -235,6 +235,27 @@ const CREATE_TABLES_SQL = [
   `CREATE UNIQUE INDEX IF NOT EXISTS ReadingBooking_bookingRef_idx ON ReadingBooking(bookingRef)`,
   `CREATE INDEX IF NOT EXISTS ReadingBooking_status_idx ON ReadingBooking(status)`,
   `CREATE INDEX IF NOT EXISTS ReadingBooking_tier_idx ON ReadingBooking(tier)`,
+  `CREATE TABLE IF NOT EXISTS ChatFollowUp (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    analysisType TEXT NOT NULL,
+    question TEXT,
+    response TEXT,
+    provider TEXT,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS ChatFollowUp_deviceId_type_idx ON ChatFollowUp(deviceId, analysisType)`,
+
+  // Monthly horoscope subscriptions
+  `CREATE TABLE IF NOT EXISTS HoroscopeSubscription (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    startedAt DATETIME,
+    expiresAt DATETIME NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS HoroscopeSubscription_deviceId_idx ON HoroscopeSubscription(deviceId)`,
 ]
 
 let _libsql: Client | null = null
@@ -424,7 +445,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
@@ -548,6 +569,17 @@ async function seedDefaultData(): Promise<void> {
         { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 12 },
         { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 13 },
         { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 14 },
+        // Pro additions
+        { analysisType: 'cosmic_love_letter', name: 'Cosmic Love Letter', description: 'A poetic love letter from the stars — your love signature, karmic love story, heart\'s timetable, and star blessing', priceCents: 500, originalPriceCents: 999, sortOrder: 15 },
+        { analysisType: 'name_numerology', name: 'Name Numerology', description: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions', priceCents: 500, originalPriceCents: 999, sortOrder: 16 },
+        { analysisType: 'gemstone_remedy', name: 'Gemstone & Remedy', description: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar', priceCents: 500, originalPriceCents: 999, sortOrder: 17 },
+        { analysisType: 'compatibility_profile', name: 'Compatibility Profile', description: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches', priceCents: 500, originalPriceCents: 999, sortOrder: 18 },
+        // Advanced additions (variable pricing)
+        { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 700, originalPriceCents: 1299, sortOrder: 19 },
+        { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 900, originalPriceCents: 1499, sortOrder: 20 },
+        { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 21 },
+        { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
+        { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 23 },
       ]
       for (const item of defaults) {
         const id = randomUUID()
