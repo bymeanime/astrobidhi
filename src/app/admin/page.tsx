@@ -190,6 +190,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   past_life_karma: 'Past Life Karma',
   mangal_dosha: 'Mangal Dosha Report',
   sade_sati: 'Sade Sati Report',
+  horoscope_monthly: 'Daily Horoscope Subscription',
   reading_basic: 'Basic Reading',
   reading_standard: 'Standard Reading',
   reading_premium: 'Premium Reading',

@@ -3605,9 +3605,10 @@ export default function Home() {
 
                   <TabsContent value="ai">
                     <AIAnalysisPanel chartData={horoscopeData} />
-                    <HoroscopeWidget chartData={horoscopeData} />
                   </TabsContent>
                 </Tabs>
+                {/* Daily Horoscope Widget — always visible when chart exists */}
+                <HoroscopeWidget chartData={horoscopeData} />
               </div>
             )}
           </div>
