@@ -196,8 +196,6 @@ const ANALYSIS_LABELS: Record<string, string> = {
   reading_ultimate: 'Ultimate Reading',
 }
 
-const HIDDEN_FROM_ADMIN = new Set(['education', 'family', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'kp_prashna', 'past_life_karma', 'mangal_dosha', 'sade_sati'])
-
 const centsToDollar = (cents: number) => `$${(cents / 100).toFixed(2)}`
 const dollarToCents = (dollars: string) => Math.round(parseFloat(dollars) * 100) || 0
 const savingsPercent = (price: number, original: number | null) => {
@@ -1353,7 +1351,7 @@ export default function AdminDashboard() {
               <CardContent>
                 {catalogLoading && catalogItems.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">Loading catalog...</p>
-                ) : catalogItems.filter(c => !HIDDEN_FROM_ADMIN.has(c.analysisType)).length > 0 ? (
+                ) : catalogItems.length > 0 ? (
                   <div className="overflow-auto">
                     <Table>
                       <TableHeader>
@@ -1369,7 +1367,7 @@ export default function AdminDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {catalogItems.filter(c => !HIDDEN_FROM_ADMIN.has(c.analysisType)).map((item) => {
+                        {catalogItems.map((item) => {
                           const savings = savingsPercent(item.priceCents, item.originalPriceCents)
                           return (
                             <TableRow key={item.id} className="hover:bg-saffron/5">

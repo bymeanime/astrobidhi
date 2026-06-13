@@ -11,7 +11,7 @@ import {
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
   Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink,
   Coffee, History, RefreshCw, Hash, Gem, UserCheck, RotateCcw, Flame, Users,
-  Send, CheckCircle
+  Send, CheckCircle, Instagram, Youtube
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -345,8 +345,8 @@ const SOUTH_INDIAN_LAYOUT = [
 ]
 
 const AYANAMSA_OPTIONS = [
+  { value: 'Krishnamurti', label: 'Krishnamurti (KP) — Default' },
   { value: 'Lahiri', label: 'Lahiri (Chitra Paksha)' },
-  { value: 'Krishnamurti', label: 'Krishnamurti (KP)' },
   { value: 'Raman', label: 'Raman' },
 ]
 
@@ -591,6 +591,42 @@ function VedicFooter() {
             >
               <Facebook className="w-3.5 h-3.5" /> Facebook
             </a>
+            {/* Telegram */}
+            <a
+              href="https://t.me/astrobidhi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0088CC] hover:bg-[#0088CC]/90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <Send className="w-3.5 h-3.5" /> Telegram
+            </a>
+            {/* Instagram */}
+            <a
+              href="https://www.instagram.com/astrobidhi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <Instagram className="w-3.5 h-3.5" /> Instagram
+            </a>
+            {/* TikTok */}
+            <a
+              href="https://www.tiktok.com/@astrobidhi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#000000] hover:bg-[#000000]/90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.79a8.18 8.18 0 004.76 1.52V6.86a4.84 4.84 0 01-1-.17z"/></svg> TikTok
+            </a>
+            {/* YouTube */}
+            <a
+              href="https://www.youtube.com/@astrobidhi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FF0000] hover:bg-[#FF0000]/90 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+            >
+              <Youtube className="w-3.5 h-3.5" /> YouTube
+            </a>
             {/* Buy Me a Coffee Button */}
             <a
               href={`https://buymeacoffee.com/${bmcSlug}`}
@@ -598,11 +634,13 @@ function VedicFooter() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-[#000000] rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
             >
-              <Coffee className="w-3.5 h-3.5" /> Buy Me a Coffee
+              <Coffee className="w-3.5 h-3.5" /> Coffee
             </a>
-            <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
-            <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">Admin</a>
           </div>
+        </div>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-2 mt-3 pt-3 border-t border-saffron-light/10">
+          <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
+          <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">Admin</a>
         </div>
       </div>
     </footer>
@@ -679,7 +717,7 @@ function BirthChartForm({ onSubmit, loading, onSaveChart }: {
   const [manualLat, setManualLat] = useState(0)
   const [manualLng, setManualLng] = useState(0)
   const [manualUtc, setManualUtc] = useState('+05:30')
-  const [ayanamsa, setAyanamsa] = useState('Krishnamurti')
+  const [ayanamsa, setAyanamsa] = useState('Krishnamurti') // KP system as default
   const [houseSystem, setHouseSystem] = useState('Whole Sign')
   const [overrideUtc, setOverrideUtc] = useState('')
   const [useUtcOverride, setUseUtcOverride] = useState(false)
@@ -1471,7 +1509,7 @@ function TransitPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [transitData, setTransitData] = useState<PlanetData[] | null>(null)
-  const [form, setForm] = useState({ latitude: 28.6139, longitude: 77.2090, ayanamsa: 'Lahiri', house_system: 'Placidus' })
+  const [form, setForm] = useState({ latitude: 28.6139, longitude: 77.2090, ayanamsa: 'Krishnamurti', house_system: 'Placidus' }) // KP default
 
   const handleTransit = async () => {
     setLoading(true)
@@ -1546,7 +1584,7 @@ function HoraryForm({ onResult }: { onResult: (data: HoroscopeData, num: number)
     year: 2024, month: 2, day: 5,
     hour: 9, minute: 5, second: 0,
     utc: '+05:30', latitude: 11.02, longitude: 76.98,
-    ayanamsa: 'Krishnamurti', house_system: 'Placidus',
+    ayanamsa: 'Krishnamurti', house_system: 'Placidus', // KP system default
   })
 
   const handleHorary = async (e: React.FormEvent) => {
@@ -3174,6 +3212,32 @@ export default function Home() {
   // Store the last form data (birth params) for sharing — needed to regenerate chart from share link
   const [lastFormData, setLastFormData] = useState<Record<string, unknown> | null>(null)
 
+  // ---- Persist birth chart in localStorage ----
+  useEffect(() => {
+    if (horoscopeData && lastFormData) {
+      try {
+        localStorage.setItem('astrobidi_saved_chart', JSON.stringify({ chartData: horoscopeData, formData: lastFormData, savedAt: new Date().toISOString() }))
+      } catch {}
+    } else if (!horoscopeData) {
+      // Chart was cleared — remove from localStorage
+      try { localStorage.removeItem('astrobidi_saved_chart') } catch {}
+    }
+  }, [horoscopeData, lastFormData])
+
+  // ---- Restore birth chart from localStorage on mount ----
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('astrobidi_saved_chart')
+      if (saved) {
+        const parsed = JSON.parse(saved) as { chartData: HoroscopeData; formData: Record<string, unknown>; savedAt: string }
+        if (parsed.chartData && parsed.formData) {
+          setHoroscopeData(parsed.chartData)
+          setLastFormData(parsed.formData)
+        }
+      }
+    } catch {}
+  }, [])
+
   // Whop auth state
   const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
     authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
@@ -3541,6 +3605,7 @@ export default function Home() {
 
                   <TabsContent value="ai">
                     <AIAnalysisPanel chartData={horoscopeData} />
+                    <HoroscopeWidget chartData={horoscopeData} />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -3592,6 +3657,7 @@ export default function Home() {
                     </Card>
                     <PlacementMeaningsSection meanings={horaryMeanings} loading={horaryMeaningsLoading} error={horaryMeaningsError} />
                     <AIAnalysisPanel chartData={horaryData} horaryNumber={horaryNumber} />
+                    <HoroscopeWidget chartData={horaryData} />
                   </div>
                 ) : (
                   <Card className="border-saffron/20 h-full flex items-center justify-center">

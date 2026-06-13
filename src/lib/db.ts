@@ -580,6 +580,9 @@ async function seedDefaultData(): Promise<void> {
         { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 21 },
         { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
         { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 23 },
+        // Standard (Free) — added to PremiumCatalog so admin can manage/upgrade pricing
+        { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
+        { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
       ]
       for (const item of defaults) {
         const id = randomUUID()
@@ -589,6 +592,23 @@ async function seedDefaultData(): Promise<void> {
         )
       }
       console.log('[DB] Seeded default PremiumCatalog entries')
+    }
+
+    // Ensure education and family entries exist in PremiumCatalog (for admin panel visibility)
+    const missingStandardTypes = [
+      { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
+      { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
+    ]
+    for (const item of missingStandardTypes) {
+      const existing = await rawQuery<{ id: string }>('SELECT id FROM PremiumCatalog WHERE analysisType = ?', [item.analysisType])
+      if (existing.length === 0) {
+        const id = randomUUID()
+        await rawExecute(
+          `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          [id, item.analysisType, item.name, item.description, item.priceCents, item.originalPriceCents, item.sortOrder]
+        )
+        console.log(`[DB] Added missing PremiumCatalog entry: ${item.analysisType}`)
+      }
     }
 
     // Seed default bundle if empty
