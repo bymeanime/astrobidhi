@@ -269,25 +269,20 @@ function ReadingFooter() {
   return (
     <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
       <div className="vedic-divider" />
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xl text-gold animate-pulse-glow">ॐ</span>
-            <div>
-              <p className="text-gold-light font-semibold text-sm">AstroBidhi</p>
-              <p className="text-xs">वैदिक ज्योतिष - Vedic Astrology Wisdom</p>
-            </div>
+            <span className="text-lg text-gold animate-pulse-glow">ॐ</span>
+            <span className="text-gold-light font-semibold text-xs">AstroBidhi</span>
+            <span className="text-[10px] text-saffron-light/40">वैदिक ज्योतिष</span>
           </div>
-          <p className="text-xs text-center">
+          <p className="text-[10px] text-center text-saffron-light/40">
             Authentic Vedic Consultations &bull; Certified Astrologers &bull; Confidential &bull; Satisfaction Guaranteed
           </p>
           <div className="flex items-center gap-3">
-            <a href="/" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">
-              Back to App
-            </a>
-            <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">
-              Admin
-            </a>
+            <a href="/" className="text-[10px] text-saffron-light/50 hover:text-gold-light transition-colors">Back to App</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="/admin" className="text-[10px] text-saffron-light/50 hover:text-gold-light transition-colors">Admin</a>
           </div>
         </div>
       </div>

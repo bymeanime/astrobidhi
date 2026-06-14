@@ -9,7 +9,7 @@ import {
   Sparkles, BookOpen, ArrowRight, Globe, Mountain,
   Brain, Heart, Briefcase, DollarSign, Flower2, Activity, MessageCircle,
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
-  Share2, Copy, Twitter, Facebook, LogIn, LogOut, User, ExternalLink,
+  Share2, Copy, Twitter, Facebook, Instagram, Mail, LogIn, LogOut, User, ExternalLink,
   Coffee, History, RefreshCw
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
@@ -90,6 +90,8 @@ interface HoroscopeData {
   planet_significators: unknown[]
   house_significators: unknown[]
 }
+
+const WHATSAPP_NUMBER = '9779709735537'
 
 type PageView = 'home' | 'birth-chart' | 'horary' | 'dasa' | 'planets' | 'aspects' | 'transit' | 'ai-analysis' | 'my-analyses'
 
@@ -450,36 +452,53 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
 }
 
 function VedicFooter() {
-  const bmcSlug = typeof window !== 'undefined'
-    ? (window as unknown as { __BMC_SLUG__?: string }).__BMC_SLUG__ || 'astrobidhi'
-    : 'astrobidhi'
-
   return (
     <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
       <div className="vedic-divider" />
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        {/* Top row: Logo + Social icons */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xl text-gold animate-pulse-glow">ॐ</span>
-            <div>
-              <p className="text-gold-light font-semibold text-sm">AstroBidhi</p>
-              <p className="text-xs">वैदिक ज्योतिष - Vedic Astrology Wisdom</p>
-            </div>
+            <span className="text-lg text-gold animate-pulse-glow">ॐ</span>
+            <span className="text-gold-light font-semibold text-xs">AstroBidhi</span>
+            <span className="text-[10px] text-saffron-light/40">वैदिक ज्योतिष</span>
           </div>
-          <p className="text-xs text-center">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI Analysis</p>
+          {/* Social Media Links */}
           <div className="flex items-center gap-3">
-            {/* Buy Me a Coffee Button */}
-            <a
-              href={`https://buymeacoffee.com/${bmcSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-[#000000] rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
-            >
-              <Coffee className="w-3.5 h-3.5" /> Buy Me a Coffee
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#25D366] transition-colors" title="WhatsApp">
+              <MessageCircle className="w-4 h-4" />
             </a>
-            <p className="text-xs">Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
-            <a href="/admin" className="text-xs text-saffron-light/40 hover:text-gold-light transition-colors">Admin</a>
+            <a href="https://facebook.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1877F2] transition-colors" title="Facebook">
+              <Facebook className="w-4 h-4" />
+            </a>
+            <a href="https://instagram.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#E4405F] transition-colors" title="Instagram">
+              <Instagram className="w-4 h-4" />
+            </a>
+            <a href="https://twitter.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1DA1F2] transition-colors" title="Twitter">
+              <Twitter className="w-4 h-4" />
+            </a>
+            <a href="mailto:astrobidhi@gmail.com" className="text-saffron-light/50 hover:text-gold-light transition-colors" title="Email">
+              <Mail className="w-4 h-4" />
+            </a>
           </div>
+        </div>
+        {/* Middle row: Page links */}
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 text-[10px]">
+          <a href="/about" className="text-saffron-light/50 hover:text-gold-light transition-colors">About</a>
+          <span className="text-saffron-light/20">&bull;</span>
+          <a href="/contact" className="text-saffron-light/50 hover:text-gold-light transition-colors">Contact</a>
+          <span className="text-saffron-light/20">&bull;</span>
+          <a href="/policy" className="text-saffron-light/50 hover:text-gold-light transition-colors">Privacy Policy</a>
+          <span className="text-saffron-light/20">&bull;</span>
+          <a href="/refund" className="text-saffron-light/50 hover:text-gold-light transition-colors">Refund Policy</a>
+          <span className="text-saffron-light/20">&bull;</span>
+          <a href="https://buymeacoffee.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FFDD00] transition-colors">Support Us</a>
+          <span className="text-saffron-light/20">&bull;</span>
+          <a href="/admin" className="text-saffron-light/50 hover:text-gold-light transition-colors">Admin</a>
+        </div>
+        {/* Bottom row: Credits */}
+        <div className="text-center mt-2">
+          <p className="text-[9px] text-saffron-light/30">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI &bull; Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
         </div>
       </div>
     </footer>
@@ -1074,6 +1093,174 @@ function AspectsGrid({ aspects }: { aspects: AspectData[] }) {
   )
 }
 
+// ============ Daily Horoscope Widget ============
+interface ZodiacPrediction {
+  sign: string
+  date: string
+  rating: number
+  oneLiner: string
+  career: string
+  love: string
+  health: string
+  finance: string
+  luckyNumber: number
+  luckyColor: string
+}
+
+const ZODIAC_SIGNS_INFO = [
+  { sign: 'Aries', symbol: '♈' },
+  { sign: 'Taurus', symbol: '♉' },
+  { sign: 'Gemini', symbol: '♊' },
+  { sign: 'Cancer', symbol: '♋' },
+  { sign: 'Leo', symbol: '♌' },
+  { sign: 'Virgo', symbol: '♍' },
+  { sign: 'Libra', symbol: '♎' },
+  { sign: 'Scorpio', symbol: '♏' },
+  { sign: 'Sagittarius', symbol: '♐' },
+  { sign: 'Capricorn', symbol: '♑' },
+  { sign: 'Aquarius', symbol: '♒' },
+  { sign: 'Pisces', symbol: '♓' },
+]
+
+function DailyHoroscopeWidget() {
+  const [selectedSign, setSelectedSign] = useState<string | null>(null)
+  const [prediction, setPrediction] = useState<ZodiacPrediction | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  const fetchPrediction = async (sign: string) => {
+    setSelectedSign(sign)
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/horoscope?sign=${encodeURIComponent(sign)}`)
+      if (!res.ok) throw new Error('Failed to fetch')
+      const data = await res.json()
+      setPrediction(data.prediction)
+    } catch {
+      setError('Failed to load prediction. Please try again.')
+      toast({ title: 'Error loading horoscope', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <span key={i} className={i < rating ? 'text-gold' : 'text-muted-foreground/30'}>★</span>
+    ))
+  }
+
+  return (
+    <section className="max-w-6xl mx-auto px-4 py-12">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-maroon mb-2">Daily Horoscope</h2>
+        <div className="vedic-divider max-w-xs mx-auto my-4" />
+        <p className="text-muted-foreground">Today&apos;s Vedic astrology predictions for all zodiac signs</p>
+      </div>
+
+      {/* Zodiac Sign Buttons */}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {ZODIAC_SIGNS_INFO.map((z) => (
+          <button
+            key={z.sign}
+            onClick={() => fetchPrediction(z.sign)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all border ${
+              selectedSign === z.sign
+                ? 'bg-saffron text-maroon-dark border-saffron shadow-md'
+                : 'bg-white text-maroon border-saffron/20 hover:border-saffron/50 hover:bg-saffron/10'
+            }`}
+          >
+            <span className="text-base">{z.symbol}</span>
+            <span className="hidden sm:inline">{z.sign}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Prediction Display */}
+      {loading && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-8 h-8 text-saffron animate-spin" />
+        </div>
+      )}
+
+      {error && (
+        <div className="text-center py-6">
+          <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      )}
+
+      {prediction && !loading && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="border-saffron/20 max-w-2xl mx-auto">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{ZODIAC_SIGNS_INFO.find(z => z.sign === prediction.sign)?.symbol}</span>
+                  <div>
+                    <CardTitle className="text-maroon text-xl">{prediction.sign}</CardTitle>
+                    <p className="text-xs text-muted-foreground">{prediction.date}</p>
+                  </div>
+                </div>
+                <div className="text-lg">{renderStars(prediction.rating)}</div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-maroon font-medium text-center italic">&ldquo;{prediction.oneLiner}&rdquo;</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-saffron/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Briefcase className="w-4 h-4 text-saffron" />
+                    <span className="text-xs font-semibold text-maroon uppercase tracking-wide">Career</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{prediction.career}</p>
+                </div>
+                <div className="bg-saffron/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Heart className="w-4 h-4 text-saffron" />
+                    <span className="text-xs font-semibold text-maroon uppercase tracking-wide">Love</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{prediction.love}</p>
+                </div>
+                <div className="bg-saffron/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Activity className="w-4 h-4 text-saffron" />
+                    <span className="text-xs font-semibold text-maroon uppercase tracking-wide">Health</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{prediction.health}</p>
+                </div>
+                <div className="bg-saffron/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <DollarSign className="w-4 h-4 text-saffron" />
+                    <span className="text-xs font-semibold text-maroon uppercase tracking-wide">Finance</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{prediction.finance}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-6 pt-2 text-xs text-muted-foreground">
+                <span>Lucky Number: <strong className="text-maroon">{prediction.luckyNumber}</strong></span>
+                <span>Lucky Color: <strong className="text-maroon">{prediction.luckyColor}</strong></span>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {!prediction && !loading && !error && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground text-sm">Select your zodiac sign above to see today&apos;s prediction</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ============ Landing Page ============
 function LandingPage({ onNavigate }: { onNavigate: (p: PageView) => void }) {
   return (
@@ -1166,6 +1353,9 @@ function LandingPage({ onNavigate }: { onNavigate: (p: PageView) => void }) {
           ))}
         </div>
       </section>
+
+      {/* Daily Horoscope */}
+      <DailyHoroscopeWidget />
 
       {/* About KP System */}
       <section className="bg-gradient-to-b from-saffron/5 to-transparent py-16">
@@ -2592,6 +2782,23 @@ function BuyMeACoffeeWidget() {
   )
 }
 
+// ============ WhatsApp Floating Widget ============
+function WhatsAppWidget() {
+  return (
+    <div className="fixed bottom-6 left-6 z-50">
+      <a
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hello%20AstroBidhi`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all group"
+      >
+        <MessageCircle className="w-5 h-5 group-hover:animate-bounce" />
+        <span className="hidden sm:inline text-sm">WhatsApp</span>
+      </a>
+    </div>
+  )
+}
+
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageView>('home')
   const { toast } = useToast()
@@ -3135,6 +3342,7 @@ export default function Home() {
       </main>
       <VedicFooter />
         <BuyMeACoffeeWidget />
+        <WhatsAppWidget />
     </div>
     </CatalogContext.Provider>
     </AdminAccessContext.Provider>

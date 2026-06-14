@@ -546,6 +546,29 @@ async function seedDefaultData(): Promise<void> {
       console.log('[DB] Seeded default PremiumCatalog entries')
     }
 
+    // Seed standard (free) analysis types if not already present
+    const standardTypes = [
+      { analysisType: 'overall', name: 'Overall Reading', description: 'Complete birth chart interpretation covering personality, strengths, life purpose, and key planetary influences', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'career', name: 'Career & Profession', description: 'Professional path, suitable fields, career growth periods, and financial prospects based on 10th house and Amatyakaraka', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'relationships', name: 'Love & Marriage', description: 'Marriage timing, spouse characteristics, compatibility analysis, and relationship dynamics from 7th house and Venus', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'health', name: 'Health & Wellness', description: 'Health vulnerabilities, body constitution, and preventive guidance from 6th house and Ascendant lord', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'finance', name: 'Wealth & Finance', description: 'Income sources, wealth yogas, investment periods, and financial growth from 2nd and 11th houses', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications from 9th and 12th houses', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming Vimshottari Dasa planetary periods with timeline predictions', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'horary', name: 'Horary (Prasna)', description: 'Prasna chart analysis using KP system for specific questions and timing', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+    ]
+    for (const item of standardTypes) {
+      const existing = await rawQuery<{ id: string }>('SELECT id FROM PremiumCatalog WHERE analysisType = ?', [item.analysisType])
+      if (existing.length === 0) {
+        const id = randomUUID()
+        await rawExecute(
+          `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          [id, item.analysisType, item.name, item.description, item.priceCents, item.originalPriceCents, item.sortOrder]
+        )
+      }
+    }
+    console.log('[DB] Seeded standard analysis types in PremiumCatalog')
+
     // Seed default bundle if empty
     const bundleCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM ProductBundle')
     if (bundleCount[0]?.cnt === 0) {
