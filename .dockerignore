@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+download/
+agent-ctx/
+*.md
+!README.md
+.env
+.env.*
+*.log
+tool-results/
+upload/
+examples/
+.zscripts/

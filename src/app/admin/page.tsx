@@ -165,12 +165,32 @@ const ANALYSIS_LABELS: Record<string, string> = {
   relationships: 'Love & Marriage',
   health: 'Health & Wellness',
   finance: 'Wealth & Finance',
+  education: 'Education & Learning',
+  family: 'Family & Children',
+  horary: 'Horary (Prasna)',
   spiritual: 'Spiritual Growth',
   dasa: 'Dasa Periods',
-  horary: 'Horary (Prasna)',
+  vedic_master: 'Vedic Master Reading',
+  trik_bhava: 'Trik Bhava Analysis',
+  forecast_12month: '12-Month Forecast',
+  cosmic_love_letter: 'Cosmic Love Letter',
+  name_numerology: 'Name Numerology',
+  gemstone_remedy: 'Gemstone & Remedy',
+  compatibility_profile: 'Compatibility Profile',
   swot_5year: '5-Year SWOT',
   cosmic_blueprint: 'Cosmic Blueprint',
   shadow_integration: 'Shadow Integration',
+  life_decoder: 'Life Decoder',
+  career_destiny: 'Career Destiny',
+  relationship_destiny: 'Relationship Destiny',
+  soul_purpose: 'Soul Purpose',
+  wealth_code: 'Wealth Code',
+  future_timeline: 'Future Timeline',
+  kp_prashna: 'KP Prashna (Advanced)',
+  past_life_karma: 'Past Life Karma',
+  mangal_dosha: 'Mangal Dosha Report',
+  sade_sati: 'Sade Sati Report',
+  horoscope_monthly: 'Daily Horoscope Subscription',
   reading_basic: 'Basic Reading',
   reading_standard: 'Standard Reading',
   reading_premium: 'Premium Reading',
@@ -1362,14 +1382,14 @@ export default function AdminDashboard() {
                               <TableCell className="text-muted-foreground">
                                 {item.originalPriceCents ? (
                                   <span className="line-through">{centsToDollar(item.originalPriceCents)}</span>
-                                ) : '—'}
+                                ) : ('—')}
                               </TableCell>
                               <TableCell>
                                 {savings > 0 ? (
                                   <Badge className="bg-emerald-100 text-emerald-700 text-xs border-emerald-200">
                                     {savings}% OFF
                                   </Badge>
-                                ) : '—'}
+                                ) : ('—')}
                               </TableCell>
                               <TableCell>
                                 {item.isActive === 1 ? (

@@ -235,6 +235,27 @@ const CREATE_TABLES_SQL = [
   `CREATE UNIQUE INDEX IF NOT EXISTS ReadingBooking_bookingRef_idx ON ReadingBooking(bookingRef)`,
   `CREATE INDEX IF NOT EXISTS ReadingBooking_status_idx ON ReadingBooking(status)`,
   `CREATE INDEX IF NOT EXISTS ReadingBooking_tier_idx ON ReadingBooking(tier)`,
+  `CREATE TABLE IF NOT EXISTS ChatFollowUp (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    analysisType TEXT NOT NULL,
+    question TEXT,
+    response TEXT,
+    provider TEXT,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS ChatFollowUp_deviceId_type_idx ON ChatFollowUp(deviceId, analysisType)`,
+
+  // Monthly horoscope subscriptions
+  `CREATE TABLE IF NOT EXISTS HoroscopeSubscription (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    startedAt DATETIME,
+    expiresAt DATETIME NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS HoroscopeSubscription_deviceId_idx ON HoroscopeSubscription(deviceId)`,
 ]
 
 let _libsql: Client | null = null
@@ -424,7 +445,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
@@ -529,12 +550,39 @@ export function initDb(): Promise<void> {
 async function seedDefaultData(): Promise<void> {
   try {
     // Seed default premium catalog items if empty
-    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog')
+    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog WHERE analysisType NOT LIKE \'reading_%\'')
     if (catalogCount[0]?.cnt === 0) {
       const defaults = [
-        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 1 },
-        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 699, originalPriceCents: 1299, sortOrder: 2 },
-        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 399, originalPriceCents: 799, sortOrder: 3 },
+        // Pro tier ($5 each)
+        { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications', priceCents: 500, originalPriceCents: 999, sortOrder: 1 },
+        { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming planetary periods with timeline predictions', priceCents: 500, originalPriceCents: 999, sortOrder: 2 },
+        { analysisType: 'vedic_master', name: 'Vedic Master Reading', description: 'Strict Vedic Jyotishi master reading with Parashara/Jaimini/KP systems, divisional charts, yogas, ashtakavarga, and karmic verdict', priceCents: 500, originalPriceCents: 999, sortOrder: 3 },
+        { analysisType: 'trik_bhava', name: 'Trik Bhava Analysis', description: 'Deep 6th/8th/12th house analysis with karmic-psychological insight, relationship and career snapshots, and future trajectory', priceCents: 500, originalPriceCents: 999, sortOrder: 4 },
+        { analysisType: 'forecast_12month', name: '12-Month Forecast', description: '12-month deep forecast covering career shifts, money patterns, emotional cycles, key turning points, love life, and financial outlook', priceCents: 500, originalPriceCents: 999, sortOrder: 5 },
+        // Advanced tier ($9 each)
+        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 900, originalPriceCents: 1499, sortOrder: 6 },
+        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 500, originalPriceCents: 999, sortOrder: 7 },
+        { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 900, originalPriceCents: 1499, sortOrder: 8 },
+        { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 900, originalPriceCents: 1499, sortOrder: 9 },
+        { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 900, originalPriceCents: 1499, sortOrder: 10 },
+        { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 900, originalPriceCents: 1499, sortOrder: 11 },
+        { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 12 },
+        { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 13 },
+        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 14 },
+        // Pro additions
+        { analysisType: 'cosmic_love_letter', name: 'Cosmic Love Letter', description: 'A poetic love letter from the stars — your love signature, karmic love story, heart\'s timetable, and star blessing', priceCents: 500, originalPriceCents: 999, sortOrder: 15 },
+        { analysisType: 'name_numerology', name: 'Name Numerology', description: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions', priceCents: 500, originalPriceCents: 999, sortOrder: 16 },
+        { analysisType: 'gemstone_remedy', name: 'Gemstone & Remedy', description: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar', priceCents: 500, originalPriceCents: 999, sortOrder: 17 },
+        { analysisType: 'compatibility_profile', name: 'Compatibility Profile', description: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches', priceCents: 500, originalPriceCents: 999, sortOrder: 18 },
+        // Advanced additions (variable pricing)
+        { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 700, originalPriceCents: 1299, sortOrder: 19 },
+        { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 900, originalPriceCents: 1499, sortOrder: 20 },
+        { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 21 },
+        { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
+        { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 23 },
+        // Standard (Free) — added to PremiumCatalog so admin can manage/upgrade pricing
+        { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
+        { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
       ]
       for (const item of defaults) {
         const id = randomUUID()
@@ -546,7 +594,7 @@ async function seedDefaultData(): Promise<void> {
       console.log('[DB] Seeded default PremiumCatalog entries')
     }
 
-    // Seed standard (free) analysis types if not already present
+    // Seed all analysis types (standard free + additional) into PremiumCatalog
     const standardTypes = [
       { analysisType: 'overall', name: 'Overall Reading', description: 'Complete birth chart interpretation covering personality, strengths, life purpose, and key planetary influences', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
       { analysisType: 'career', name: 'Career & Profession', description: 'Professional path, suitable fields, career growth periods, and financial prospects based on 10th house and Amatyakaraka', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
@@ -556,6 +604,8 @@ async function seedDefaultData(): Promise<void> {
       { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications from 9th and 12th houses', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
       { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming Vimshottari Dasa planetary periods with timeline predictions', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
       { analysisType: 'horary', name: 'Horary (Prasna)', description: 'Prasna chart analysis using KP system for specific questions and timing', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
+      { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
+      { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
     ]
     for (const item of standardTypes) {
       const existing = await rawQuery<{ id: string }>('SELECT id FROM PremiumCatalog WHERE analysisType = ?', [item.analysisType])
@@ -565,6 +615,7 @@ async function seedDefaultData(): Promise<void> {
           `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
           [id, item.analysisType, item.name, item.description, item.priceCents, item.originalPriceCents, item.sortOrder]
         )
+        console.log(`[DB] Added missing PremiumCatalog entry: ${item.analysisType}`)
       }
     }
     console.log('[DB] Seeded standard analysis types in PremiumCatalog')
