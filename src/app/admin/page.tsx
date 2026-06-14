@@ -240,6 +240,12 @@ export default function AdminDashboard() {
   })
   const [catalogSubmitting, setCatalogSubmitting] = useState(false)
 
+  // ── Messages state ──
+  const [messages, setMessages] = useState<{ id: string; name: string; email: string; message: string; isRead: number; createdAt: string }[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messagesUnreadCount, setMessagesUnreadCount] = useState(0)
+  const [messagesTotalCount, setMessagesTotalCount] = useState(0)
+
   // ── Bundles state ──
   const [bundles, setBundles] = useState<BundleItem[]>([])
   const [bundlesLoading, setBundlesLoading] = useState(false)
@@ -363,6 +369,49 @@ export default function AdminDashboard() {
     }
   }, [])
 
+  const fetchMessages = useCallback(async () => {
+    setMessagesLoading(true)
+    try {
+      const res = await fetch('/api/admin/messages', { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data.messages || [])
+        setMessagesUnreadCount(data.unreadCount || 0)
+        setMessagesTotalCount(data.totalCount || 0)
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err)
+    } finally {
+      setMessagesLoading(false)
+    }
+  }, [])
+
+  const markMessageRead = useCallback(async (messageId: string, isRead: boolean) => {
+    try {
+      await fetch(`/api/admin/messages/${encodeURIComponent(messageId)}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRead }),
+      })
+      fetchMessages()
+    } catch (err) {
+      console.error('Failed to update message:', err)
+    }
+  }, [fetchMessages])
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await fetch(`/api/admin/messages/${encodeURIComponent(messageId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      fetchMessages()
+    } catch (err) {
+      console.error('Failed to delete message:', err)
+    }
+  }, [fetchMessages])
+
   const fetchBundles = useCallback(async () => {
     setBundlesLoading(true)
     setBundlesError(null)
@@ -410,6 +459,7 @@ export default function AdminDashboard() {
   useEffect(() => { fetchStats() }, [fetchStats])
   useEffect(() => { fetchAccessGrants() }, [fetchAccessGrants])
   useEffect(() => { fetchCatalog() }, [fetchCatalog])
+  useEffect(() => { fetchMessages() }, [fetchMessages])
   useEffect(() => { fetchBundles() }, [fetchBundles])
   const fetchBookings = useCallback(async () => {
     setBookingsLoading(true)
@@ -1045,6 +1095,20 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+          <Card className={`border-blue-300/30 ${messagesUnreadCount > 0 ? 'bg-blue-50/50' : ''}`}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Messages</p>
+                  <p className="text-3xl font-bold text-blue-700">{messagesUnreadCount > 0 ? messagesUnreadCount : messagesTotalCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{messagesUnreadCount > 0 ? 'unread messages' : 'total messages'}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* ═══════════ Main Tabs ═══════════ */}
@@ -1070,6 +1134,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="astrologers" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
               <UserCheck className="w-4 h-4 mr-1" /> Astrologers
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
+              <Mail className="w-4 h-4 mr-1" /> Messages
             </TabsTrigger>
           </TabsList>
 
@@ -2083,6 +2150,98 @@ export default function AdminDashboard() {
                         ))}
                       </TableBody>
                     </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════ MESSAGES TAB ═══════════ */}
+          <TabsContent value="messages">
+            <Card className="border-saffron/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-saffron" /> Contact Messages
+                    </CardTitle>
+                    <CardDescription>
+                      {messagesUnreadCount > 0
+                        ? `${messagesUnreadCount} unread of ${messagesTotalCount} total`
+                        : `${messagesTotalCount} messages — all read`}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={fetchMessages} size="sm" variant="outline" className="border-saffron/30 text-maroon">
+                      <RefreshCw className={`w-3 h-3 mr-1 ${messagesLoading ? 'animate-spin' : ''}`} /> Refresh
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {messagesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Loading messages...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No messages yet</p>
+                    <p className="text-xs mt-1">Messages from the Contact page will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`border rounded-lg p-4 transition-all ${
+                          msg.isRead ? 'border-saffron/10 bg-white' : 'border-saffron/30 bg-saffron/5'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {!msg.isRead && (
+                                <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" title="Unread" />
+                              )}
+                              <span className="font-semibold text-sm text-maroon">{msg.name}</span>
+                              <span className="text-xs text-muted-foreground">{msg.email}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(msg.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground/80 whitespace-pre-wrap">{msg.message}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              onClick={() => markMessageRead(msg.id, !msg.isRead)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              title={msg.isRead ? 'Mark as unread' : 'Mark as read'}
+                            >
+                              {msg.isRead ? (
+                                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                              ) : (
+                                <Mail className="w-3.5 h-3.5 text-blue-500" />
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                if (confirm('Delete this message?')) deleteMessage(msg.id)
+                              }}
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

@@ -256,6 +256,18 @@ const CREATE_TABLES_SQL = [
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS HoroscopeSubscription_deviceId_idx ON HoroscopeSubscription(deviceId)`,
+
+  // Contact form submissions
+  `CREATE TABLE IF NOT EXISTS ContactMessage (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    message TEXT NOT NULL,
+    isRead INTEGER NOT NULL DEFAULT 0,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS ContactMessage_createdAt_idx ON ContactMessage(createdAt)`,
+  `CREATE INDEX IF NOT EXISTS ContactMessage_isRead_idx ON ContactMessage(isRead)`,
 ]
 
 let _libsql: Client | null = null
@@ -445,7 +457,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
