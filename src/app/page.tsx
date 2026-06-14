@@ -445,25 +445,6 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
             >
               <BookOpen className="w-4 h-4" /> Book a Reading
             </a>
-            {/* Social Contact Buttons */}
-            <a
-              href="https://wa.me/977979735537"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm bg-[#25D366] text-white hover:bg-[#25D366]/90 transition-all ml-1"
-              title="Chat on WhatsApp"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </a>
-            <a
-              href="https://www.facebook.com/profile.php?id=61590513489073"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm bg-[#1877F2] text-white hover:bg-[#1877F2]/90 transition-all"
-              title="Follow on Facebook"
-            >
-              <Facebook className="w-4 h-4" />
-            </a>
             {/* Whop Auth Button */}
             {whopAuth.configured && (
               whopAuth.authenticated ? (
@@ -587,6 +568,9 @@ function VedicFooter() {
             </a>
             <a href="https://www.youtube.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FF0000] transition-colors" title="YouTube">
               <Youtube className="w-4 h-4" />
+            </a>
+            <a href="https://www.tiktok.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-white transition-colors" title="TikTok">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.79a8.18 8.18 0 004.76 1.52V6.86a4.84 4.84 0 01-1-.17z"/></svg>
             </a>
             <a href="mailto:astrobidhi@gmail.com" className="text-saffron-light/50 hover:text-gold-light transition-colors" title="Email">
               <Mail className="w-4 h-4" />
@@ -3318,26 +3302,9 @@ function MyAnalysesPage() {
 }
 
 // ============ Buy Me a Coffee Floating Widget ============
-function BuyMeACoffeeWidget() {
+function FloatingWidgets() {
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <a
-        href="https://buymeacoffee.com/astrobidhi"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 px-4 py-3 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full font-semibold shadow-lg hover:shadow-xl transition-all group"
-      >
-        <Coffee className="w-5 h-5 group-hover:animate-bounce" />
-        <span className="hidden sm:inline text-sm">Support Us</span>
-      </a>
-    </div>
-  )
-}
-
-// ============ WhatsApp Floating Widget ============
-function WhatsAppWidget() {
-  return (
-    <div className="fixed bottom-6 left-6 z-50">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
       <a
         href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hello%20AstroBidhi`}
         target="_blank"
@@ -3346,6 +3313,15 @@ function WhatsAppWidget() {
       >
         <MessageCircle className="w-5 h-5 group-hover:animate-bounce" />
         <span className="hidden sm:inline text-sm">WhatsApp</span>
+      </a>
+      <a
+        href="https://buymeacoffee.com/astrobidhi"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 px-4 py-3 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full font-semibold shadow-lg hover:shadow-xl transition-all group"
+      >
+        <Coffee className="w-5 h-5 group-hover:animate-bounce" />
+        <span className="hidden sm:inline text-sm">Support Us</span>
       </a>
     </div>
   )
@@ -3960,8 +3936,7 @@ export default function Home() {
         </AnimatePresence>
       </main>
       <VedicFooter />
-        <BuyMeACoffeeWidget />
-        <WhatsAppWidget />
+        <FloatingWidgets />
     </div>
     </CatalogContext.Provider>
     </AdminAccessContext.Provider>
