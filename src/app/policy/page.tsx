@@ -177,7 +177,7 @@ export default function PolicyPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
+      <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60 pb-24">
         <div className="vedic-divider" />
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">

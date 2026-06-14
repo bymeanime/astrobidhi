@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Mail, MessageCircle, Facebook, Instagram, Twitter,
-  Send, Loader2, CheckCircle, MapPin
+  Send, Loader2, CheckCircle, MapPin, Youtube
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,11 +16,14 @@ import { useToast } from '@/hooks/use-toast'
 const WHATSAPP_NUMBER = '9779709735537'
 
 const socialLinks = [
-  { icon: <MessageCircle className="w-5 h-5" />, label: 'WhatsApp', href: `https://wa.me/${WHATSAPP_NUMBER}`, color: 'hover:text-[#25D366]' },
-  { icon: <Facebook className="w-5 h-5" />, label: 'Facebook', href: 'https://facebook.com/astrobidhi', color: 'hover:text-[#1877F2]' },
-  { icon: <Instagram className="w-5 h-5" />, label: 'Instagram', href: 'https://instagram.com/astrobidhi', color: 'hover:text-[#E4405F]' },
-  { icon: <Twitter className="w-5 h-5" />, label: 'Twitter', href: 'https://twitter.com/astrobidhi', color: 'hover:text-[#1DA1F2]' },
-  { icon: <Mail className="w-5 h-5" />, label: 'Email', href: 'mailto:astrobidhi@gmail.com', color: 'hover:text-gold-light' },
+  { icon: <MessageCircle className="w-5 h-5" />, label: 'WhatsApp', href: `https://wa.me/${WHATSAPP_NUMBER}`, color: 'hover:text-[#25D366]', detail: '+977 9709735537' },
+  { icon: <Facebook className="w-5 h-5" />, label: 'Facebook', href: 'https://www.facebook.com/profile.php?id=61590513489073', color: 'hover:text-[#1877F2]', detail: 'AstroBidhi' },
+  { icon: <Instagram className="w-5 h-5" />, label: 'Instagram', href: 'https://instagram.com/astrobidhi', color: 'hover:text-[#E4405F]', detail: '@astrobidhi' },
+  { icon: <Send className="w-5 h-5" />, label: 'Telegram', href: 'https://t.me/astrobidhi', color: 'hover:text-[#0088CC]', detail: '@astrobidhi' },
+  { icon: <Twitter className="w-5 h-5" />, label: 'Twitter / X', href: 'https://twitter.com/astrobidhi', color: 'hover:text-[#1DA1F2]', detail: '@astrobidhi' },
+  { icon: <Youtube className="w-5 h-5" />, label: 'YouTube', href: 'https://www.youtube.com/@astrobidhi', color: 'hover:text-[#FF0000]', detail: '@astrobidhi' },
+  { icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.79a8.18 8.18 0 004.76 1.52V6.86a4.84 4.84 0 01-1-.17z"/></svg>, label: 'TikTok', href: 'https://www.tiktok.com/@astrobidhi', color: 'hover:text-white', detail: '@astrobidhi' },
+  { icon: <Mail className="w-5 h-5" />, label: 'Email', href: 'mailto:astrobidhi@gmail.com', color: 'hover:text-gold-light', detail: 'astrobidhi@gmail.com' },
 ]
 
 export default function ContactPage() {
@@ -113,13 +116,7 @@ export default function ContactPage() {
                         {link.icon}
                         <div>
                           <p className="font-semibold text-sm">{link.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {link.label === 'WhatsApp' && '+977 9709735537'}
-                            {link.label === 'Facebook' && 'facebook.com/astrobidhi'}
-                            {link.label === 'Instagram' && 'instagram.com/astrobidhi'}
-                            {link.label === 'Twitter' && 'twitter.com/astrobidhi'}
-                            {link.label === 'Email' && 'astrobidhi@gmail.com'}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{link.detail}</p>
                         </div>
                       </a>
                     ))}
@@ -232,7 +229,7 @@ export default function ContactPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
+      <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60 pb-24">
         <div className="vedic-divider" />
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">

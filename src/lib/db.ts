@@ -549,65 +549,48 @@ export function initDb(): Promise<void> {
 // Seed default catalog and bundle data if tables are empty
 async function seedDefaultData(): Promise<void> {
   try {
-    // Seed default premium catalog items if empty
-    const catalogCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM PremiumCatalog WHERE analysisType NOT LIKE \'reading_%\'')
-    if (catalogCount[0]?.cnt === 0) {
-      const defaults = [
-        // Pro tier ($5 each)
-        { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications', priceCents: 500, originalPriceCents: 999, sortOrder: 1 },
-        { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming planetary periods with timeline predictions', priceCents: 500, originalPriceCents: 999, sortOrder: 2 },
-        { analysisType: 'vedic_master', name: 'Vedic Master Reading', description: 'Strict Vedic Jyotishi master reading with Parashara/Jaimini/KP systems, divisional charts, yogas, ashtakavarga, and karmic verdict', priceCents: 500, originalPriceCents: 999, sortOrder: 3 },
-        { analysisType: 'trik_bhava', name: 'Trik Bhava Analysis', description: 'Deep 6th/8th/12th house analysis with karmic-psychological insight, relationship and career snapshots, and future trajectory', priceCents: 500, originalPriceCents: 999, sortOrder: 4 },
-        { analysisType: 'forecast_12month', name: '12-Month Forecast', description: '12-month deep forecast covering career shifts, money patterns, emotional cycles, key turning points, love life, and financial outlook', priceCents: 500, originalPriceCents: 999, sortOrder: 5 },
-        // Advanced tier ($9 each)
-        { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 900, originalPriceCents: 1499, sortOrder: 6 },
-        { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 500, originalPriceCents: 999, sortOrder: 7 },
-        { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 900, originalPriceCents: 1499, sortOrder: 8 },
-        { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 900, originalPriceCents: 1499, sortOrder: 9 },
-        { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 900, originalPriceCents: 1499, sortOrder: 10 },
-        { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 900, originalPriceCents: 1499, sortOrder: 11 },
-        { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 12 },
-        { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 13 },
-        { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 14 },
-        // Pro additions
-        { analysisType: 'cosmic_love_letter', name: 'Cosmic Love Letter', description: 'A poetic love letter from the stars — your love signature, karmic love story, heart\'s timetable, and star blessing', priceCents: 500, originalPriceCents: 999, sortOrder: 15 },
-        { analysisType: 'name_numerology', name: 'Name Numerology', description: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions', priceCents: 500, originalPriceCents: 999, sortOrder: 16 },
-        { analysisType: 'gemstone_remedy', name: 'Gemstone & Remedy', description: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar', priceCents: 500, originalPriceCents: 999, sortOrder: 17 },
-        { analysisType: 'compatibility_profile', name: 'Compatibility Profile', description: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches', priceCents: 500, originalPriceCents: 999, sortOrder: 18 },
-        // Advanced additions (variable pricing)
-        { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 700, originalPriceCents: 1299, sortOrder: 19 },
-        { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 900, originalPriceCents: 1499, sortOrder: 20 },
-        { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 21 },
-        { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
-        { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 23 },
-        // Standard (Free) — added to PremiumCatalog so admin can manage/upgrade pricing
-        { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
-        { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
-      ]
-      for (const item of defaults) {
-        const id = randomUUID()
-        await rawExecute(
-          `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-          [id, item.analysisType, item.name, item.description, item.priceCents, item.originalPriceCents, item.sortOrder]
-        )
-      }
-      console.log('[DB] Seeded default PremiumCatalog entries')
-    }
-
-    // Seed all analysis types (standard free + additional) into PremiumCatalog
-    const standardTypes = [
+    // Complete list of ALL analysis types that must exist in PremiumCatalog
+    // Verified against /api/ai-analysis/route.ts ANALYSIS_PROMPTS
+    const allCatalogItems = [
+      // Standard (Free) — available to all users
       { analysisType: 'overall', name: 'Overall Reading', description: 'Complete birth chart interpretation covering personality, strengths, life purpose, and key planetary influences', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'career', name: 'Career & Profession', description: 'Professional path, suitable fields, career growth periods, and financial prospects based on 10th house and Amatyakaraka', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'relationships', name: 'Love & Marriage', description: 'Marriage timing, spouse characteristics, compatibility analysis, and relationship dynamics from 7th house and Venus', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'health', name: 'Health & Wellness', description: 'Health vulnerabilities, body constitution, and preventive guidance from 6th house and Ascendant lord', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'finance', name: 'Wealth & Finance', description: 'Income sources, wealth yogas, investment periods, and financial growth from 2nd and 11th houses', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications from 9th and 12th houses', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming Vimshottari Dasa planetary periods with timeline predictions', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'horary', name: 'Horary (Prasna)', description: 'Prasna chart analysis using KP system for specific questions and timing', priceCents: 0, originalPriceCents: null, sortOrder: 0 },
-      { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 24 },
-      { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 25 },
+      { analysisType: 'career', name: 'Career & Profession', description: 'Professional path, suitable fields, career growth periods, and financial prospects based on 10th house and Amatyakaraka', priceCents: 0, originalPriceCents: null, sortOrder: 1 },
+      { analysisType: 'relationships', name: 'Love & Marriage', description: 'Marriage timing, spouse characteristics, compatibility analysis, and relationship dynamics from 7th house and Venus', priceCents: 0, originalPriceCents: null, sortOrder: 2 },
+      { analysisType: 'health', name: 'Health & Wellness', description: 'Health vulnerabilities, body constitution, and preventive guidance from 6th house and Ascendant lord', priceCents: 0, originalPriceCents: null, sortOrder: 3 },
+      { analysisType: 'finance', name: 'Wealth & Finance', description: 'Income sources, wealth yogas, investment periods, and financial growth from 2nd and 11th houses', priceCents: 0, originalPriceCents: null, sortOrder: 4 },
+      { analysisType: 'education', name: 'Education & Learning', description: 'Academic fields, higher education timing, learning style, and competitive exam prospects', priceCents: 0, originalPriceCents: null, sortOrder: 5 },
+      { analysisType: 'family', name: 'Family & Children', description: 'Family harmony, relationship with parents, children prospects, and timing from Putra Bhava', priceCents: 0, originalPriceCents: null, sortOrder: 6 },
+      { analysisType: 'horary', name: 'Horary (Prasna)', description: 'Prasna chart analysis using KP system for specific questions and timing', priceCents: 0, originalPriceCents: null, sortOrder: 7 },
+      // Pro tier ($5 each)
+      { analysisType: 'spiritual', name: 'Spiritual Growth', description: 'Dharma, spiritual path, past life karma, and moksha indications', priceCents: 500, originalPriceCents: 999, sortOrder: 10 },
+      { analysisType: 'dasa', name: 'Dasa Periods', description: 'Current and upcoming planetary periods with timeline predictions', priceCents: 500, originalPriceCents: 999, sortOrder: 11 },
+      { analysisType: 'vedic_master', name: 'Vedic Master Reading', description: 'Strict Vedic Jyotishi master reading with Parashara/Jaimini/KP systems, divisional charts, yogas, ashtakavarga, and karmic verdict', priceCents: 500, originalPriceCents: 999, sortOrder: 12 },
+      { analysisType: 'trik_bhava', name: 'Trik Bhava Analysis', description: 'Deep 6th/8th/12th house analysis with karmic-psychological insight, relationship and career snapshots, and future trajectory', priceCents: 500, originalPriceCents: 999, sortOrder: 13 },
+      { analysisType: 'forecast_12month', name: '12-Month Forecast', description: '12-month deep forecast covering career shifts, money patterns, emotional cycles, key turning points, love life, and financial outlook', priceCents: 500, originalPriceCents: 999, sortOrder: 14 },
+      { analysisType: 'cosmic_love_letter', name: 'Cosmic Love Letter', description: 'A poetic love letter from the stars — your love signature, karmic love story, heart\'s timetable, and star blessing', priceCents: 500, originalPriceCents: 999, sortOrder: 15 },
+      { analysisType: 'name_numerology', name: 'Name Numerology', description: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions', priceCents: 500, originalPriceCents: 999, sortOrder: 16 },
+      { analysisType: 'gemstone_remedy', name: 'Gemstone & Remedy', description: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar', priceCents: 500, originalPriceCents: 999, sortOrder: 17 },
+      { analysisType: 'compatibility_profile', name: 'Compatibility Profile', description: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches', priceCents: 500, originalPriceCents: 999, sortOrder: 18 },
+      // Advanced tier (variable pricing)
+      { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 900, originalPriceCents: 1499, sortOrder: 20 },
+      { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 500, originalPriceCents: 999, sortOrder: 21 },
+      { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
+      { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 900, originalPriceCents: 1499, sortOrder: 23 },
+      { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 900, originalPriceCents: 1499, sortOrder: 24 },
+      { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 900, originalPriceCents: 1499, sortOrder: 25 },
+      { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 26 },
+      { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 27 },
+      { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 28 },
+      { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 700, originalPriceCents: 1299, sortOrder: 29 },
+      { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 900, originalPriceCents: 1499, sortOrder: 30 },
+      { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 31 },
+      { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 32 },
+      { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 33 },
     ]
-    for (const item of standardTypes) {
+
+    // Always ensure ALL analysis types exist — use INSERT OR IGNORE for each
+    // This handles both fresh installs and existing DBs that may be missing some entries
+    for (const item of allCatalogItems) {
       const existing = await rawQuery<{ id: string }>('SELECT id FROM PremiumCatalog WHERE analysisType = ?', [item.analysisType])
       if (existing.length === 0) {
         const id = randomUUID()
@@ -618,7 +601,7 @@ async function seedDefaultData(): Promise<void> {
         console.log(`[DB] Added missing PremiumCatalog entry: ${item.analysisType}`)
       }
     }
-    console.log('[DB] Seeded standard analysis types in PremiumCatalog')
+    console.log('[DB] Verified all analysis types in PremiumCatalog')
 
     // Seed default bundle if empty
     const bundleCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM ProductBundle')

@@ -539,59 +539,59 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
 
 function VedicFooter() {
   return (
-    <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60">
+    <footer className="mt-auto bg-gradient-to-r from-maroon-dark via-maroon to-maroon-dark text-saffron-light/60 pb-24">
       <div className="vedic-divider" />
       <div className="max-w-7xl mx-auto px-4 py-4">
-        {/* Top row: Logo + Social icons */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+        {/* Row 1: Logo + Page links */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-lg text-gold animate-pulse-glow">ॐ</span>
             <span className="text-gold-light font-semibold text-xs">AstroBidhi</span>
             <span className="text-[10px] text-saffron-light/40">वैदिक ज्योतिष</span>
           </div>
-          {/* Social Media Links */}
-          <div className="flex items-center gap-3">
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#25D366] transition-colors" title="WhatsApp">
-              <MessageCircle className="w-4 h-4" />
-            </a>
-            <a href="https://www.facebook.com/profile.php?id=61590513489073" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1877F2] transition-colors" title="Facebook">
-              <Facebook className="w-4 h-4" />
-            </a>
-            <a href="https://instagram.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#E4405F] transition-colors" title="Instagram">
-              <Instagram className="w-4 h-4" />
-            </a>
-            <a href="https://t.me/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#0088CC] transition-colors" title="Telegram">
-              <Send className="w-4 h-4" />
-            </a>
-            <a href="https://twitter.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1DA1F2] transition-colors" title="Twitter">
-              <Twitter className="w-4 h-4" />
-            </a>
-            <a href="https://www.youtube.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FF0000] transition-colors" title="YouTube">
-              <Youtube className="w-4 h-4" />
-            </a>
-            <a href="https://www.tiktok.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-white transition-colors" title="TikTok">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.79a8.18 8.18 0 004.76 1.52V6.86a4.84 4.84 0 01-1-.17z"/></svg>
-            </a>
-            <a href="mailto:astrobidhi@gmail.com" className="text-saffron-light/50 hover:text-gold-light transition-colors" title="Email">
-              <Mail className="w-4 h-4" />
-            </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px]">
+            <a href="/about" className="text-saffron-light/50 hover:text-gold-light transition-colors">About</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="/contact" className="text-saffron-light/50 hover:text-gold-light transition-colors">Contact</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="/policy" className="text-saffron-light/50 hover:text-gold-light transition-colors">Privacy Policy</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="/refund" className="text-saffron-light/50 hover:text-gold-light transition-colors">Refund Policy</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="https://buymeacoffee.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FFDD00] transition-colors">Support Us</a>
+            <span className="text-saffron-light/20">&bull;</span>
+            <a href="/admin" className="text-saffron-light/50 hover:text-gold-light transition-colors">Admin</a>
           </div>
         </div>
-        {/* Page links */}
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-[10px]">
-          <a href="/about" className="text-saffron-light/50 hover:text-gold-light transition-colors">About</a>
-          <span className="text-saffron-light/20">&bull;</span>
-          <a href="/contact" className="text-saffron-light/50 hover:text-gold-light transition-colors">Contact</a>
-          <span className="text-saffron-light/20">&bull;</span>
-          <a href="/policy" className="text-saffron-light/50 hover:text-gold-light transition-colors">Privacy Policy</a>
-          <span className="text-saffron-light/20">&bull;</span>
-          <a href="/refund" className="text-saffron-light/50 hover:text-gold-light transition-colors">Refund Policy</a>
-          <span className="text-saffron-light/20">&bull;</span>
-          <a href="https://buymeacoffee.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FFDD00] transition-colors">Support Us</a>
-          <span className="text-saffron-light/20">&bull;</span>
-          <a href="/admin" className="text-saffron-light/50 hover:text-gold-light transition-colors">Admin</a>
+        {/* Row 2: Social Media Links — centered, in the middle so widgets don't block */}
+        <div className="flex items-center justify-center gap-4 mt-3 mb-2">
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#25D366] transition-colors" title="WhatsApp">
+            <MessageCircle className="w-4 h-4" />
+          </a>
+          <a href="https://www.facebook.com/profile.php?id=61590513489073" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1877F2] transition-colors" title="Facebook">
+            <Facebook className="w-4 h-4" />
+          </a>
+          <a href="https://instagram.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#E4405F] transition-colors" title="Instagram">
+            <Instagram className="w-4 h-4" />
+          </a>
+          <a href="https://t.me/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#0088CC] transition-colors" title="Telegram">
+            <Send className="w-4 h-4" />
+          </a>
+          <a href="https://twitter.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#1DA1F2] transition-colors" title="Twitter / X">
+            <Twitter className="w-4 h-4" />
+          </a>
+          <a href="https://www.youtube.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-[#FF0000] transition-colors" title="YouTube">
+            <Youtube className="w-4 h-4" />
+          </a>
+          <a href="https://www.tiktok.com/@astrobidhi" target="_blank" rel="noopener noreferrer" className="text-saffron-light/50 hover:text-white transition-colors" title="TikTok">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.79a8.18 8.18 0 004.76 1.52V6.86a4.84 4.84 0 01-1-.17z"/></svg>
+          </a>
+          <a href="mailto:astrobidhi@gmail.com" className="text-saffron-light/50 hover:text-gold-light transition-colors" title="Email">
+            <Mail className="w-4 h-4" />
+          </a>
         </div>
-        <div className="text-center mt-2">
+        {/* Row 3: Credits */}
+        <div className="text-center">
           <p className="text-[9px] text-saffron-light/30">Powered by VedicAstro (Swiss Ephemeris) &bull; KP System &bull; Gemini AI &bull; Dedicated to Parashara MahaRishi &amp; K.S. Krishnamurti</p>
         </div>
       </div>
@@ -2141,11 +2141,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 </a>
                 <div className="flex items-center gap-2 mt-3">
                   <span className="text-xs text-amber-700">Or reach us directly:</span>
-                  <a href="https://wa.me/977979735537" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-[#25D366] text-white rounded text-xs font-medium hover:bg-[#25D366]/90 transition-all">
+                  <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-[#25D366] text-white rounded text-xs font-medium hover:bg-[#25D366]/90 transition-all">
                     <MessageCircle className="w-3 h-3" /> WhatsApp
-                  </a>
-                  <a href="https://www.facebook.com/profile.php?id=61590513489073" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-[#1877F2] text-white rounded text-xs font-medium hover:bg-[#1877F2]/90 transition-all">
-                    <Facebook className="w-3 h-3" /> Facebook
                   </a>
                 </div>
               </CardContent>
