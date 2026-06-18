@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/local";
+import localFont from "next/font/local";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
 // Use local font fallback to avoid network dependency on Google Fonts CDN
 // In production with internet access, you can switch back to next/font/google
-const geistSans = Geist({
+const geistSans = localFont({
   variable: "--font-geist-sans",
   src: [
     { path: '../../node_modules/@fontsource/geist-sans/files/geist-sans-latin-400-normal.woff2', weight: '400', style: 'normal' },
@@ -14,7 +14,7 @@ const geistSans = Geist({
   ],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
   variable: "--font-geist-mono",
   src: [
     { path: '../../node_modules/@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2', weight: '400', style: 'normal' },

@@ -300,7 +300,7 @@ export async function rawQuery<T = Record<string, unknown>>(sql: string, args: u
   }
   // Only wait for init if tables haven't been set up yet (avoids deadlock when called from seedDefaultData)
   if (!_dbReady) await initDb()
-  const result = await client.execute({ sql, args })
+  const result = await client.execute({ sql, args: args as never[] })
   return result.rows as unknown as T[]
 }
 
@@ -314,7 +314,7 @@ export async function rawExecute(sql: string, args: unknown[] = []): Promise<num
   }
   if (!_dbReady) await initDb()
   try {
-    const result = await client.execute({ sql, args })
+    const result = await client.execute({ sql, args: args as never[] })
     if (result.rowsAffected === 0 && sql.trim().toUpperCase().startsWith('INSERT')) {
       console.warn('[DB] rawExecute: INSERT affected 0 rows — possible silent failure. SQL:', sql.substring(0, 100))
     }
@@ -682,7 +682,7 @@ function createNoOpProxy(): PrismaClient {
       if (prop === '$connect' || prop === '$disconnect' || prop === '$on' || prop === '$use') {
         return async () => {}
       }
-      const value = (_target as Record<string, unknown>)[prop as string]
+      const value = (_target as unknown as Record<string, unknown>)[prop as string]
       if (value !== undefined) return value
 
       return new Proxy({}, {

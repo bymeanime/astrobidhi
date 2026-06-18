@@ -1959,8 +1959,9 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
     setShareLoading(true)
     try {
       const deviceId = getDeviceId()
-      // Get birth details from the parent's lastFormData or extract from chartData.birth_details
-      const birthDetails = chartData.birth_details || {}
+      // chartData is the computed horoscope; we share it as-is so the share page
+      // can display the chart + analysis without re-running Python or AI.
+      const birthDetails = (chartData as (HoroscopeData & { birth_details?: Record<string, unknown> }) | null)?.birth_details || {}
 
       const res = await fetch('/api/share', {
         method: 'POST',
@@ -3298,7 +3299,7 @@ function MyAnalysesPage() {
                   <Star className="w-4 h-4 text-saffron" />
                   Chart #{idx + 1}
                   <span className="text-xs text-muted-foreground font-normal ml-2">
-                    {chart.birthDetails?.year && `${chart.birthDetails.year}-${chart.birthDetails.month}-${chart.birthDetails.day}`}
+                    {chart.birthDetails?.year != null && `${chart.birthDetails.year}-${chart.birthDetails.month}-${chart.birthDetails.day}`}
                     {chart.birthDetails?.latitude != null && ` | ${chart.birthDetails.latitude}°N, ${chart.birthDetails.longitude}°E`}
                   </span>
                 </CardTitle>
@@ -3306,7 +3307,9 @@ function MyAnalysesPage() {
               <CardContent>
                 <div className="space-y-2">
                   {chart.analyses.map((analysis, aIdx) => {
-                    const analysisInfo = dynamicAnalysisTypes.find(a => a.id === analysis.type)
+                    // ANALYSIS_TYPES is module-scoped; the dynamic catalog-aware version
+                    // lives only inside the parent component, so we fall back to the static list here.
+                    const analysisInfo = ANALYSIS_TYPES.find(a => a.id === analysis.type)
                     const isLoading = loadingAnalysis === analysis.cacheKey
                     return (
                       <div key={aIdx} className="flex items-center justify-between p-3 bg-saffron/5 rounded-lg hover:bg-saffron/10 transition-colors">

@@ -58,8 +58,11 @@ export async function GET(request: NextRequest) {
   // ---- Check 3: Basic read query ----
   const readStart = Date.now()
   try {
-    const result = await rawQuery<{ test: number }>('SELECT 1 as test')
-    if (result.length > 0 && (result[0].test === 1 || result[0].test === '1')) {
+    // Type as number|string because SQLite may return either depending on the driver
+    const result = await rawQuery<{ test: number | string }>('SELECT 1 as test')
+    const testVal = result[0]?.test
+    const isOne = testVal === 1 || testVal === '1' || String(testVal) === '1'
+    if (result.length > 0 && isOne) {
       checks.push({
         name: 'read_query',
         status: 'pass',

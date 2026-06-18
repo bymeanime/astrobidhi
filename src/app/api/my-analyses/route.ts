@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rawQuery, initDb } from '@/lib/db'
+import { rawQuery, rawExecute, initDb } from '@/lib/db'
 import { decodeSession, type WhopSession } from '@/lib/whop'
 
 function getSession(request: NextRequest): WhopSession | null {
