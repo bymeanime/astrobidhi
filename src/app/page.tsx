@@ -11,7 +11,7 @@ import {
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
   Share2, Copy, Twitter, Facebook, Instagram, Mail, LogIn, LogOut, User, ExternalLink,
   Coffee, History, RefreshCw, Hash, Gem, UserCheck, RotateCcw, Flame, Users,
-  Send, CheckCircle, Youtube
+  Send, CheckCircle, Youtube, ShoppingCart
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -211,10 +211,11 @@ interface WhopAuthState {
   user: { id: string; name: string; email: string; picture: string } | null
   loading: boolean
   configured: boolean
+  checkoutUrl: string | null  // Direct Whop checkout URL (for "Buy Now" buttons)
 }
 
 const WhopAuthContext = createContext<WhopAuthState>({
-  authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+  authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
 })
 
 function useWhopAuth() {
@@ -484,6 +485,24 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                     className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold transition-all"
                   >
                     <Crown className="w-4 h-4" /> Start Free Trial
+                  </a>
+                  {whopAuth.checkoutUrl && (
+                    <a
+                      href={whopAuth.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium transition-all"
+                      title="Buy a Whop membership directly without signing in first"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> Buy Now
+                    </a>
+                  )}
+                  <a
+                    href="/api/auth/whop"
+                    className="text-saffron-light/70 hover:text-gold-light text-xs px-2 py-2 transition-colors"
+                    title="Already a member? Sign in"
+                  >
+                    Sign in
                   </a>
                 </div>
               )
@@ -2235,7 +2254,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               </div>
             </div>
           )}
-          <DialogFooter className="flex-row gap-2 sm:justify-end">
+          <DialogFooter className="flex-row gap-2 sm:justify-end flex-wrap">
             <Button
               variant="outline"
               onClick={() => setPremiumDialogType(null)}
@@ -2244,12 +2263,24 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               Close
             </Button>
             {whopAuth.configured ? (
-              <a
-                href="/api/auth/whop"
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
-              >
-                <Crown className="w-4 h-4" /> Start Free Trial
-              </a>
+              <>
+                <a
+                  href="/api/auth/whop"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                >
+                  <Crown className="w-4 h-4" /> Start Free Trial
+                </a>
+                {whopAuth.checkoutUrl && (
+                  <a
+                    href={whopAuth.checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium px-4 py-2 h-10 transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Buy Now
+                  </a>
+                )}
+              </>
             ) : (
               <Button
                 onClick={() => setPremiumDialogType(null)}
@@ -2297,7 +2328,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               <span>{whopAuth.configured ? 'Upgrade via Whop to unlock unlimited access.' : 'Subscription coming soon! Cached results are always accessible for free.'}</span>
             </div>
           </div>
-          <DialogFooter className="flex-row gap-2 sm:justify-end">
+          <DialogFooter className="flex-row gap-2 sm:justify-end flex-wrap">
             <Button
               variant="outline"
               onClick={() => setLimitReached(null)}
@@ -2306,12 +2337,24 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               Close
             </Button>
             {whopAuth.configured ? (
-              <a
-                href="/api/auth/whop"
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-4 py-2 h-10 transition-all"
-              >
-                <Crown className="w-4 h-4" /> Get Unlimited
-              </a>
+              <>
+                <a
+                  href="/api/auth/whop"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-4 py-2 h-10 transition-all"
+                >
+                  <Crown className="w-4 h-4" /> Get Unlimited
+                </a>
+                {whopAuth.checkoutUrl && (
+                  <a
+                    href={whopAuth.checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium px-4 py-2 h-10 transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Buy Now
+                  </a>
+                )}
+              </>
             ) : (
               <Button
                 onClick={() => setLimitReached(null)}
@@ -2588,17 +2631,29 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3 gap-2 flex-wrap">
                 <div>
                   <p className="text-sm font-semibold text-amber-800">Follow-up limit reached</p>
                   <p className="text-xs text-amber-600">Upgrade to Premium for unlimited questions</p>
                 </div>
-                <a
-                  href="/api/auth/whop"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-saffron to-maroon text-white text-xs font-semibold rounded-md"
-                >
-                  <Crown className="w-3 h-3" /> Upgrade
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/api/auth/whop"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-saffron to-maroon text-white text-xs font-semibold rounded-md"
+                  >
+                    <Crown className="w-3 h-3" /> Upgrade
+                  </a>
+                  {whopAuth.checkoutUrl && (
+                    <a
+                      href={whopAuth.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 border border-amber-600/50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100"
+                    >
+                      <ShoppingCart className="w-3 h-3" /> Buy
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -3369,7 +3424,7 @@ export default function Home() {
 
   // Whop auth state
   const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
-    authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+    authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
   })
 
   // Admin-granted access state
@@ -3408,6 +3463,7 @@ export default function Home() {
             user: data.user || null,
             loading: false,
             configured: data.configured === true,
+            checkoutUrl: data.checkoutUrl || null,
           }
           setWhopAuth(authState)
 
@@ -3426,7 +3482,7 @@ export default function Home() {
       })
       .catch(() => {
         if (!cancelled) {
-          setWhopAuth(prev => ({ ...prev, loading: false, configured: false }))
+          setWhopAuth(prev => ({ ...prev, loading: false, configured: false, checkoutUrl: null }))
         }
       })
     return () => { cancelled = true }

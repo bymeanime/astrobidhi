@@ -1,27 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkUserAccess, refreshAccessToken, getWhopUserInfo, isWhopConfigured } from '@/lib/whop'
-
-interface WhopSession {
-  userId: string
-  name: string
-  email: string
-  picture: string
-  accessToken: string
-  refreshToken: string
-  hasAccess: boolean
-  accessLevel: string
-  expiresAt: number
-}
+import {
+  checkUserAccess,
+  refreshAccessToken,
+  getWhopUserInfo,
+  isWhopConfigured,
+  decodeSession,
+  encodeSession,
+  getCheckoutUrl,
+  type WhopSession,
+} from '@/lib/whop'
 
 function getSession(request: NextRequest): WhopSession | null {
   const cookie = request.cookies.get('whop_session')?.value
   if (!cookie) return null
-
-  try {
-    return JSON.parse(Buffer.from(cookie, 'base64').toString()) as WhopSession
-  } catch {
-    return null
-  }
+  return decodeSession(cookie)
 }
 
 export async function GET(request: NextRequest) {
@@ -34,6 +26,7 @@ export async function GET(request: NextRequest) {
       hasAccess: false,
       accessLevel: 'no_access',
       configured: false,
+      checkoutUrl: getCheckoutUrl() || null,
       user: null,
     })
   }
@@ -46,6 +39,7 @@ export async function GET(request: NextRequest) {
       hasAccess: false,
       accessLevel: 'no_access',
       configured: true,
+      checkoutUrl: getCheckoutUrl() || null,
       user: null,
     })
   }
@@ -66,12 +60,12 @@ export async function GET(request: NextRequest) {
       session.name = userInfo.name || session.name
       session.picture = userInfo.picture || session.picture
 
-      // Update session cookie
       const response = NextResponse.json({
         authenticated: true,
         hasAccess: session.hasAccess,
         accessLevel: session.accessLevel,
         configured: true,
+        checkoutUrl: getCheckoutUrl() || null,
         user: {
           id: session.userId,
           name: session.name,
@@ -80,7 +74,8 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      response.cookies.set('whop_session', Buffer.from(JSON.stringify(session)).toString('base64'), {
+      // Re-encode with new signature
+      response.cookies.set('whop_session', encodeSession(session), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -96,6 +91,7 @@ export async function GET(request: NextRequest) {
         hasAccess: false,
         accessLevel: 'no_access',
         configured: true,
+        checkoutUrl: getCheckoutUrl() || null,
         user: null,
         error: 'Session expired',
       })
@@ -107,6 +103,7 @@ export async function GET(request: NextRequest) {
     hasAccess: session.hasAccess,
     accessLevel: session.accessLevel,
     configured: true,
+    checkoutUrl: getCheckoutUrl() || null,
     user: {
       id: session.userId,
       name: session.name,

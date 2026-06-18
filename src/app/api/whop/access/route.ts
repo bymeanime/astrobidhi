@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkUserAccess, getUserMemberships, isWhopConfigured } from '@/lib/whop'
+import { checkUserAccess, getUserMemberships, isWhopConfigured, decodeSession } from '@/lib/whop'
 
 export async function GET(request: NextRequest) {
   if (!isWhopConfigured()) {
@@ -10,19 +10,19 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Get user ID from session cookie
+  // Get user ID from signed session cookie
   const cookie = request.cookies.get('whop_session')?.value
   if (!cookie) {
     return NextResponse.json({ configured: true, hasAccess: false, authenticated: false })
   }
 
-  try {
-    const session = JSON.parse(Buffer.from(cookie, 'base64').toString()) as {
-      userId: string
-      hasAccess: boolean
-      accessLevel: string
-    }
+  const session = decodeSession(cookie)
+  if (!session) {
+    // Signature invalid or tampered — clear it by returning unauthenticated
+    return NextResponse.json({ configured: true, hasAccess: false, authenticated: false })
+  }
 
+  try {
     // Re-check access in real-time
     const access = await checkUserAccess(session.userId)
     const memberships = await getUserMemberships(session.userId)

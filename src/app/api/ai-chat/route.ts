@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 import { rawQuery, initDb } from '@/lib/db'
+import { decodeSession, checkUserAccess } from '@/lib/whop'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -172,12 +173,13 @@ export async function POST(request: NextRequest) {
     let whopHasAccess = false
     const whopCookie = request.cookies.get('whop_session')?.value
     if (whopCookie) {
-      try {
-        const session = JSON.parse(Buffer.from(whopCookie, 'base64').toString()) as { userId: string }
-        const { checkUserAccess } = await import('@/lib/whop')
-        const whopAccess = await checkUserAccess(session.userId)
-        whopHasAccess = whopAccess.hasAccess
-      } catch { /* ignore */ }
+      const session = decodeSession(whopCookie)
+      if (session?.userId) {
+        try {
+          const whopAccess = await checkUserAccess(session.userId)
+          whopHasAccess = whopAccess.hasAccess
+        } catch { /* ignore */ }
+      }
     }
     
     const hasPremiumAccess = isPremiumUser || whopHasAccess
