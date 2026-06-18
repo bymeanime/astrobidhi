@@ -78,6 +78,7 @@ interface CatalogItem {
   isActive: number
   sortOrder: number
   createdAt: string
+  lsVariantId?: string | null  // Lemon Squeezy variant ID for per-analysis one-time purchases
 }
 
 interface BundleItem {
@@ -236,7 +237,7 @@ export default function AdminDashboard() {
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false)
   const [catalogEditItem, setCatalogEditItem] = useState<CatalogItem | null>(null)
   const [catalogForm, setCatalogForm] = useState({
-    analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0,
+    analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0, lsVariantId: '',
   })
   const [catalogSubmitting, setCatalogSubmitting] = useState(false)
 
@@ -697,7 +698,7 @@ export default function AdminDashboard() {
 
   const openCatalogCreate = () => {
     setCatalogEditItem(null)
-    setCatalogForm({ analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0 })
+    setCatalogForm({ analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0, lsVariantId: '' })
     setCatalogDialogOpen(true)
   }
 
@@ -708,6 +709,7 @@ export default function AdminDashboard() {
       priceDollars: (item.priceCents / 100).toFixed(2),
       originalPriceDollars: item.originalPriceCents ? (item.originalPriceCents / 100).toFixed(2) : '',
       isActive: item.isActive === 1, sortOrder: item.sortOrder,
+      lsVariantId: item.lsVariantId || '',
     })
     setCatalogDialogOpen(true)
   }
@@ -718,11 +720,12 @@ export default function AdminDashboard() {
     try {
       const priceCents = dollarToCents(catalogForm.priceDollars)
       const originalPriceCents = catalogForm.originalPriceDollars ? dollarToCents(catalogForm.originalPriceDollars) : null
+      const lsVariantId = catalogForm.lsVariantId.trim() || null
 
       if (catalogEditItem) {
         const res = await fetch(`/api/admin/catalog/${encodeURIComponent(catalogEditItem.analysisType)}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder }),
+          body: JSON.stringify({ name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder, lsVariantId }),
           credentials: 'same-origin',
         })
         if (res.ok) {
@@ -736,7 +739,7 @@ export default function AdminDashboard() {
       } else {
         const res = await fetch('/api/admin/catalog', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ analysisType: catalogForm.analysisType, name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder }),
+          body: JSON.stringify({ analysisType: catalogForm.analysisType, name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder, lsVariantId }),
           credentials: 'same-origin',
         })
         if (res.ok) {
@@ -3259,6 +3262,28 @@ export default function AdminDashboard() {
                 />
                 <Label className="text-sm font-medium">{catalogForm.isActive ? 'Active' : 'Inactive'}</Label>
               </div>
+            </div>
+
+            {/* Lemon Squeezy variant ID — for per-analysis one-time purchases.
+                Leave blank to disable "Buy this analysis" for this type. */}
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+                Lemon Squeezy Variant ID
+                <span className="text-xs font-normal text-muted-foreground">(optional — enables per-analysis purchase)</span>
+              </Label>
+              <Input
+                type="text"
+                placeholder="e.g. 12345 (from your LS product variant URL)"
+                value={catalogForm.lsVariantId}
+                onChange={e => setCatalogForm(prev => ({ ...prev, lsVariantId: e.target.value.trim() }))}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When set, the front-end shows a <strong>"Buy this analysis"</strong> button (one-time purchase).
+                The webhook automatically grants this analysisType to the buyer's device.
+                Create the variant in <a href="https://app.lemonsqueezy.com/products" target="_blank" rel="noopener noreferrer" className="underline text-purple-600">LS Dashboard → Products</a> as a one-time payment variant.
+              </p>
             </div>
           </div>
 

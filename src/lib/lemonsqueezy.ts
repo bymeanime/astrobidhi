@@ -17,13 +17,55 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import { rawQuery, rawExecute, initDb } from '@/lib/db'
 
+export type Tier = 'monthly' | 'yearly' | 'lifetime'
+
 export const LS_CONFIG = {
   apiKey: process.env.LEMONSQUEEZY_API_KEY || '',
   storeId: process.env.LEMONSQUEEZY_STORE_ID || '',        // e.g. "12345"
-  variantId: process.env.LEMONSQUEEZY_VARIANT_ID || '',    // e.g. "67890" — the subscription variant to sell
+  variantId: process.env.LEMONSQUEEZY_VARIANT_ID || '',    // default subscription variant (back-compat)
   webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET || '',
   // Optional: override the checkout URL (otherwise we generate one)
   checkoutUrl: process.env.LEMONSQUEEZY_CHECKOUT_URL || '',
+
+  // Tier-specific variant IDs (optional — if set, the front-end can show
+  // monthly/yearly/lifetime options). If a tier env var is missing, we
+  // fall back to the default `variantId`.
+  tierVariantIds: {
+    monthly: process.env.LEMONSQUEEZY_VARIANT_ID_MONTHLY || '',
+    yearly: process.env.LEMONSQUEEZY_VARIANT_ID_YEARLY || '',
+    lifetime: process.env.LEMONSQUEEZY_VARIANT_ID_LIFETIME || '',
+  } as Record<Tier, string>,
+
+  // Tier-specific checkout URLs (optional — falls back to API-generated URLs).
+  tierCheckoutUrls: {
+    monthly: process.env.LEMONSQUEEZY_CHECKOUT_URL_MONTHLY || '',
+    yearly: process.env.LEMONSQUEEZY_CHECKOUT_URL_YEARLY || '',
+    lifetime: process.env.LEMONSQUEEZY_CHECKOUT_URL_LIFETIME || '',
+  } as Record<Tier, string>,
+}
+
+/**
+ * Mapping of analysisType → LS variant ID for per-analysis one-time purchases.
+ *
+ * Two ways to populate this:
+ *   1. Set env vars at deploy time: LEMONSQUEEZY_VARIANT_<ANALYSIS_TYPE>=<variantId>
+ *      (e.g., LEMONSQUEEZY_VARIANT_COSMIC_BLUEPRINT=12345)
+ *   2. Set in the PremiumCatalog table via /admin/catalog (preferred — can be
+ *      edited at runtime without redeploying).
+ *
+ * The lookup function below checks both sources (DB first, then env).
+ */
+function parseAnalysisVariantEnvMap(): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith('LEMONSQUEEZY_VARIANT_') && value) {
+      const analysisType = key.replace('LEMONSQUEEZY_VARIANT_', '').toLowerCase()
+      if (!['monthly', 'yearly', 'lifetime'].includes(analysisType)) {
+        map[analysisType] = value
+      }
+    }
+  }
+  return map
 }
 
 // ──────────────────── Types ────────────────────
@@ -76,20 +118,46 @@ export function getLsConfigStatus() {
 /**
  * Returns the checkout URL for the configured variant.
  * If LEMONSQUEEZY_CHECKOUT_URL is set, use it. Otherwise, generate via API.
+ *
+ * Options:
+ *   - tier: 'monthly' | 'yearly' | 'lifetime' — use tier-specific variant
+ *   - analysisType: string — buy a single analysis (one-time), uses the
+ *       variant mapped to that analysis type (DB lookup, then env fallback)
+ *   - email/name/deviceId/discountCode: standard prefill/customization
  */
 export async function getCheckoutUrl(options?: {
   email?: string        // Pre-fill checkout email
   name?: string         // Pre-fill checkout name
   deviceId?: string     // Stored as `checkout_data[custom][device_id]` for webhook
   discountCode?: string // Apply a discount code
+  tier?: Tier           // Tier-specific variant (overrides default)
+  analysisType?: string // Per-analysis one-time purchase (overrides tier)
 }): Promise<{ url: string | null; error?: string }> {
   if (!isLsConfigured()) {
     return { url: null, error: 'Lemon Squeezy not configured' }
   }
 
-  // If a manual checkout URL is set, just use it (with optional email prefilled)
-  if (LS_CONFIG.checkoutUrl) {
-    const url = new URL(LS_CONFIG.checkoutUrl)
+  // Resolve the variant ID for this checkout
+  let variantId = LS_CONFIG.variantId
+  let staticCheckoutUrl = LS_CONFIG.checkoutUrl
+
+  if (options?.analysisType) {
+    // Per-analysis one-time purchase — look up the variant for this analysis type
+    const lookup = await getVariantForAnalysisType(options.analysisType)
+    if (!lookup) {
+      return { url: null, error: `No LS variant configured for analysis type: ${options.analysisType}` }
+    }
+    variantId = lookup
+    staticCheckoutUrl = ''  // never use the default static URL for per-analysis purchases
+  } else if (options?.tier) {
+    // Tier-specific purchase (monthly/yearly/lifetime)
+    variantId = LS_CONFIG.tierVariantIds[options.tier] || LS_CONFIG.variantId
+    staticCheckoutUrl = LS_CONFIG.tierCheckoutUrls[options.tier] || ''
+  }
+
+  // If a manual checkout URL is set for this tier/variant, just use it (with optional email prefilled)
+  if (staticCheckoutUrl) {
+    const url = new URL(staticCheckoutUrl)
     if (options?.email) url.searchParams.set('checkout[email]', options.email)
     if (options?.name) url.searchParams.set('checkout[name]', options.name)
     return { url: url.toString() }
@@ -112,7 +180,7 @@ export async function getCheckoutUrl(options?: {
             ...(options?.name ? { 'checkout_name': options.name } : {}),
             ...(options?.discountCode ? { 'discount_code': options.discountCode } : {}),
             'product_options': {
-              'enabled_variants': [LS_CONFIG.variantId],
+              'enabled_variants': [variantId],
               'redirect_url': process.env.NEXT_PUBLIC_URL
                 ? `${process.env.NEXT_PUBLIC_URL}/?payment=success`
                 : undefined,
@@ -121,9 +189,13 @@ export async function getCheckoutUrl(options?: {
               'embed': false,
               'dark': false,
             },
-            // Pass custom data so the webhook can identify the buyer
-            ...(options?.deviceId
-              ? { 'custom': { 'device_id': options.deviceId } }
+            // Pass custom data so the webhook can identify the buyer + what they bought
+            ...(options?.deviceId || options?.analysisType || options?.tier
+              ? { 'custom': {
+                  ...(options?.deviceId ? { 'device_id': options.deviceId } : {}),
+                  ...(options?.analysisType ? { 'analysis_type': options.analysisType } : {}),
+                  ...(options?.tier ? { 'tier': options.tier } : {}),
+                } }
               : {}),
           },
           relationships: {
@@ -131,7 +203,7 @@ export async function getCheckoutUrl(options?: {
               data: { type: 'stores', id: LS_CONFIG.storeId },
             },
             variant: {
-              data: { type: 'variants', id: LS_CONFIG.variantId },
+              data: { type: 'variants', id: variantId },
             },
           },
         },
@@ -187,7 +259,11 @@ export function verifyLsWebhookSignature(rawBody: string, signature: string): bo
 interface LsWebhookEvent {
   meta: {
     event_name: string
-    custom_data?: { device_id?: string } | null
+    custom_data?: {
+      device_id?: string
+      analysis_type?: string  // set for per-analysis purchases
+      tier?: string           // set for tier-specific subscription purchases
+    } | null
   }
   data: {
     id: string
@@ -235,6 +311,16 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
 
   const subscriptionId = String(attrs.id)
   const deviceId = event.meta?.custom_data?.device_id || null
+  const customAnalysisType = event.meta?.custom_data?.analysis_type || null
+  const variantId = String(attrs.variant_id)
+
+  // Determine if this is a per-analysis purchase (one-time) by looking up
+  // the variantId in the PremiumCatalog table OR in the env-var map.
+  // If `customAnalysisType` was set at checkout, that takes priority.
+  let analysisTypeToGrant: string | null = customAnalysisType
+  if (!analysisTypeToGrant) {
+    analysisTypeToGrant = await getAnalysisTypeForVariant(variantId)
+  }
 
   // Upsert subscription record
   await rawExecute(
@@ -260,7 +346,7 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
       attrs.customer_id,
       attrs.customer_email,
       attrs.customer_name,
-      String(attrs.variant_id),
+      variantId,
       String(attrs.product_id),
       attrs.status,
       attrs.status_formatted,
@@ -275,10 +361,27 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
     ]
   )
 
-  // If we have a device_id from the checkout, link it: grant 'all_premium' access
-  // to that device so the user immediately gets premium features on the device
-  // they were browsing from when they paid.
-  if (deviceId && (attrs.status === 'active' || attrs.status === 'on_trial')) {
+  // Determine if this event represents an "active" state.
+  // For subscriptions: 'active' or 'on_trial'
+  // For one-time orders: the event_name is 'order_created' or 'order_refunded'
+  const isOrderEvent = eventName.startsWith('order_')
+  const isActiveState = isOrderEvent
+    ? eventName === 'order_created'
+    : (attrs.status === 'active' || attrs.status === 'on_trial')
+  const isRevokedState = isOrderEvent
+    ? eventName === 'order_refunded'
+    : (attrs.status === 'expired' || attrs.status === 'cancelled' || attrs.status === 'unpaid')
+
+  // Grant access when active
+  if (deviceId && isActiveState) {
+    // What to grant:
+    //   - Per-analysis one-time purchase → grant that specific analysisType (no expiry)
+    //   - Subscription (any tier)         → grant 'all_premium' with expiry = period_end
+    const grantType = analysisTypeToGrant || 'all_premium'
+    const grantExpiry = analysisTypeToGrant
+      ? null  // one-time purchases never expire
+      : (attrs.current_period_end || attrs.renews_at || null)
+
     await rawExecute(
       `INSERT INTO DeviceAccess (id, deviceId, analysisType, source, sourceRef, grantedBy, reason, expiresAt, createdAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -288,28 +391,28 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
       [
         `da_ls_${subscriptionId}`,
         deviceId,
-        'all_premium',
+        grantType,
         'lemonsqueezy',
         subscriptionId,
         'system',
-        `Lemon Squeezy subscription ${subscriptionId} (${attrs.status_formatted})`,
-        attrs.current_period_end || attrs.renews_at || null,
+        analysisTypeToGrant
+          ? `Lemon Squeezy one-time purchase (${analysisTypeToGrant}) — order ${subscriptionId}`
+          : `Lemon Squeezy subscription ${subscriptionId} (${attrs.status_formatted})`,
+        grantExpiry,
       ]
     )
-    console.log(`[LS Webhook] Granted all_premium to device ${deviceId.substring(0, 8)}… for subscription ${subscriptionId}`)
+    console.log(`[LS Webhook] Granted ${grantType} to device ${deviceId.substring(0, 8)}… for ${isOrderEvent ? 'order' : 'subscription'} ${subscriptionId}`)
   }
 
-  // If subscription ended/cancelled, revoke the grant (let it expire naturally
-  // — we don't delete the row so admin can see history, but we set expiresAt
-  // to now if it's still in the future)
-  if (deviceId && (attrs.status === 'expired' || attrs.status === 'cancelled' || attrs.status === 'unpaid')) {
+  // Revoke access when refunded/cancelled/expired
+  if (deviceId && isRevokedState) {
     await rawExecute(
       `UPDATE DeviceAccess
        SET expiresAt = MIN(COALESCE(expiresAt, '1970-01-01'), CURRENT_TIMESTAMP)
        WHERE deviceId = ? AND source = 'lemonsqueezy' AND sourceRef = ?`,
       [deviceId, subscriptionId]
     )
-    console.log(`[LS Webhook] Revoked lemonsqueezy access for device ${deviceId.substring(0, 8)}… (subscription ${subscriptionId} → ${attrs.status})`)
+    console.log(`[LS Webhook] Revoked lemonsqueezy access for device ${deviceId.substring(0, 8)}… (${isOrderEvent ? 'order' : 'subscription'} ${subscriptionId} → ${eventName})`)
   }
 
   return { handled: true, eventName, subscriptionId }
@@ -432,3 +535,127 @@ export function getCustomerPortalUrl(): string {
   }
   return ''
 }
+
+/**
+ * Alias for getCustomerPortalUrl — the URL where users can cancel/update
+ * their LS subscription. Same as the customer portal.
+ */
+export function getManageSubscriptionUrl(): string {
+  return getCustomerPortalUrl()
+}
+
+// ──────────────────── Tier + per-analysis helpers ────────────────────
+
+/**
+ * Returns all tier-specific checkout info that's configured.
+ * Used by the front-end to render a tier picker.
+ */
+export function getAvailableTiers(): Array<{ tier: Tier; variantId: string; checkoutUrl: string | null }> {
+  const tiers: Tier[] = ['monthly', 'yearly', 'lifetime']
+  const result: Array<{ tier: Tier; variantId: string; checkoutUrl: string | null }> = []
+  for (const t of tiers) {
+    const vid = LS_CONFIG.tierVariantIds[t] || LS_CONFIG.variantId || ''
+    const url = LS_CONFIG.tierCheckoutUrls[t] || LS_CONFIG.checkoutUrl || null
+    if (vid) {
+      result.push({ tier: t, variantId: vid, checkoutUrl: url })
+    }
+  }
+  // If no tiers configured but a default variant exists, expose it as 'monthly'
+  if (result.length === 0 && LS_CONFIG.variantId) {
+    result.push({ tier: 'monthly', variantId: LS_CONFIG.variantId, checkoutUrl: LS_CONFIG.checkoutUrl || null })
+  }
+  return result
+}
+
+/**
+ * Look up the LS variant ID for a given analysis type (per-analysis purchase).
+ * Checks the PremiumCatalog DB table first, then env vars (LEMONSQUEEZY_VARIANT_<TYPE>).
+ *
+ * Returns null if no variant is configured for this analysis type.
+ */
+export async function getVariantForAnalysisType(analysisType: string): Promise<string | null> {
+  // 1. DB lookup (admin-editable at runtime)
+  try {
+    await initDb()
+    const rows = await rawQuery<{ lsVariantId: string | null }>(
+      `SELECT lsVariantId FROM PremiumCatalog WHERE analysisType = ? AND lsVariantId IS NOT NULL AND lsVariantId != ''`,
+      [analysisType]
+    )
+    if (rows.length > 0 && rows[0].lsVariantId) {
+      return rows[0].lsVariantId
+    }
+  } catch (err) {
+    console.warn('[LS] PremiumCatalog lookup failed:', err)
+  }
+
+  // 2. Env var fallback (set at deploy time)
+  const envMap = parseAnalysisVariantEnvMap()
+  return envMap[analysisType.toLowerCase()] || null
+}
+
+/**
+ * Reverse lookup: given a variant ID from a webhook, find the analysis type
+ * it corresponds to (if any). Used by the webhook handler to grant specific
+ * analysisType instead of 'all_premium'.
+ *
+ * Checks PremiumCatalog DB first, then env vars.
+ */
+export async function getAnalysisTypeForVariant(variantId: string): Promise<string | null> {
+  if (!variantId) return null
+
+  // 1. DB lookup
+  try {
+    await initDb()
+    const rows = await rawQuery<{ analysisType: string }>(
+      `SELECT analysisType FROM PremiumCatalog WHERE lsVariantId = ?`,
+      [variantId]
+    )
+    if (rows.length > 0) {
+      return rows[0].analysisType
+    }
+  } catch (err) {
+    console.warn('[LS] PremiumCatalog reverse lookup failed:', err)
+  }
+
+  // 2. Env var fallback
+  const envMap = parseAnalysisVariantEnvMap()
+  for (const [analysisType, vid] of Object.entries(envMap)) {
+    if (vid === variantId) return analysisType
+  }
+
+  return null
+}
+
+/**
+ * Returns the full analysis→variant map (for admin display + diagnostics).
+ * Merges DB-stored mappings with env-var mappings.
+ */
+export async function getAllAnalysisVariantMappings(): Promise<Array<{ analysisType: string; variantId: string; source: 'db' | 'env' }>> {
+  const result: Array<{ analysisType: string; variantId: string; source: 'db' | 'env' }> = []
+  const seen = new Set<string>()
+
+  // DB mappings
+  try {
+    await initDb()
+    const rows = await rawQuery<{ analysisType: string; lsVariantId: string }>(
+      `SELECT analysisType, lsVariantId FROM PremiumCatalog WHERE lsVariantId IS NOT NULL AND lsVariantId != ''`
+    )
+    for (const row of rows) {
+      result.push({ analysisType: row.analysisType, variantId: row.lsVariantId, source: 'db' })
+      seen.add(`${row.analysisType}|${row.lsVariantId}`)
+    }
+  } catch (err) {
+    console.warn('[LS] getAllAnalysisVariantMappings DB error:', err)
+  }
+
+  // Env mappings (only if not already in DB)
+  const envMap = parseAnalysisVariantEnvMap()
+  for (const [analysisType, variantId] of Object.entries(envMap)) {
+    if (!seen.has(`${analysisType}|${variantId}`)) {
+      result.push({ analysisType, variantId, source: 'env' })
+    }
+  }
+
+  return result
+}
+

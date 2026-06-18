@@ -23,8 +23,9 @@ export async function GET(request: NextRequest) {
       isActive: number
       sortOrder: number
       createdAt: string
+      lsVariantId: string | null
     }>(
-      `SELECT id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder, createdAt FROM PremiumCatalog ORDER BY sortOrder ASC, createdAt ASC`
+      `SELECT id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder, createdAt, lsVariantId FROM PremiumCatalog ORDER BY sortOrder ASC, createdAt ASC`
     )
 
     return NextResponse.json({ items, total: items.length })
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder } = body
+    const { analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder, lsVariantId } = body
 
     if (!analysisType || !name) {
       return NextResponse.json({ detail: 'analysisType and name are required' }, { status: 400 })
@@ -71,10 +72,11 @@ export async function POST(request: NextRequest) {
     const effectiveIsActive = isActive !== undefined ? (isActive ? 1 : 0) : 1
     const effectiveSortOrder = sortOrder || 0
     const effectiveOriginalPriceCents = originalPriceCents || null
+    const effectiveLsVariantId = lsVariantId || null
 
     await rawExecute(
-      `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, analysisType, name, description || null, priceCents, effectiveOriginalPriceCents, effectiveIsActive, effectiveSortOrder]
+      `INSERT INTO PremiumCatalog (id, analysisType, name, description, priceCents, originalPriceCents, isActive, sortOrder, lsVariantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, analysisType, name, description || null, priceCents, effectiveOriginalPriceCents, effectiveIsActive, effectiveSortOrder, effectiveLsVariantId]
     )
 
     return NextResponse.json({

@@ -12,11 +12,30 @@ export const WHOP_CONFIG = {
   clientSecret: process.env.WHOP_CLIENT_SECRET || '',
   apiKey: process.env.WHOP_API_KEY || '',
   companyId: process.env.WHOP_COMPANY_ID || '',
-  productId: process.env.WHOP_PRODUCT_ID || '',        // Product to check access for
+  productId: process.env.WHOP_PRODUCT_ID || '',        // Default product to check access for
   experienceId: process.env.WHOP_EXPERIENCE_ID || '',  // Experience to check access for
   redirectUri: process.env.WHOP_REDIRECT_URI || '',
   checkoutUrl: process.env.WHOP_CHECKOUT_URL || '',    // Direct checkout URL — bypasses OAuth for buy flow
+
+  // Tier-specific product IDs (optional — if set, the front-end can show
+  // monthly/yearly/lifetime options). If a tier-specific env var is missing,
+  // we fall back to the default `productId`.
+  tierProductIds: {
+    monthly: process.env.WHOP_PRODUCT_ID_MONTHLY || '',
+    yearly: process.env.WHOP_PRODUCT_ID_YEARLY || '',
+    lifetime: process.env.WHOP_PRODUCT_ID_LIFETIME || '',
+  } as Record<Tier, string>,
+
+  // Tier-specific checkout URLs (optional — falls back to auto-generated
+  // https://whop.com/checkout/{productId}).
+  tierCheckoutUrls: {
+    monthly: process.env.WHOP_CHECKOUT_URL_MONTHLY || '',
+    yearly: process.env.WHOP_CHECKOUT_URL_YEARLY || '',
+    lifetime: process.env.WHOP_CHECKOUT_URL_LIFETIME || '',
+  } as Record<Tier, string>,
 }
+
+export type Tier = 'monthly' | 'yearly' | 'lifetime'
 
 // Session secret — falls back to admin's secret so existing deployments keep working
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || 'astrobidhi-session-secret-change-in-production'
@@ -324,9 +343,51 @@ export function getWhopConfigStatus() {
  * Returns the Whop checkout URL. Falls back to constructing one from the
  * product ID if WHOP_CHECKOUT_URL is not set explicitly.
  *   https://whop.com/checkout/{productId}
+ *
+ * If a `tier` is provided, uses tier-specific product ID + checkout URL
+ * (WHOP_PRODUCT_ID_MONTHLY / WHOP_CHECKOUT_URL_MONTHLY, etc).
+ * Falls back to the default if the tier env vars aren't set.
  */
-export function getCheckoutUrl(): string {
+export function getCheckoutUrl(tier?: Tier): string {
+  if (tier && WHOP_CONFIG.tierCheckoutUrls[tier]) {
+    return WHOP_CONFIG.tierCheckoutUrls[tier]
+  }
+  if (tier && WHOP_CONFIG.tierProductIds[tier]) {
+    return `https://whop.com/checkout/${WHOP_CONFIG.tierProductIds[tier]}`
+  }
   if (WHOP_CONFIG.checkoutUrl) return WHOP_CONFIG.checkoutUrl
   if (WHOP_CONFIG.productId) return `https://whop.com/checkout/${WHOP_CONFIG.productId}`
   return ''
 }
+
+/**
+ * Returns the URL to the Whop customer dashboard, where users can
+ * cancel/update their subscription, view invoices, etc.
+ * (Whop doesn't expose a per-product cancel URL — users manage all
+ * their Whop memberships from one dashboard.)
+ */
+export function getManageSubscriptionUrl(): string {
+  return 'https://whop.com/dashboard/memberships'
+}
+
+/**
+ * Returns all tier-specific checkout URLs that are configured.
+ * The front-end uses this to render a tier picker.
+ */
+export function getAvailableTiers(): Array<{ tier: Tier; checkoutUrl: string; productId: string }> {
+  const tiers: Tier[] = ['monthly', 'yearly', 'lifetime']
+  const result: Array<{ tier: Tier; checkoutUrl: string; productId: string }> = []
+  for (const t of tiers) {
+    const pid = WHOP_CONFIG.tierProductIds[t] || WHOP_CONFIG.productId || ''
+    const url = getCheckoutUrl(t)
+    if (pid && url) {
+      result.push({ tier: t, checkoutUrl: url, productId: pid })
+    }
+  }
+  // If no tiers are configured but a default product exists, expose it as 'monthly'
+  if (result.length === 0 && WHOP_CONFIG.productId) {
+    result.push({ tier: 'monthly', checkoutUrl: getCheckoutUrl(), productId: WHOP_CONFIG.productId })
+  }
+  return result
+}
+

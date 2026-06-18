@@ -123,9 +123,13 @@ const CREATE_TABLES_SQL = [
     originalPriceCents INTEGER,
     isActive INTEGER NOT NULL DEFAULT 1,
     sortOrder INTEGER NOT NULL DEFAULT 0,
-    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lsVariantId TEXT
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS PremiumCatalog_analysisType_idx ON PremiumCatalog(analysisType)`,
+  // Back-fill lsVariantId column for existing DBs that pre-date this column.
+  // SQLite's ALTER TABLE ADD COLUMN is idempotent-safe via this try/catch pattern.
+  `ALTER TABLE PremiumCatalog ADD COLUMN lsVariantId TEXT`,
 
   // Product bundles: group of analyses at a discounted price
   `CREATE TABLE IF NOT EXISTS ProductBundle (
@@ -518,7 +522,17 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (client) {
     try {
       for (const sql of CREATE_TABLES_SQL) {
-        await client.execute(sql)
+        try {
+          await client.execute(sql)
+        } catch (singleError) {
+          // Some statements (e.g., ALTER TABLE ADD COLUMN) fail if the column
+          // already exists — that's fine, we treat those as idempotent.
+          const msg = singleError instanceof Error ? singleError.message : String(singleError)
+          if (!msg.toLowerCase().includes('already exists') &&
+              !msg.toLowerCase().includes('duplicate column')) {
+            console.warn('[DB] Statement warning:', msg.substring(0, 150))
+          }
+        }
       }
       _dbReady = true
       createdWithLibsql = true
@@ -532,7 +546,15 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (!createdWithLibsql) {
     try {
       for (const sql of CREATE_TABLES_SQL) {
-        await prisma.$executeRawUnsafe(sql)
+        try {
+          await prisma.$executeRawUnsafe(sql)
+        } catch (singleError) {
+          const msg = singleError instanceof Error ? singleError.message : String(singleError)
+          if (!msg.toLowerCase().includes('already exists') &&
+              !msg.toLowerCase().includes('duplicate column')) {
+            console.warn('[DB] Statement warning (Prisma):', msg.substring(0, 150))
+          }
+        }
       }
       _dbReady = true
       console.log('[DB] All tables created successfully via Prisma — database is ready')

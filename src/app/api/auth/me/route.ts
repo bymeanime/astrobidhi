@@ -7,12 +7,17 @@ import {
   decodeSession,
   encodeSession,
   getCheckoutUrl as getWhopCheckoutUrl,
+  getManageSubscriptionUrl as getWhopManageUrl,
+  getAvailableTiers as getWhopTiers,
   type WhopSession,
 } from '@/lib/whop'
 import {
   isLsConfigured,
   getLsConfigStatus,
   getCheckoutUrl as getLsCheckoutUrl,
+  getManageSubscriptionUrl as getLsManageUrl,
+  getAvailableTiers as getLsTiers,
+  getAllAnalysisVariantMappings,
 } from '@/lib/lemonsqueezy'
 
 function getSession(request: NextRequest): WhopSession | null {
@@ -30,22 +35,34 @@ export async function GET(request: NextRequest) {
 
   // Get Whop checkout URL (sync — already cached)
   const whopCheckoutUrl = whopConfigured ? (getWhopCheckoutUrl() || null) : null
+  const whopManageUrl = whopConfigured ? getWhopManageUrl() : null
+  const whopTiers = whopConfigured ? getWhopTiers() : []
 
   // Get LS checkout URL (async — needs API call if no static URL set, but
   // we return the static one immediately for speed)
   const lsCheckoutUrl = lsConfigured
     ? (lsStatus.checkoutUrl || `https://[store-id].lemonsqueezy.com/checkout/buy/${lsStatus.variantId}`)
     : null
+  const lsManageUrl = lsConfigured ? getLsManageUrl() : null
+  const lsTiers = lsConfigured ? getLsTiers() : []
+
+  // Per-analysis variant mappings (for "Buy this analysis" buttons)
+  const analysisVariantMappings = lsConfigured ? await getAllAnalysisVariantMappings() : []
 
   const paymentConfig = {
     whop: {
       configured: whopConfigured,
       checkoutUrl: whopCheckoutUrl,
+      manageUrl: whopManageUrl,
+      tiers: whopTiers,
     },
     lemonsqueezy: {
       configured: lsConfigured,
       checkoutUrl: lsCheckoutUrl,
+      manageUrl: lsManageUrl,
       hasWebhookSecret: lsStatus.hasWebhookSecret,
+      tiers: lsTiers,
+      analysisVariantMappings,
     },
   }
 

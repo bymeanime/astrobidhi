@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCheckoutUrl, isLsConfigured } from '@/lib/lemonsqueezy'
+import { getCheckoutUrl, isLsConfigured, type Tier } from '@/lib/lemonsqueezy'
 
 // GET /api/lemonsqueezy/checkout
 // Returns a Lemon Squeezy checkout URL for the configured variant.
@@ -16,6 +16,10 @@ import { getCheckoutUrl, isLsConfigured } from '@/lib/lemonsqueezy'
 //   deviceId     — stored as custom_data so the webhook can grant access to
 //                  the device the user was browsing from when they paid
 //   discountCode — apply a discount code at checkout
+//   tier         — 'monthly' | 'yearly' | 'lifetime' — use a tier-specific variant
+//   analysisType — e.g. 'cosmic_blueprint' — buy a single analysis (one-time
+//                  purchase). Overrides tier. Uses the variant mapped to that
+//                  analysis type (DB lookup, then env fallback).
 //   redirect     — if "true", force redirect mode even with JSON Accept header
 //                  if "false", force JSON mode even from a browser request
 
@@ -32,8 +36,21 @@ export async function GET(request: NextRequest) {
   const name = sp.get('name') || undefined
   const deviceId = sp.get('deviceId') || undefined
   const discountCode = sp.get('discountCode') || undefined
+  const tierParam = sp.get('tier')
+  const analysisType = sp.get('analysisType') || undefined
 
-  const { url, error } = await getCheckoutUrl({ email, name, deviceId, discountCode })
+  // Validate tier
+  let tier: Tier | undefined
+  if (tierParam) {
+    if (tierParam === 'monthly' || tierParam === 'yearly' || tierParam === 'lifetime') {
+      tier = tierParam
+    } else {
+      return NextResponse.json({ detail: `Invalid tier: ${tierParam}. Must be 'monthly', 'yearly', or 'lifetime'.` }, { status: 400 })
+    }
+  }
+
+  // analysisType takes priority over tier (a one-time purchase can't also be a tier)
+  const { url, error } = await getCheckoutUrl({ email, name, deviceId, discountCode, tier, analysisType })
 
   if (!url) {
     return NextResponse.json({ detail: error || 'Failed to create checkout URL' }, { status: 500 })

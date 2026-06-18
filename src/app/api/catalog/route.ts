@@ -7,7 +7,8 @@ export async function GET() {
   try {
     await initDb()
 
-    // Get active catalog items
+    // Get active catalog items (includes lsVariantId so the front-end knows
+    // which analyses are available for per-analysis one-time purchase)
     const catalogItems = await rawQuery<{
       id: string
       analysisType: string
@@ -16,8 +17,9 @@ export async function GET() {
       priceCents: number
       originalPriceCents: number | null
       sortOrder: number
+      lsVariantId: string | null
     }>(
-      `SELECT id, analysisType, name, description, priceCents, originalPriceCents, sortOrder FROM PremiumCatalog WHERE isActive = 1 ORDER BY sortOrder ASC`
+      `SELECT id, analysisType, name, description, priceCents, originalPriceCents, sortOrder, lsVariantId FROM PremiumCatalog WHERE isActive = 1 ORDER BY sortOrder ASC`
     )
 
     // Get active bundles
