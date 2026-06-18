@@ -212,10 +212,15 @@ interface WhopAuthState {
   loading: boolean
   configured: boolean
   checkoutUrl: string | null  // Direct Whop checkout URL (for "Buy Now" buttons)
+  // Lemon Squeezy (parallel payment provider)
+  lsConfigured: boolean
+  lsCheckoutUrl: string | null  // Direct LS checkout URL
+  lsHasWebhookSecret: boolean   // If false, webhooks won't work — warn admin
 }
 
 const WhopAuthContext = createContext<WhopAuthState>({
   authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
+  lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false,
 })
 
 function useWhopAuth() {
@@ -506,6 +511,19 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                   </a>
                 </div>
               )
+            )}
+            {/* Lemon Squeezy Buy Now — shown only if LS is configured AND user is not authenticated via Whop
+                (Whop users already have access — no need to upsell them to LS). */}
+            {whopAuth.lsConfigured && !whopAuth.authenticated && !whopAuth.hasAccess && (
+              <a
+                href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-purple-600 to-indigo-500 text-white hover:from-purple-500 hover:to-indigo-400 font-semibold transition-all ml-2"
+                title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+              >
+                <ShoppingCart className="w-4 h-4" /> Pay with Lemon Squeezy
+              </a>
             )}
             {/* Admin-Granted Access Badge (shown when Whop not configured or not authenticated, but device has admin access) */}
             {!whopAuth.hasAccess && adminAccess.hasAccess && (
@@ -2290,6 +2308,18 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 <Sparkles className="w-4 h-4 mr-1" /> Notify Me
               </Button>
             )}
+            {/* Lemon Squeezy alternative — shown alongside the Whop buttons if LS is configured */}
+            {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+              <a
+                href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+              >
+                <ShoppingCart className="w-4 h-4" /> Pay with LS
+              </a>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2363,6 +2393,18 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               >
                 <Crown className="w-4 h-4 mr-1" /> Get Unlimited
               </Button>
+            )}
+            {/* Lemon Squeezy alternative */}
+            {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+              <a
+                href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+              >
+                <ShoppingCart className="w-4 h-4" /> Pay with LS
+              </a>
             )}
           </DialogFooter>
         </DialogContent>
@@ -3428,6 +3470,7 @@ export default function Home() {
   // Whop auth state
   const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
     authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
+    lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false,
   })
 
   // Admin-granted access state
@@ -3459,6 +3502,9 @@ export default function Home() {
       .then(res => res.json())
       .then(data => {
         if (!cancelled) {
+          // Read both Whop and Lemon Squeezy configuration from the
+          // unified `payment` block returned by /api/auth/me
+          const payment = data.payment || { whop: { configured: false, checkoutUrl: null }, lemonsqueezy: { configured: false, checkoutUrl: null, hasWebhookSecret: false } }
           const authState = {
             authenticated: data.authenticated || false,
             hasAccess: data.hasAccess || false,
@@ -3467,6 +3513,9 @@ export default function Home() {
             loading: false,
             configured: data.configured === true,
             checkoutUrl: data.checkoutUrl || null,
+            lsConfigured: !!payment.lemonsqueezy?.configured,
+            lsCheckoutUrl: payment.lemonsqueezy?.checkoutUrl || null,
+            lsHasWebhookSecret: !!payment.lemonsqueezy?.hasWebhookSecret,
           }
           setWhopAuth(authState)
 
@@ -3485,7 +3534,7 @@ export default function Home() {
       })
       .catch(() => {
         if (!cancelled) {
-          setWhopAuth(prev => ({ ...prev, loading: false, configured: false, checkoutUrl: null }))
+          setWhopAuth(prev => ({ ...prev, loading: false, configured: false, checkoutUrl: null, lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false }))
         }
       })
     return () => { cancelled = true }

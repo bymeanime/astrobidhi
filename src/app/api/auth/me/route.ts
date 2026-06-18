@@ -6,9 +6,14 @@ import {
   isWhopConfigured,
   decodeSession,
   encodeSession,
-  getCheckoutUrl,
+  getCheckoutUrl as getWhopCheckoutUrl,
   type WhopSession,
 } from '@/lib/whop'
+import {
+  isLsConfigured,
+  getLsConfigStatus,
+  getCheckoutUrl as getLsCheckoutUrl,
+} from '@/lib/lemonsqueezy'
 
 function getSession(request: NextRequest): WhopSession | null {
   const cookie = request.cookies.get('whop_session')?.value
@@ -17,16 +22,43 @@ function getSession(request: NextRequest): WhopSession | null {
 }
 
 export async function GET(request: NextRequest) {
-  // Check if Whop is configured at all
-  const configured = isWhopConfigured()
+  // ── Build a unified payment config block ──
+  // The front-end uses this to decide which "Buy Now" buttons to show.
+  const whopConfigured = isWhopConfigured()
+  const lsConfigured = isLsConfigured()
+  const lsStatus = getLsConfigStatus()
 
-  if (!configured) {
+  // Get Whop checkout URL (sync — already cached)
+  const whopCheckoutUrl = whopConfigured ? (getWhopCheckoutUrl() || null) : null
+
+  // Get LS checkout URL (async — needs API call if no static URL set, but
+  // we return the static one immediately for speed)
+  const lsCheckoutUrl = lsConfigured
+    ? (lsStatus.checkoutUrl || `https://[store-id].lemonsqueezy.com/checkout/buy/${lsStatus.variantId}`)
+    : null
+
+  const paymentConfig = {
+    whop: {
+      configured: whopConfigured,
+      checkoutUrl: whopCheckoutUrl,
+    },
+    lemonsqueezy: {
+      configured: lsConfigured,
+      checkoutUrl: lsCheckoutUrl,
+      hasWebhookSecret: lsStatus.hasWebhookSecret,
+    },
+  }
+
+  // If neither is configured, return early with the payment config so the
+  // front-end can show appropriate "coming soon" messaging.
+  if (!whopConfigured) {
     return NextResponse.json({
       authenticated: false,
       hasAccess: false,
       accessLevel: 'no_access',
       configured: false,
-      checkoutUrl: getCheckoutUrl() || null,
+      checkoutUrl: whopCheckoutUrl,
+      payment: paymentConfig,
       user: null,
     })
   }
@@ -39,7 +71,8 @@ export async function GET(request: NextRequest) {
       hasAccess: false,
       accessLevel: 'no_access',
       configured: true,
-      checkoutUrl: getCheckoutUrl() || null,
+      checkoutUrl: whopCheckoutUrl,
+      payment: paymentConfig,
       user: null,
     })
   }
@@ -65,7 +98,8 @@ export async function GET(request: NextRequest) {
         hasAccess: session.hasAccess,
         accessLevel: session.accessLevel,
         configured: true,
-        checkoutUrl: getCheckoutUrl() || null,
+        checkoutUrl: whopCheckoutUrl,
+        payment: paymentConfig,
         user: {
           id: session.userId,
           name: session.name,
@@ -91,7 +125,8 @@ export async function GET(request: NextRequest) {
         hasAccess: false,
         accessLevel: 'no_access',
         configured: true,
-        checkoutUrl: getCheckoutUrl() || null,
+        checkoutUrl: whopCheckoutUrl,
+        payment: paymentConfig,
         user: null,
         error: 'Session expired',
       })
@@ -103,7 +138,8 @@ export async function GET(request: NextRequest) {
     hasAccess: session.hasAccess,
     accessLevel: session.accessLevel,
     configured: true,
-    checkoutUrl: getCheckoutUrl() || null,
+    checkoutUrl: whopCheckoutUrl,
+    payment: paymentConfig,
     user: {
       id: session.userId,
       name: session.name,

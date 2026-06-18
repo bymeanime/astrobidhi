@@ -268,6 +268,30 @@ const CREATE_TABLES_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS ContactMessage_createdAt_idx ON ContactMessage(createdAt)`,
   `CREATE INDEX IF NOT EXISTS ContactMessage_isRead_idx ON ContactMessage(isRead)`,
+
+  // Lemon Squeezy subscription records (populated by webhook)
+  `CREATE TABLE IF NOT EXISTS LsSubscription (
+    id TEXT PRIMARY KEY,
+    subscriptionId TEXT NOT NULL UNIQUE,
+    customerId TEXT NOT NULL,
+    customerEmail TEXT NOT NULL,
+    customerName TEXT,
+    variantId TEXT NOT NULL,
+    productId TEXT NOT NULL,
+    status TEXT NOT NULL,
+    statusFormatted TEXT,
+    currentPeriodEnd DATETIME,
+    trialEndsAt DATETIME,
+    cancelled INTEGER NOT NULL DEFAULT 0,
+    renewsAt DATETIME,
+    deviceId TEXT,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_email_idx ON LsSubscription(customerEmail)`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_status_idx ON LsSubscription(status)`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_updatedAt_idx ON LsSubscription(updatedAt)`,
 ]
 
 let _libsql: Client | null = null
@@ -457,7 +481,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
