@@ -122,6 +122,67 @@ SESSION_SECRET=a-long-random-string-change-in-production
 
 ---
 
+## Step 9 — (Recommended) Enable Webhooks for Real-Time Updates
+
+By default, AstroBidhi checks Whop's API on every `/api/auth/me` request to verify the user's subscription is still active. This adds ~200ms latency to every page load. Webhooks eliminate this — Whop pushes subscription events to your app in real-time, and we cache the status in our DB.
+
+**Setup:**
+
+1. Go to https://whop.com/dashboard/developer/webhooks
+2. Click **Create Webhook** (or **New Webhook Endpoint**)
+3. Fill in:
+   - **Endpoint URL**: `https://YOUR-DEPLOYMENT-URL/api/whop/webhook`
+   - **Events to send**: select at minimum:
+     - `subscription.created`
+     - `subscription.updated`
+     - `subscription.cancelled`
+     - `subscription.deleted`
+4. Save — Whop will show you a **Webhook Endpoint Secret** (different from your API key)
+5. Add it to your `.env`:
+   ```bash
+   WHOP_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxx
+   ```
+6. Redeploy
+
+**What changes when webhooks are enabled:**
+
+- Subscription cancellations are detected within ~5 seconds (vs up to 1 hour before, when the access token would expire)
+- `/api/auth/me` no longer needs to call Whop's API on every request — reads cached status from the local `WhopSubscription` table (saves ~200ms per page load)
+- Users automatically get a branded AstroBidhi receipt email (if `RESEND_API_KEY` is also set — see the Email Receipts section in `.env.example`)
+
+**To verify webhooks are working:**
+
+```bash
+# 1. Hit the health check endpoint
+curl https://your-deployment-url.example.com/api/whop/webhook
+# Should return: { "configured": true, "message": "..." }
+
+# 2. Subscribe a test user, then check the admin Whop tab — recent memberships
+#    should appear in the table (populated by webhook events, not the API)
+
+# 3. Check server logs for [Whop Webhook] messages
+```
+
+If webhooks aren't configured, the app still works — it just polls Whop's API on each auth check.
+
+---
+
+## Step 10 — (Optional) Enable Tiered Pricing
+
+By default, AstroBidhi shows a single "Start Free Trial" button. If you want to offer **monthly / yearly / lifetime** tiers, create three separate products in Whop and set their IDs in your `.env`:
+
+```bash
+WHOP_PRODUCT_ID_MONTHLY=prod_xxx
+WHOP_PRODUCT_ID_YEARLY=prod_yyy
+WHOP_PRODUCT_ID_LIFETIME=prod_zzz
+```
+
+When all three are set, the premium dialog and `/pricing` page automatically show three tier buttons. If you don't set them, the dialog falls back to the single-button UX (zero breaking changes).
+
+You can also see the pricing page at `/pricing` — accessible from the header nav on every page.
+
+---
+
 ## Diagnostic Endpoints
 
 ### `/api/whop/setup` (public, no auth)

@@ -472,6 +472,14 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
             >
               <BookOpen className="w-4 h-4" /> Book a Reading
             </a>
+            {/* Pricing link — always visible */}
+            <a
+              href="/pricing"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-saffron/40 text-saffron-light hover:bg-saffron/10 hover:text-gold-light font-medium transition-all ml-1"
+              title="View subscription tiers and per-analysis pricing"
+            >
+              <Crown className="w-4 h-4" /> Pricing
+            </a>
             {/* Whop Auth Button */}
             {whopAuth.configured && (
               whopAuth.authenticated ? (
@@ -588,6 +596,12 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-amber-700 hover:bg-amber-50 font-semibold"
           >
             <BookOpen className="w-4 h-4" /> Book a Reading
+          </a>
+          <a
+            href="/pricing"
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-saffron-light hover:bg-saffron/10"
+          >
+            <Crown className="w-4 h-4" /> Pricing
           </a>
         </div>
       )}
@@ -1820,6 +1834,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
+  const [discountCode, setDiscountCode] = useState('')  // user-entered promo code, passed to checkout URL
   const [limitReached, setLimitReached] = useState<{ type: string; used: number; limit: number } | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -2228,7 +2243,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       </Card>
 
       {/* Premium Dialog */}
-      <Dialog open={premiumDialogType !== null} onOpenChange={(open) => { if (!open) setPremiumDialogType(null) }}>
+      <Dialog open={premiumDialogType !== null} onOpenChange={(open) => { if (!open) { setPremiumDialogType(null); setDiscountCode('') } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-maroon">
@@ -2288,6 +2303,27 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                   </p>
                 </div>
               )}
+              {/* Discount / promo code input — passed through to LS checkout
+                  via the `discountCode` query param. For Whop, codes are
+                  entered on the Whop checkout page itself (Whop doesn't
+                  support pre-filling codes via URL). */}
+              {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+                <div className="rounded-lg border border-saffron/20 bg-saffron/5 p-3">
+                  <Label className="text-xs font-medium text-maroon mb-1.5 block">
+                    Promo code (optional)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., EARLYBIRD50"
+                    value={discountCode}
+                    onChange={e => setDiscountCode(e.target.value.trim().toUpperCase())}
+                    className="h-8 text-sm font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    For Lemon Squeezy checkout. Whop users can enter promo codes on the Whop checkout page.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Shield className="w-4 h-4" />
                 <span>Premium features include deeper analysis, extended timelines, and advanced yogic interpretations.</span>
@@ -2304,16 +2340,17 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             </Button>
 
             {/* "Buy this analysis" — per-analysis one-time purchase via Lemon Squeezy.
-                Only shown if: LS configured AND this specific analysis has a variant mapping. */}
+                Only shown if: LS configured AND this specific analysis has a variant mapping.
+                Includes discountCode if the user entered one. */}
             {whopAuth.lsConfigured && premiumDialogType && whopAuth.payment?.lemonsqueezy.analysisVariantMappings.some(m => m.analysisType === premiumDialogType) && (
               <a
-                href={`/api/lemonsqueezy/checkout?analysisType=${encodeURIComponent(premiumDialogType)}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                href={`/api/lemonsqueezy/checkout?analysisType=${encodeURIComponent(premiumDialogType)}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}${discountCode ? `&discountCode=${encodeURIComponent(discountCode)}` : ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold px-4 py-2 h-10 transition-all"
-                title={`Buy just this analysis — one-time purchase, unlocks instantly`}
+                title={`Buy just this analysis — one-time purchase, unlocks instantly${discountCode ? ` (with code ${discountCode})` : ''}`}
               >
-                <Sparkles className="w-4 h-4" /> Buy this analysis
+                <Sparkles className="w-4 h-4" /> Buy this analysis{discountCode && <span className="text-[10px] opacity-90 ml-1">· {discountCode}</span>}
               </a>
             )}
 
@@ -2370,11 +2407,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 whopAuth.payment.lemonsqueezy.tiers.map(({ tier }) => (
                   <a
                     key={`ls-${tier}`}
-                    href={`/api/lemonsqueezy/checkout?tier=${tier}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                    href={`/api/lemonsqueezy/checkout?tier=${tier}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}${discountCode ? `&discountCode=${encodeURIComponent(discountCode)}` : ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all capitalize"
-                    title={`Subscribe ${tier} via Lemon Squeezy (VAT/tax handled automatically)`}
+                    title={`Subscribe ${tier} via Lemon Squeezy (VAT/tax handled automatically)${discountCode ? ` · code: ${discountCode}` : ''}`}
                   >
                     <ShoppingCart className="w-4 h-4" /> LS {tier}
                   </a>

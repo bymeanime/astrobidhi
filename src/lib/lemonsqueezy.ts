@@ -267,7 +267,7 @@ interface LsWebhookEvent {
   }
   data: {
     id: string
-    type: string
+    type: string  // 'subscriptions' or 'orders'
     attributes: {
       id: number
       customer_id: string
@@ -275,12 +275,21 @@ interface LsWebhookEvent {
       customer_name: string
       variant_id: number | string
       product_id: number | string
+      product_name?: string
+      variant_name?: string
       status: string
       status_formatted: string
+      // Subscription fields
       current_period_end?: string | null
       trial_ends_at?: string | null
       cancelled?: boolean
       renews_at?: string | null
+      // Order fields (one-time purchases)
+      total?: number          // cents
+      subtotal?: number
+      tax?: number
+      currency?: string
+      // Both
       created_at: string
       updated_at: string
     }
@@ -413,6 +422,40 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
       [deviceId, subscriptionId]
     )
     console.log(`[LS Webhook] Revoked lemonsqueezy access for device ${deviceId.substring(0, 8)}… (${isOrderEvent ? 'order' : 'subscription'} ${subscriptionId} → ${eventName})`)
+  }
+
+  // Send branded receipt email on initial purchase/renewal.
+  // Lazy-import to avoid pulling email lib into the config-time path.
+  if (isActiveState && attrs.customer_email) {
+    try {
+      const { sendLsReceiptEmail } = await import('@/lib/email')
+      const totalCents = attrs.total
+        || (isOrderEvent ? 0 : 0)  // LS doesn't always include price in subscription events
+      const productName = attrs.product_name || `Lemon Squeezy product ${attrs.product_id}`
+      const variantName = attrs.variant_name || (analysisTypeToGrant ? `Analysis: ${analysisTypeToGrant}` : `Variant ${variantId}`)
+
+      await sendLsReceiptEmail({
+        customerEmail: attrs.customer_email,
+        customerName: attrs.customer_name,
+        orderId: subscriptionId,
+        items: [{
+          name: productName,
+          description: variantName,
+          priceCents: totalCents,
+        }],
+        totalCents: totalCents,
+        currency: attrs.currency || 'USD',
+        providerUrl: 'https://app.lemonsqueezy.com/my-orders',
+        notes: analysisTypeToGrant
+          ? `This is a one-time purchase — your "${analysisTypeToGrant}" analysis is now unlocked permanently.`
+          : (eventName === 'subscription_created'
+              ? 'Your subscription is now active. Cancel anytime from Lemon Squeezy.'
+              : undefined),
+      })
+    } catch (emailErr) {
+      // Don't fail the webhook if email fails
+      console.warn('[LS Webhook] Receipt email failed:', emailErr instanceof Error ? emailErr.message : emailErr)
+    }
   }
 
   return { handled: true, eventName, subscriptionId }

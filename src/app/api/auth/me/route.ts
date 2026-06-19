@@ -19,11 +19,49 @@ import {
   getAvailableTiers as getLsTiers,
   getAllAnalysisVariantMappings,
 } from '@/lib/lemonsqueezy'
+import { rawQuery, initDb } from '@/lib/db'
 
 function getSession(request: NextRequest): WhopSession | null {
   const cookie = request.cookies.get('whop_session')?.value
   if (!cookie) return null
   return decodeSession(cookie)
+}
+
+/**
+ * Look up the user's Whop subscription status from the local DB
+ * (populated by /api/whop/webhook). Returns null if no record exists
+ * or the table doesn't exist yet.
+ *
+ * When this returns a valid record, /api/auth/me uses it to determine
+ * hasAccess WITHOUT calling Whop's API — saves ~200ms per request.
+ */
+async function getCachedWhopSubscription(userId: string): Promise<{ hasAccess: boolean; accessLevel: string; status: string } | null> {
+  try {
+    await initDb()
+    const rows = await rawQuery<{ status: string; expiresAt: string | null }>(
+      `SELECT status, expiresAt FROM WhopSubscription
+       WHERE userId = ? AND status IN ('active', 'trialing', 'past_due')
+       ORDER BY updatedAt DESC LIMIT 1`,
+      [userId]
+    )
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+    const now = new Date().toISOString()
+    if (row.expiresAt && new Date(row.expiresAt).toISOString() < now) {
+      return { hasAccess: false, accessLevel: 'no_access', status: 'expired' }
+    }
+
+    // 'trialing' and 'past_due' still get access in Whop's model
+    return {
+      hasAccess: true,
+      accessLevel: row.status === 'trialing' ? 'customer' : 'customer',
+      status: row.status,
+    }
+  } catch {
+    // Table doesn't exist or query failed — fall back to API check
+    return null
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -150,10 +188,38 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Try cached subscription first (no API call needed) ──
+  // If the webhook is configured and has populated WhopSubscription rows,
+  // we can determine access without hitting Whop's API on every request.
+  let effectiveHasAccess = session.hasAccess
+  let effectiveAccessLevel = session.accessLevel
+  const cached = await getCachedWhopSubscription(session.userId)
+  if (cached) {
+    effectiveHasAccess = cached.hasAccess
+    effectiveAccessLevel = cached.accessLevel
+    // Update session if changed (so cookie stays consistent)
+    if (session.hasAccess !== effectiveHasAccess || session.accessLevel !== effectiveAccessLevel) {
+      session.hasAccess = effectiveHasAccess
+      session.accessLevel = effectiveAccessLevel
+    }
+  } else if (session.hasAccess) {
+    // No cached record but session says hasAccess=true — verify with Whop API
+    // (this catches the case where user cancelled but webhook isn't set up yet)
+    try {
+      const access = await checkUserAccess(session.userId)
+      session.hasAccess = access.hasAccess
+      session.accessLevel = access.accessLevel
+      effectiveHasAccess = access.hasAccess
+      effectiveAccessLevel = access.accessLevel
+    } catch {
+      // API call failed — keep the session value
+    }
+  }
+
   return NextResponse.json({
     authenticated: true,
-    hasAccess: session.hasAccess,
-    accessLevel: session.accessLevel,
+    hasAccess: effectiveHasAccess,
+    accessLevel: effectiveAccessLevel,
     configured: true,
     checkoutUrl: whopCheckoutUrl,
     payment: paymentConfig,

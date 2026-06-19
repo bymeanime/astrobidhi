@@ -296,6 +296,33 @@ const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS LsSubscription_email_idx ON LsSubscription(customerEmail)`,
   `CREATE INDEX IF NOT EXISTS LsSubscription_status_idx ON LsSubscription(status)`,
   `CREATE INDEX IF NOT EXISTS LsSubscription_updatedAt_idx ON LsSubscription(updatedAt)`,
+
+  // Whop subscription records (populated by webhook — eliminates API polling)
+  `CREATE TABLE IF NOT EXISTS WhopSubscription (
+    id TEXT PRIMARY KEY,
+    subscriptionId TEXT NOT NULL UNIQUE,
+    userId TEXT NOT NULL,
+    email TEXT,
+    username TEXT,
+    picture TEXT,
+    productId TEXT,
+    productName TEXT,
+    planId TEXT,
+    planName TEXT,
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    billingPeriod TEXT,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    expiresAt DATETIME,
+    renewAt DATETIME,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_userId_idx ON WhopSubscription(userId)`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_email_idx ON WhopSubscription(email)`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_status_idx ON WhopSubscription(status)`,
 ]
 
 let _libsql: Client | null = null
@@ -485,7 +512,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription', 'WhopSubscription']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
