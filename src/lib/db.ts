@@ -123,9 +123,13 @@ const CREATE_TABLES_SQL = [
     originalPriceCents INTEGER,
     isActive INTEGER NOT NULL DEFAULT 1,
     sortOrder INTEGER NOT NULL DEFAULT 0,
-    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lsVariantId TEXT
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS PremiumCatalog_analysisType_idx ON PremiumCatalog(analysisType)`,
+  // Back-fill lsVariantId column for existing DBs that pre-date this column.
+  // SQLite's ALTER TABLE ADD COLUMN is idempotent-safe via this try/catch pattern.
+  `ALTER TABLE PremiumCatalog ADD COLUMN lsVariantId TEXT`,
 
   // Product bundles: group of analyses at a discounted price
   `CREATE TABLE IF NOT EXISTS ProductBundle (
@@ -268,6 +272,57 @@ const CREATE_TABLES_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS ContactMessage_createdAt_idx ON ContactMessage(createdAt)`,
   `CREATE INDEX IF NOT EXISTS ContactMessage_isRead_idx ON ContactMessage(isRead)`,
+
+  // Lemon Squeezy subscription records (populated by webhook)
+  `CREATE TABLE IF NOT EXISTS LsSubscription (
+    id TEXT PRIMARY KEY,
+    subscriptionId TEXT NOT NULL UNIQUE,
+    customerId TEXT NOT NULL,
+    customerEmail TEXT NOT NULL,
+    customerName TEXT,
+    variantId TEXT NOT NULL,
+    productId TEXT NOT NULL,
+    status TEXT NOT NULL,
+    statusFormatted TEXT,
+    currentPeriodEnd DATETIME,
+    trialEndsAt DATETIME,
+    cancelled INTEGER NOT NULL DEFAULT 0,
+    renewsAt DATETIME,
+    deviceId TEXT,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_email_idx ON LsSubscription(customerEmail)`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_status_idx ON LsSubscription(status)`,
+  `CREATE INDEX IF NOT EXISTS LsSubscription_updatedAt_idx ON LsSubscription(updatedAt)`,
+
+  // Whop subscription records (populated by webhook — eliminates API polling)
+  `CREATE TABLE IF NOT EXISTS WhopSubscription (
+    id TEXT PRIMARY KEY,
+    subscriptionId TEXT NOT NULL UNIQUE,
+    userId TEXT NOT NULL,
+    email TEXT,
+    username TEXT,
+    picture TEXT,
+    productId TEXT,
+    productName TEXT,
+    planId TEXT,
+    planName TEXT,
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    billingPeriod TEXT,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    expiresAt DATETIME,
+    renewAt DATETIME,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_userId_idx ON WhopSubscription(userId)`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_email_idx ON WhopSubscription(email)`,
+  `CREATE INDEX IF NOT EXISTS WhopSubscription_status_idx ON WhopSubscription(status)`,
 ]
 
 let _libsql: Client | null = null
@@ -300,7 +355,7 @@ export async function rawQuery<T = Record<string, unknown>>(sql: string, args: u
   }
   // Only wait for init if tables haven't been set up yet (avoids deadlock when called from seedDefaultData)
   if (!_dbReady) await initDb()
-  const result = await client.execute({ sql, args })
+  const result = await client.execute({ sql, args: args as never[] })
   return result.rows as unknown as T[]
 }
 
@@ -314,7 +369,7 @@ export async function rawExecute(sql: string, args: unknown[] = []): Promise<num
   }
   if (!_dbReady) await initDb()
   try {
-    const result = await client.execute({ sql, args })
+    const result = await client.execute({ sql, args: args as never[] })
     if (result.rowsAffected === 0 && sql.trim().toUpperCase().startsWith('INSERT')) {
       console.warn('[DB] rawExecute: INSERT affected 0 rows — possible silent failure. SQL:', sql.substring(0, 100))
     }
@@ -457,7 +512,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription', 'WhopSubscription']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)
@@ -494,7 +549,17 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (client) {
     try {
       for (const sql of CREATE_TABLES_SQL) {
-        await client.execute(sql)
+        try {
+          await client.execute(sql)
+        } catch (singleError) {
+          // Some statements (e.g., ALTER TABLE ADD COLUMN) fail if the column
+          // already exists — that's fine, we treat those as idempotent.
+          const msg = singleError instanceof Error ? singleError.message : String(singleError)
+          if (!msg.toLowerCase().includes('already exists') &&
+              !msg.toLowerCase().includes('duplicate column')) {
+            console.warn('[DB] Statement warning:', msg.substring(0, 150))
+          }
+        }
       }
       _dbReady = true
       createdWithLibsql = true
@@ -508,7 +573,15 @@ async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (!createdWithLibsql) {
     try {
       for (const sql of CREATE_TABLES_SQL) {
-        await prisma.$executeRawUnsafe(sql)
+        try {
+          await prisma.$executeRawUnsafe(sql)
+        } catch (singleError) {
+          const msg = singleError instanceof Error ? singleError.message : String(singleError)
+          if (!msg.toLowerCase().includes('already exists') &&
+              !msg.toLowerCase().includes('duplicate column')) {
+            console.warn('[DB] Statement warning (Prisma):', msg.substring(0, 150))
+          }
+        }
       }
       _dbReady = true
       console.log('[DB] All tables created successfully via Prisma — database is ready')
@@ -682,7 +755,7 @@ function createNoOpProxy(): PrismaClient {
       if (prop === '$connect' || prop === '$disconnect' || prop === '$on' || prop === '$use') {
         return async () => {}
       }
-      const value = (_target as Record<string, unknown>)[prop as string]
+      const value = (_target as unknown as Record<string, unknown>)[prop as string]
       if (value !== undefined) return value
 
       return new Proxy({}, {

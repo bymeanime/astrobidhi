@@ -10,7 +10,7 @@ import {
   Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon,
   LogOut, Shield, Plus, Trash2, CheckCircle, XCircle, Clock,
   Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift, AlertCircle,
-  BookOpen, UserCheck, Video, Mail
+  BookOpen, UserCheck, Video, Mail, CreditCard, ExternalLink
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -78,6 +78,7 @@ interface CatalogItem {
   isActive: number
   sortOrder: number
   createdAt: string
+  lsVariantId?: string | null  // Lemon Squeezy variant ID for per-analysis one-time purchases
 }
 
 interface BundleItem {
@@ -236,7 +237,7 @@ export default function AdminDashboard() {
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false)
   const [catalogEditItem, setCatalogEditItem] = useState<CatalogItem | null>(null)
   const [catalogForm, setCatalogForm] = useState({
-    analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0,
+    analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0, lsVariantId: '',
   })
   const [catalogSubmitting, setCatalogSubmitting] = useState(false)
 
@@ -294,6 +295,84 @@ export default function AdminDashboard() {
     photoUrl: '', isAvailable: true, sortOrder: 0,
   })
   const [astrologerSubmitting, setAstrologerSubmitting] = useState(false)
+
+  // ── Whop integration status state ──
+  interface WhopStatus {
+    configured: boolean
+    hasAppId: boolean
+    hasClientSecret: boolean
+    hasApiKey: boolean
+    hasCompanyId: boolean
+    hasProductId: boolean
+    hasExperienceId: boolean
+    hasRedirectUri: boolean
+    hasCheckoutUrl: boolean
+    appIdPreview: string | null
+    productIdPreview: string | null
+    redirectUri: string | null
+    checkoutUrl: string | null
+    api: { status: number | null; error: string | null }
+    recentMemberships: Array<{
+      id: string
+      status: string
+      productId: string
+      productTitle?: string
+      planId: string
+    }>
+    fullConfig: {
+      appId: string | null
+      productId: string | null
+      experienceId: string | null
+      companyId: string | null
+      redirectUri: string | null
+      hasClientSecret: boolean
+      hasApiKey: boolean
+    }
+  }
+  const [whopStatus, setWhopStatus] = useState<WhopStatus | null>(null)
+  const [whopLoading, setWhopLoading] = useState(false)
+  const [whopError, setWhopError] = useState<string | null>(null)
+
+  // ── Lemon Squeezy integration status state ──
+  interface LsStatus {
+    configured: boolean
+    hasApiKey: boolean
+    hasStoreId: boolean
+    hasVariantId: boolean
+    hasWebhookSecret: boolean
+    hasCheckoutUrl: boolean
+    apiKeyPreview: string | null
+    storeId: string | null
+    variantId: string | null
+    checkoutUrl: string | null
+    api: { reachable: boolean; status: number | null; error: string | null }
+    recentSubscriptions: Array<{
+      subscriptionId: string
+      customerEmail: string
+      customerName: string | null
+      status: string
+      statusFormatted: string | null
+      currentPeriodEnd: string | null
+      renewsAt: string | null
+      trialEndsAt: string | null
+      cancelled: boolean
+      createdAt: string
+      updatedAt: string
+    }>
+    countsByStatus: Record<string, number>
+    checkoutUrlWorks: boolean
+    checkoutUrlError: string | null
+    fullConfig: {
+      storeId: string | null
+      variantId: string | null
+      hasApiKey: boolean
+      hasWebhookSecret: boolean
+      checkoutUrl: string | null
+    }
+  }
+  const [lsStatus, setLsStatus] = useState<LsStatus | null>(null)
+  const [lsLoading, setLsLoading] = useState(false)
+  const [lsError, setLsError] = useState<string | null>(null)
 
   // ──────────────── Fetch functions ────────────────
 
@@ -504,6 +583,48 @@ export default function AdminDashboard() {
   useEffect(() => { fetchBookings() }, [fetchBookings])
   useEffect(() => { fetchAstrologers() }, [fetchAstrologers])
 
+  const fetchWhopStatus = useCallback(async () => {
+    setWhopLoading(true)
+    setWhopError(null)
+    try {
+      const res = await fetch('/api/admin/whop', { credentials: 'same-origin' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setWhopError(data.detail || `Failed to fetch Whop status (${res.status})`)
+        return
+      }
+      const data = await res.json() as WhopStatus
+      setWhopStatus(data)
+    } catch (err) {
+      setWhopError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setWhopLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchWhopStatus() }, [fetchWhopStatus])
+
+  const fetchLsStatus = useCallback(async () => {
+    setLsLoading(true)
+    setLsError(null)
+    try {
+      const res = await fetch('/api/admin/lemonsqueezy', { credentials: 'same-origin' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setLsError(data.detail || `Failed to fetch LS status (${res.status})`)
+        return
+      }
+      const data = await res.json() as LsStatus
+      setLsStatus(data)
+    } catch (err) {
+      setLsError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setLsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchLsStatus() }, [fetchLsStatus])
+
   // ──────────────── Access handlers ────────────────
 
   const handleGrantAccess = async () => {
@@ -577,7 +698,7 @@ export default function AdminDashboard() {
 
   const openCatalogCreate = () => {
     setCatalogEditItem(null)
-    setCatalogForm({ analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0 })
+    setCatalogForm({ analysisType: '', name: '', description: '', priceDollars: '', originalPriceDollars: '', isActive: true, sortOrder: 0, lsVariantId: '' })
     setCatalogDialogOpen(true)
   }
 
@@ -588,6 +709,7 @@ export default function AdminDashboard() {
       priceDollars: (item.priceCents / 100).toFixed(2),
       originalPriceDollars: item.originalPriceCents ? (item.originalPriceCents / 100).toFixed(2) : '',
       isActive: item.isActive === 1, sortOrder: item.sortOrder,
+      lsVariantId: item.lsVariantId || '',
     })
     setCatalogDialogOpen(true)
   }
@@ -598,11 +720,12 @@ export default function AdminDashboard() {
     try {
       const priceCents = dollarToCents(catalogForm.priceDollars)
       const originalPriceCents = catalogForm.originalPriceDollars ? dollarToCents(catalogForm.originalPriceDollars) : null
+      const lsVariantId = catalogForm.lsVariantId.trim() || null
 
       if (catalogEditItem) {
         const res = await fetch(`/api/admin/catalog/${encodeURIComponent(catalogEditItem.analysisType)}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder }),
+          body: JSON.stringify({ name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder, lsVariantId }),
           credentials: 'same-origin',
         })
         if (res.ok) {
@@ -616,7 +739,7 @@ export default function AdminDashboard() {
       } else {
         const res = await fetch('/api/admin/catalog', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ analysisType: catalogForm.analysisType, name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder }),
+          body: JSON.stringify({ analysisType: catalogForm.analysisType, name: catalogForm.name, description: catalogForm.description || null, priceCents, originalPriceCents, isActive: catalogForm.isActive, sortOrder: catalogForm.sortOrder, lsVariantId }),
           credentials: 'same-origin',
         })
         if (res.ok) {
@@ -1137,6 +1260,12 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="messages" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
               <Mail className="w-4 h-4 mr-1" /> Messages
+            </TabsTrigger>
+            <TabsTrigger value="whop" className="data-[state=active]:bg-saffron data-[state=active]:text-white">
+              <CreditCard className="w-4 h-4 mr-1" /> Whop
+            </TabsTrigger>
+            <TabsTrigger value="lemonsqueezy" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+              <CreditCard className="w-4 h-4 mr-1" /> Lemon Squeezy
             </TabsTrigger>
           </TabsList>
 
@@ -2247,6 +2376,460 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ═══════════ WHOP TAB ═══════════ */}
+          <TabsContent value="whop">
+            <Card className="border-saffron/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-saffron" /> Whop Integration Status
+                    </CardTitle>
+                    <CardDescription>
+                      Configuration, API health, and recent memberships for your private Whop payment system
+                    </CardDescription>
+                  </div>
+                  <Button onClick={fetchWhopStatus} size="sm" variant="outline" className="border-saffron/30 text-maroon">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${whopLoading ? 'animate-spin' : ''}`} /> Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {whopLoading && !whopStatus ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Checking Whop configuration…</p>
+                  </div>
+                ) : whopError ? (
+                  <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-red-800">Failed to load Whop status</p>
+                    <p className="text-xs text-red-600 mt-1">{whopError}</p>
+                  </div>
+                ) : whopStatus ? (
+                  <>
+                    {/* Configuration status cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className={`border rounded-lg p-3 ${whopStatus.configured ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {whopStatus.configured ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+                          <span className="text-xs font-semibold text-maroon">Overall</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${whopStatus.configured ? 'text-green-700' : 'text-red-700'}`}>
+                          {whopStatus.configured ? 'Configured' : 'Not Configured'}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${whopStatus.api.status === 200 ? 'border-green-200 bg-green-50' : whopStatus.api.status ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {whopStatus.api.status === 200 ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-amber-600" />}
+                          <span className="text-xs font-semibold text-maroon">API Health</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${whopStatus.api.status === 200 ? 'text-green-700' : whopStatus.api.status ? 'text-amber-700' : 'text-red-700'}`}>
+                          {whopStatus.api.status ? `HTTP ${whopStatus.api.status}` : 'No response'}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${whopStatus.recentMemberships.length > 0 ? 'border-green-200 bg-green-50' : 'border-saffron/20 bg-saffron/5'}`}>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-saffron" />
+                          <span className="text-xs font-semibold text-maroon">Active Members</span>
+                        </div>
+                        <p className="text-sm font-bold mt-1 text-maroon">
+                          {whopStatus.recentMemberships.length}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${whopStatus.hasCheckoutUrl ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {whopStatus.hasCheckoutUrl ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-amber-600" />}
+                          <span className="text-xs font-semibold text-maroon">Checkout URL</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${whopStatus.hasCheckoutUrl ? 'text-green-700' : 'text-amber-700'}`}>
+                          {whopStatus.hasCheckoutUrl ? 'Set' : 'Auto-generated'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Environment variables checklist */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">Environment Variables</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        {[
+                          ['WHOP_APP_ID', whopStatus.hasAppId, whopStatus.fullConfig.appId],
+                          ['WHOP_CLIENT_SECRET', whopStatus.hasClientSecret, whopStatus.hasClientSecret ? '•••••••• (hidden)' : null],
+                          ['WHOP_API_KEY', whopStatus.hasApiKey, whopStatus.hasApiKey ? '•••••••• (hidden)' : null],
+                          ['WHOP_PRODUCT_ID', whopStatus.hasProductId, whopStatus.fullConfig.productId],
+                          ['WHOP_COMPANY_ID', whopStatus.hasCompanyId, whopStatus.fullConfig.companyId],
+                          ['WHOP_EXPERIENCE_ID', whopStatus.hasExperienceId, whopStatus.fullConfig.experienceId],
+                          ['WHOP_REDIRECT_URI', whopStatus.hasRedirectUri, whopStatus.fullConfig.redirectUri],
+                          ['WHOP_CHECKOUT_URL', whopStatus.hasCheckoutUrl, whopStatus.checkoutUrl],
+                        ].map(([name, set, value]) => (
+                          <div key={name as string} className="flex items-start gap-2">
+                            {set ? (
+                              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <code className="text-xs font-mono text-maroon">{name}</code>
+                              {value ? (
+                                <p className="text-xs text-muted-foreground break-all mt-0.5">{value}</p>
+                              ) : (
+                                <p className="text-xs text-red-500 mt-0.5">missing</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* API error if any */}
+                    {whopStatus.api.error && (
+                      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" /> API Warning
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1 break-all">{whopStatus.api.error}</p>
+                      </div>
+                    )}
+
+                    {/* Quick actions */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-saffron/5">
+                      <p className="text-sm font-semibold text-maroon mb-2">Quick Actions</p>
+                      <div className="flex flex-wrap gap-2">
+                        {whopStatus.checkoutUrl && (
+                          <a
+                            href={whopStatus.checkoutUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs bg-amber-600 text-white hover:bg-amber-500 font-medium"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Open Checkout
+                          </a>
+                        )}
+                        {whopStatus.fullConfig.redirectUri && (
+                          <a
+                            href={whopStatus.fullConfig.redirectUri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Test Redirect URI
+                          </a>
+                        )}
+                        <a
+                          href="https://whop.com/dashboard/developer/apps"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-saffron/30 text-maroon hover:bg-saffron/10 font-medium"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Whop Developer Dashboard
+                        </a>
+                        <a
+                          href="/SETUP_WHOP.md"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-saffron/30 text-maroon hover:bg-saffron/10 font-medium"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" /> Setup Guide
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Recent memberships table */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">
+                        Recent Active Memberships {whopStatus.recentMemberships.length > 0 && `(${whopStatus.recentMemberships.length})`}
+                      </p>
+                      {whopStatus.recentMemberships.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">No active memberships yet</p>
+                          <p className="text-xs mt-1">When users buy your Whop product, they'll appear here.</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Membership ID</TableHead>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Plan ID</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {whopStatus.recentMemberships.map((m) => (
+                              <TableRow key={m.id}>
+                                <TableCell className="font-mono text-xs">{m.id}</TableCell>
+                                <TableCell>{m.productTitle || m.productId}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-green-700 border-green-300">{m.status}</Badge>
+                                </TableCell>
+                                <TableCell className="font-mono text-xs">{m.planId}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+
+                    {/* Help box */}
+                    <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                      <p className="text-xs text-blue-800">
+                        <strong>Need help?</strong> See <code className="font-mono bg-blue-100 px-1 rounded">SETUP_WHOP.md</code> in the repo root
+                        for step-by-step instructions on creating the Whop OAuth app, generating API keys, and configuring
+                        your <code className="font-mono bg-blue-100 px-1 rounded">.env</code> file.
+                        You can also hit <code className="font-mono bg-blue-100 px-1 rounded">/api/whop/setup</code> for a public
+                        diagnostic check.
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════ LEMON SQUEEZY TAB ═══════════ */}
+          <TabsContent value="lemonsqueezy">
+            <Card className="border-purple-200">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-purple-600" /> Lemon Squeezy Integration
+                    </CardTitle>
+                    <CardDescription>
+                      MoR payment provider — handles global VAT/tax automatically. Runs alongside Whop.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={fetchLsStatus} size="sm" variant="outline" className="border-purple-300 text-purple-700">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${lsLoading ? 'animate-spin' : ''}`} /> Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lsLoading && !lsStatus ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Checking Lemon Squeezy configuration…</p>
+                  </div>
+                ) : lsError ? (
+                  <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-red-800">Failed to load LS status</p>
+                    <p className="text-xs text-red-600 mt-1">{lsError}</p>
+                  </div>
+                ) : lsStatus ? (
+                  <>
+                    {/* Configuration status cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className={`border rounded-lg p-3 ${lsStatus.configured ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {lsStatus.configured ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+                          <span className="text-xs font-semibold text-maroon">Overall</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${lsStatus.configured ? 'text-green-700' : 'text-red-700'}`}>
+                          {lsStatus.configured ? 'Configured' : 'Not Configured'}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${lsStatus.api.status === 200 ? 'border-green-200 bg-green-50' : lsStatus.api.status ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {lsStatus.api.status === 200 ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-amber-600" />}
+                          <span className="text-xs font-semibold text-maroon">API Health</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${lsStatus.api.status === 200 ? 'text-green-700' : lsStatus.api.status ? 'text-amber-700' : 'text-red-700'}`}>
+                          {lsStatus.api.status ? `HTTP ${lsStatus.api.status}` : 'No response'}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${lsStatus.recentSubscriptions.length > 0 ? 'border-green-200 bg-green-50' : 'border-purple-200 bg-purple-50'}`}>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-purple-600" />
+                          <span className="text-xs font-semibold text-maroon">Recent Subs</span>
+                        </div>
+                        <p className="text-sm font-bold mt-1 text-maroon">
+                          {lsStatus.recentSubscriptions.length}
+                        </p>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${lsStatus.hasWebhookSecret ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {lsStatus.hasWebhookSecret ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+                          <span className="text-xs font-semibold text-maroon">Webhook</span>
+                        </div>
+                        <p className={`text-sm font-bold mt-1 ${lsStatus.hasWebhookSecret ? 'text-green-700' : 'text-red-700'}`}>
+                          {lsStatus.hasWebhookSecret ? 'Secret Set' : 'Missing!'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Environment variables checklist */}
+                    <div className="border border-purple-200 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">Environment Variables</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        {[
+                          ['LEMONSQUEEZY_API_KEY', lsStatus.hasApiKey, lsStatus.apiKeyPreview],
+                          ['LEMONSQUEEZY_STORE_ID', lsStatus.hasStoreId, lsStatus.fullConfig.storeId],
+                          ['LEMONSQUEEZY_VARIANT_ID', lsStatus.hasVariantId, lsStatus.fullConfig.variantId],
+                          ['LEMONSQUEEZY_WEBHOOK_SECRET', lsStatus.hasWebhookSecret, lsStatus.hasWebhookSecret ? '•••••••• (hidden)' : null],
+                          ['LEMONSQUEEZY_CHECKOUT_URL', lsStatus.hasCheckoutUrl, lsStatus.fullConfig.checkoutUrl],
+                        ].map(([name, set, value]) => (
+                          <div key={name as string} className="flex items-start gap-2">
+                            {set ? (
+                              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <code className="text-xs font-mono text-maroon">{name}</code>
+                              {value ? (
+                                <p className="text-xs text-muted-foreground break-all mt-0.5">{value}</p>
+                              ) : (
+                                <p className="text-xs text-red-500 mt-0.5">missing</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* API error if any */}
+                    {lsStatus.api.error && (
+                      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" /> API Warning
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1 break-all">{lsStatus.api.error}</p>
+                      </div>
+                    )}
+
+                    {/* Webhook URL prompt */}
+                    <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                      <p className="text-xs font-semibold text-blue-800 mb-1">Webhook URL (paste this into Lemon Squeezy dashboard)</p>
+                      <code className="text-xs font-mono bg-blue-100 px-2 py-1 rounded break-all block">
+                        {typeof window !== 'undefined' ? `${window.location.origin}/api/lemonsqueezy/webhook` : '/api/lemonsqueezy/webhook'}
+                      </code>
+                      <p className="text-xs text-blue-700 mt-2">
+                        Go to <a href="https://app.lemonsqueezy.com/settings/webhooks" target="_blank" rel="noopener noreferrer" className="underline font-medium">Lemon Squeezy → Settings → Webhooks</a> and add this URL.
+                        Copy the signing secret they give you and set it as <code className="font-mono bg-blue-100 px-1 rounded">LEMONSQUEEZY_WEBHOOK_SECRET</code>.
+                      </p>
+                    </div>
+
+                    {/* Quick actions */}
+                    <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+                      <p className="text-sm font-semibold text-maroon mb-2">Quick Actions</p>
+                      <div className="flex flex-wrap gap-2">
+                        {lsStatus.configured && (
+                          <a
+                            href="/api/lemonsqueezy/checkout"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs bg-purple-600 text-white hover:bg-purple-500 font-medium"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Test Checkout
+                          </a>
+                        )}
+                        <a
+                          href="https://app.lemonsqueezy.com/products"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-purple-300 text-purple-700 hover:bg-purple-100 font-medium"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> LS Products
+                        </a>
+                        <a
+                          href="https://app.lemonsqueezy.com/settings/api"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-purple-300 text-purple-700 hover:bg-purple-100 font-medium"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> API Keys
+                        </a>
+                        <a
+                          href="https://app.lemonsqueezy.com/settings/webhooks"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-purple-300 text-purple-700 hover:bg-purple-100 font-medium"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Webhooks
+                        </a>
+                        <a
+                          href="/SETUP_LEMONSQUEEZY.md"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs border border-saffron/30 text-maroon hover:bg-saffron/10 font-medium"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" /> Setup Guide
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Recent subscriptions table */}
+                    <div className="border border-purple-200 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">
+                        Recent Subscriptions {lsStatus.recentSubscriptions.length > 0 && `(${lsStatus.recentSubscriptions.length})`}
+                      </p>
+                      {lsStatus.recentSubscriptions.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">No subscriptions yet</p>
+                          <p className="text-xs mt-1">When users pay via Lemon Squeezy, their subscription will appear here.</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Renews / Ends</TableHead>
+                              <TableHead>Updated</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {lsStatus.recentSubscriptions.map((sub) => (
+                              <TableRow key={sub.subscriptionId}>
+                                <TableCell>
+                                  <div className="text-sm">{sub.customerEmail}</div>
+                                  {sub.customerName && <div className="text-xs text-muted-foreground">{sub.customerName}</div>}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      sub.status === 'active' || sub.status === 'on_trial'
+                                        ? 'text-green-700 border-green-300'
+                                        : 'text-red-700 border-red-300'
+                                    }
+                                  >
+                                    {sub.statusFormatted || sub.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {sub.renewsAt ? `Renews ${new Date(sub.renewsAt).toLocaleDateString()}` : '—'}
+                                  {sub.currentPeriodEnd ? <div className="text-muted-foreground">Ends ${new Date(sub.currentPeriodEnd).toLocaleDateString()}</div> : null}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {new Date(sub.updatedAt).toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+
+                    {/* Help box */}
+                    <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                      <p className="text-xs text-blue-800">
+                        <strong>How Lemon Squeezy works alongside Whop:</strong> Both providers can be configured
+                        at the same time. The front-end shows buttons for whichever providers are configured.
+                        Users who pay via LS get a <code className="font-mono bg-blue-100 px-1 rounded">DeviceAccess</code>
+                        grant with <code className="font-mono bg-blue-100 px-1 rounded">source='lemonsqueezy'</code> —
+                        works with the existing premium-access gating, no code changes needed.
+                        See <code className="font-mono bg-blue-100 px-1 rounded">SETUP_LEMONSQUEEZY.md</code> for the
+                        full walkthrough.
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -2679,6 +3262,28 @@ export default function AdminDashboard() {
                 />
                 <Label className="text-sm font-medium">{catalogForm.isActive ? 'Active' : 'Inactive'}</Label>
               </div>
+            </div>
+
+            {/* Lemon Squeezy variant ID — for per-analysis one-time purchases.
+                Leave blank to disable "Buy this analysis" for this type. */}
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+                Lemon Squeezy Variant ID
+                <span className="text-xs font-normal text-muted-foreground">(optional — enables per-analysis purchase)</span>
+              </Label>
+              <Input
+                type="text"
+                placeholder="e.g. 12345 (from your LS product variant URL)"
+                value={catalogForm.lsVariantId}
+                onChange={e => setCatalogForm(prev => ({ ...prev, lsVariantId: e.target.value.trim() }))}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When set, the front-end shows a <strong>"Buy this analysis"</strong> button (one-time purchase).
+                The webhook automatically grants this analysisType to the buyer's device.
+                Create the variant in <a href="https://app.lemonsqueezy.com/products" target="_blank" rel="noopener noreferrer" className="underline text-purple-600">LS Dashboard → Products</a> as a one-time payment variant.
+              </p>
             </div>
           </div>
 

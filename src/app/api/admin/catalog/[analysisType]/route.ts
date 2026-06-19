@@ -40,6 +40,7 @@ export async function PUT(
     if (body.originalPriceCents !== undefined) { updates.push('originalPriceCents = ?'); values.push(body.originalPriceCents) }
     if (body.isActive !== undefined) { updates.push('isActive = ?'); values.push(body.isActive ? 1 : 0) }
     if (body.sortOrder !== undefined) { updates.push('sortOrder = ?'); values.push(body.sortOrder) }
+    if (body.lsVariantId !== undefined) { updates.push('lsVariantId = ?'); values.push(body.lsVariantId || null) }
 
     if (updates.length === 0) {
       return NextResponse.json({ detail: 'No fields to update' }, { status: 400 })

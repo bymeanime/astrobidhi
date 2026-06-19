@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revokeWhopToken } from '@/lib/whop'
+import { revokeWhopToken, decodeSession } from '@/lib/whop'
 
 export async function POST(request: NextRequest) {
   // Get session to revoke token
   const cookie = request.cookies.get('whop_session')?.value
   if (cookie) {
-    try {
-      const session = JSON.parse(Buffer.from(cookie, 'base64').toString()) as {
-        refreshToken: string
-      }
-      await revokeWhopToken(session.refreshToken)
-    } catch {}
+    const session = decodeSession(cookie)
+    if (session?.refreshToken) {
+      try {
+        await revokeWhopToken(session.refreshToken)
+      } catch { /* ignore */ }
+    }
   }
 
   const response = NextResponse.json({ success: true, message: 'Logged out from Whop' })

@@ -11,7 +11,7 @@ import {
   ChevronDown, Crown, Home as HomeIcon, Orbit, Shield, Lock,
   Share2, Copy, Twitter, Facebook, Instagram, Mail, LogIn, LogOut, User, ExternalLink,
   Coffee, History, RefreshCw, Hash, Gem, UserCheck, RotateCcw, Flame, Users,
-  Send, CheckCircle, Youtube
+  Send, CheckCircle, Youtube, ShoppingCart
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -204,6 +204,25 @@ function useCatalog() {
 }
 
 // ============ Whop Auth Context ============
+type PaymentTier = 'monthly' | 'yearly' | 'lifetime'
+
+interface PaymentConfig {
+  whop: {
+    configured: boolean
+    checkoutUrl: string | null
+    manageUrl: string | null
+    tiers: Array<{ tier: PaymentTier; checkoutUrl: string; productId: string }>
+  }
+  lemonsqueezy: {
+    configured: boolean
+    checkoutUrl: string | null
+    manageUrl: string | null
+    hasWebhookSecret: boolean
+    tiers: Array<{ tier: PaymentTier; variantId: string; checkoutUrl: string | null }>
+    analysisVariantMappings: Array<{ analysisType: string; variantId: string; source: 'db' | 'env' }>
+  }
+}
+
 interface WhopAuthState {
   authenticated: boolean
   hasAccess: boolean
@@ -211,10 +230,18 @@ interface WhopAuthState {
   user: { id: string; name: string; email: string; picture: string } | null
   loading: boolean
   configured: boolean
+  checkoutUrl: string | null  // Direct Whop checkout URL (for "Buy Now" buttons)
+  // Lemon Squeezy (parallel payment provider)
+  lsConfigured: boolean
+  lsCheckoutUrl: string | null  // Direct LS checkout URL
+  lsHasWebhookSecret: boolean   // If false, webhooks won't work — warn admin
+  // Tier + per-analysis payment config (both providers)
+  payment: PaymentConfig | null
 }
 
 const WhopAuthContext = createContext<WhopAuthState>({
-  authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+  authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
+  lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false, payment: null,
 })
 
 function useWhopAuth() {
@@ -445,6 +472,14 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
             >
               <BookOpen className="w-4 h-4" /> Book a Reading
             </a>
+            {/* Pricing link — always visible */}
+            <a
+              href="/pricing"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-saffron/40 text-saffron-light hover:bg-saffron/10 hover:text-gold-light font-medium transition-all ml-1"
+              title="View subscription tiers and per-analysis pricing"
+            >
+              <Crown className="w-4 h-4" /> Pricing
+            </a>
             {/* Whop Auth Button */}
             {whopAuth.configured && (
               whopAuth.authenticated ? (
@@ -485,8 +520,39 @@ function VedicNav({ currentPage, onNavigate }: { currentPage: PageView; onNaviga
                   >
                     <Crown className="w-4 h-4" /> Start Free Trial
                   </a>
+                  {whopAuth.checkoutUrl && (
+                    <a
+                      href={whopAuth.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium transition-all"
+                      title="Buy a Whop membership directly without signing in first"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> Buy Now
+                    </a>
+                  )}
+                  <a
+                    href="/api/auth/whop"
+                    className="text-saffron-light/70 hover:text-gold-light text-xs px-2 py-2 transition-colors"
+                    title="Already a member? Sign in"
+                  >
+                    Sign in
+                  </a>
                 </div>
               )
+            )}
+            {/* Lemon Squeezy Buy Now — shown only if LS is configured AND user is not authenticated via Whop
+                (Whop users already have access — no need to upsell them to LS). */}
+            {whopAuth.lsConfigured && !whopAuth.authenticated && !whopAuth.hasAccess && (
+              <a
+                href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-purple-600 to-indigo-500 text-white hover:from-purple-500 hover:to-indigo-400 font-semibold transition-all ml-2"
+                title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+              >
+                <ShoppingCart className="w-4 h-4" /> Pay with Lemon Squeezy
+              </a>
             )}
             {/* Admin-Granted Access Badge (shown when Whop not configured or not authenticated, but device has admin access) */}
             {!whopAuth.hasAccess && adminAccess.hasAccess && (
@@ -530,6 +596,12 @@ function MobileNav({ currentPage, onNavigate }: { currentPage: PageView; onNavig
             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-amber-700 hover:bg-amber-50 font-semibold"
           >
             <BookOpen className="w-4 h-4" /> Book a Reading
+          </a>
+          <a
+            href="/pricing"
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-saffron-light hover:bg-saffron/10"
+          >
+            <Crown className="w-4 h-4" /> Pricing
           </a>
         </div>
       )}
@@ -1762,6 +1834,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
+  const [discountCode, setDiscountCode] = useState('')  // user-entered promo code, passed to checkout URL
   const [limitReached, setLimitReached] = useState<{ type: string; used: number; limit: number } | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -1940,8 +2013,9 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
     setShareLoading(true)
     try {
       const deviceId = getDeviceId()
-      // Get birth details from the parent's lastFormData or extract from chartData.birth_details
-      const birthDetails = chartData.birth_details || {}
+      // chartData is the computed horoscope; we share it as-is so the share page
+      // can display the chart + analysis without re-running Python or AI.
+      const birthDetails = (chartData as (HoroscopeData & { birth_details?: Record<string, unknown> }) | null)?.birth_details || {}
 
       const res = await fetch('/api/share', {
         method: 'POST',
@@ -2169,7 +2243,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       </Card>
 
       {/* Premium Dialog */}
-      <Dialog open={premiumDialogType !== null} onOpenChange={(open) => { if (!open) setPremiumDialogType(null) }}>
+      <Dialog open={premiumDialogType !== null} onOpenChange={(open) => { if (!open) { setPremiumDialogType(null); setDiscountCode('') } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-maroon">
@@ -2229,13 +2303,34 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                   </p>
                 </div>
               )}
+              {/* Discount / promo code input — passed through to LS checkout
+                  via the `discountCode` query param. For Whop, codes are
+                  entered on the Whop checkout page itself (Whop doesn't
+                  support pre-filling codes via URL). */}
+              {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+                <div className="rounded-lg border border-saffron/20 bg-saffron/5 p-3">
+                  <Label className="text-xs font-medium text-maroon mb-1.5 block">
+                    Promo code (optional)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., EARLYBIRD50"
+                    value={discountCode}
+                    onChange={e => setDiscountCode(e.target.value.trim().toUpperCase())}
+                    className="h-8 text-sm font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    For Lemon Squeezy checkout. Whop users can enter promo codes on the Whop checkout page.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Shield className="w-4 h-4" />
                 <span>Premium features include deeper analysis, extended timelines, and advanced yogic interpretations.</span>
               </div>
             </div>
           )}
-          <DialogFooter className="flex-row gap-2 sm:justify-end">
+          <DialogFooter className="flex-row gap-2 sm:justify-end flex-wrap">
             <Button
               variant="outline"
               onClick={() => setPremiumDialogType(null)}
@@ -2243,13 +2338,60 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             >
               Close
             </Button>
-            {whopAuth.configured ? (
+
+            {/* "Buy this analysis" — per-analysis one-time purchase via Lemon Squeezy.
+                Only shown if: LS configured AND this specific analysis has a variant mapping.
+                Includes discountCode if the user entered one. */}
+            {whopAuth.lsConfigured && premiumDialogType && whopAuth.payment?.lemonsqueezy.analysisVariantMappings.some(m => m.analysisType === premiumDialogType) && (
               <a
-                href="/api/auth/whop"
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                href={`/api/lemonsqueezy/checkout?analysisType=${encodeURIComponent(premiumDialogType)}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}${discountCode ? `&discountCode=${encodeURIComponent(discountCode)}` : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                title={`Buy just this analysis — one-time purchase, unlocks instantly${discountCode ? ` (with code ${discountCode})` : ''}`}
               >
-                <Crown className="w-4 h-4" /> Start Free Trial
+                <Sparkles className="w-4 h-4" /> Buy this analysis{discountCode && <span className="text-[10px] opacity-90 ml-1">· {discountCode}</span>}
               </a>
+            )}
+
+            {whopAuth.configured ? (
+              <>
+                {/* Tier-specific Whop checkout buttons */}
+                {whopAuth.payment?.whop.tiers && whopAuth.payment.whop.tiers.length > 0 ? (
+                  whopAuth.payment.whop.tiers.map(({ tier, checkoutUrl }) => (
+                    <a
+                      key={tier}
+                      href={checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all capitalize"
+                      title={`Subscribe ${tier} via Whop`}
+                    >
+                      <Crown className="w-4 h-4" /> {tier}
+                    </a>
+                  ))
+                ) : (
+                  <>
+                    {/* Fallback: no tier env vars — show the legacy buttons */}
+                    <a
+                      href="/api/auth/whop"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                    >
+                      <Crown className="w-4 h-4" /> Start Free Trial
+                    </a>
+                    {whopAuth.checkoutUrl && (
+                      <a
+                        href={whopAuth.checkoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium px-4 py-2 h-10 transition-all"
+                      >
+                        <ShoppingCart className="w-4 h-4" /> Buy Now
+                      </a>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
               <Button
                 onClick={() => setPremiumDialogType(null)}
@@ -2257,6 +2399,34 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               >
                 <Sparkles className="w-4 h-4 mr-1" /> Notify Me
               </Button>
+            )}
+
+            {/* Lemon Squeezy subscription alternative — shown alongside the Whop buttons if LS is configured */}
+            {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+              whopAuth.payment?.lemonsqueezy.tiers && whopAuth.payment.lemonsqueezy.tiers.length > 0 ? (
+                whopAuth.payment.lemonsqueezy.tiers.map(({ tier }) => (
+                  <a
+                    key={`ls-${tier}`}
+                    href={`/api/lemonsqueezy/checkout?tier=${tier}&deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}${discountCode ? `&discountCode=${encodeURIComponent(discountCode)}` : ''}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all capitalize"
+                    title={`Subscribe ${tier} via Lemon Squeezy (VAT/tax handled automatically)${discountCode ? ` · code: ${discountCode}` : ''}`}
+                  >
+                    <ShoppingCart className="w-4 h-4" /> LS {tier}
+                  </a>
+                ))
+              ) : (
+                <a
+                  href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                  title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+                >
+                  <ShoppingCart className="w-4 h-4" /> Pay with LS
+                </a>
+              )
             )}
           </DialogFooter>
         </DialogContent>
@@ -2297,7 +2467,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               <span>{whopAuth.configured ? 'Upgrade via Whop to unlock unlimited access.' : 'Subscription coming soon! Cached results are always accessible for free.'}</span>
             </div>
           </div>
-          <DialogFooter className="flex-row gap-2 sm:justify-end">
+          <DialogFooter className="flex-row gap-2 sm:justify-end flex-wrap">
             <Button
               variant="outline"
               onClick={() => setLimitReached(null)}
@@ -2306,12 +2476,24 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               Close
             </Button>
             {whopAuth.configured ? (
-              <a
-                href="/api/auth/whop"
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-4 py-2 h-10 transition-all"
-              >
-                <Crown className="w-4 h-4" /> Get Unlimited
-              </a>
+              <>
+                <a
+                  href="/api/auth/whop"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white font-semibold px-4 py-2 h-10 transition-all"
+                >
+                  <Crown className="w-4 h-4" /> Get Unlimited
+                </a>
+                {whopAuth.checkoutUrl && (
+                  <a
+                    href={whopAuth.checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md border border-amber-600/50 text-amber-700 hover:bg-amber-50 font-medium px-4 py-2 h-10 transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Buy Now
+                  </a>
+                )}
+              </>
             ) : (
               <Button
                 onClick={() => setLimitReached(null)}
@@ -2319,6 +2501,18 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               >
                 <Crown className="w-4 h-4 mr-1" /> Get Unlimited
               </Button>
+            )}
+            {/* Lemon Squeezy alternative */}
+            {whopAuth.lsConfigured && !whopAuth.hasAccess && (
+              <a
+                href={`/api/lemonsqueezy/checkout?deviceId=${typeof window !== 'undefined' ? encodeURIComponent(localStorage.getItem('astrobidi_device_id') || '') : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-4 py-2 h-10 transition-all"
+                title="Pay with Lemon Squeezy (VAT/tax handled automatically)"
+              >
+                <ShoppingCart className="w-4 h-4" /> Pay with LS
+              </a>
             )}
           </DialogFooter>
         </DialogContent>
@@ -2588,17 +2782,29 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3 gap-2 flex-wrap">
                 <div>
                   <p className="text-sm font-semibold text-amber-800">Follow-up limit reached</p>
                   <p className="text-xs text-amber-600">Upgrade to Premium for unlimited questions</p>
                 </div>
-                <a
-                  href="/api/auth/whop"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-saffron to-maroon text-white text-xs font-semibold rounded-md"
-                >
-                  <Crown className="w-3 h-3" /> Upgrade
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/api/auth/whop"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-saffron to-maroon text-white text-xs font-semibold rounded-md"
+                  >
+                    <Crown className="w-3 h-3" /> Upgrade
+                  </a>
+                  {whopAuth.checkoutUrl && (
+                    <a
+                      href={whopAuth.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 border border-amber-600/50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100"
+                    >
+                      <ShoppingCart className="w-3 h-3" /> Buy
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -3037,6 +3243,7 @@ function PlacementMeaningsSection({ meanings, loading, error }: { meanings: Stat
 // ============ My Analyses Page ============
 function MyAnalysesPage() {
   const whopAuth = useWhopAuth()
+  const adminAccess = useAdminAccess()
   const { toast } = useToast()
   const [analyses, setAnalyses] = useState<{
     totalAnalyses: number
@@ -3213,6 +3420,69 @@ function MyAnalysesPage() {
         </CardContent>
       </Card>
 
+      {/* Manage Subscription / Cancel — shown if any provider is configured
+          AND the user is authenticated (Whop) OR has any device access (LS).
+          Both Whop and LS let users cancel/update via their respective dashboards. */}
+      {(whopAuth.configured || whopAuth.lsConfigured) && (whopAuth.authenticated || whopAuth.hasAccess || adminAccess.hasAccess) && (
+        <Card className="border-saffron/20 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-start gap-3 flex-1 min-w-[200px]">
+                <Crown className="w-5 h-5 text-saffron mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-maroon text-sm">Manage Your Subscription</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Update payment method, switch tiers, or cancel your subscription anytime.
+                    Your past analyses remain accessible after cancellation — you just can't run new premium ones.
+                  </p>
+                  {/* Show which provider(s) the user is paying through */}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {whopAuth.authenticated && whopAuth.hasAccess && (
+                      <Badge className="bg-amber-100 text-amber-800 text-[10px]">via Whop</Badge>
+                    )}
+                    {whopAuth.lsConfigured && whopAuth.hasAccess && !whopAuth.authenticated && (
+                      <Badge className="bg-purple-100 text-purple-800 text-[10px]">via Lemon Squeezy</Badge>
+                    )}
+                    {adminAccess.hasAccess && (
+                      <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
+                        Admin-granted ({adminAccess.accessLevel})
+                        {adminAccess.expiresAt && ` · expires ${new Date(adminAccess.expiresAt).toLocaleDateString()}`}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                {/* Whop manage button — shown if user is logged in via Whop */}
+                {whopAuth.configured && whopAuth.payment?.whop.manageUrl && (
+                  <a
+                    href={whopAuth.payment.whop.manageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm bg-gradient-to-r from-amber-600 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-400 font-semibold transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    {whopAuth.hasAccess ? 'Manage Whop Subscription' : 'Whop Dashboard'}
+                  </a>
+                )}
+                {/* LS manage button — shown if LS is configured and user has access via LS */}
+                {whopAuth.lsConfigured && whopAuth.payment?.lemonsqueezy.manageUrl && (
+                  <a
+                    href={whopAuth.payment.lemonsqueezy.manageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm border border-purple-300 text-purple-700 hover:bg-purple-50 font-medium transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Manage LS Subscription
+                  </a>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {!analyses || analyses.totalAnalyses === 0 ? (
         <Card className="border-saffron/20">
           <CardContent className="py-12 text-center">
@@ -3243,7 +3513,7 @@ function MyAnalysesPage() {
                   <Star className="w-4 h-4 text-saffron" />
                   Chart #{idx + 1}
                   <span className="text-xs text-muted-foreground font-normal ml-2">
-                    {chart.birthDetails?.year && `${chart.birthDetails.year}-${chart.birthDetails.month}-${chart.birthDetails.day}`}
+                    {chart.birthDetails?.year != null && `${chart.birthDetails.year}-${chart.birthDetails.month}-${chart.birthDetails.day}`}
                     {chart.birthDetails?.latitude != null && ` | ${chart.birthDetails.latitude}°N, ${chart.birthDetails.longitude}°E`}
                   </span>
                 </CardTitle>
@@ -3251,7 +3521,9 @@ function MyAnalysesPage() {
               <CardContent>
                 <div className="space-y-2">
                   {chart.analyses.map((analysis, aIdx) => {
-                    const analysisInfo = dynamicAnalysisTypes.find(a => a.id === analysis.type)
+                    // ANALYSIS_TYPES is module-scoped; the dynamic catalog-aware version
+                    // lives only inside the parent component, so we fall back to the static list here.
+                    const analysisInfo = ANALYSIS_TYPES.find(a => a.id === analysis.type)
                     const isLoading = loadingAnalysis === analysis.cacheKey
                     return (
                       <div key={aIdx} className="flex items-center justify-between p-3 bg-saffron/5 rounded-lg hover:bg-saffron/10 transition-colors">
@@ -3369,7 +3641,8 @@ export default function Home() {
 
   // Whop auth state
   const [whopAuth, setWhopAuth] = useState<WhopAuthState>({
-    authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false,
+    authenticated: false, hasAccess: false, accessLevel: 'no_access', user: null, loading: true, configured: false, checkoutUrl: null,
+    lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false, payment: null,
   })
 
   // Admin-granted access state
@@ -3401,6 +3674,11 @@ export default function Home() {
       .then(res => res.json())
       .then(data => {
         if (!cancelled) {
+          // Read payment config (both providers) from /api/auth/me
+          const payment: PaymentConfig = data.payment || {
+            whop: { configured: false, checkoutUrl: null, manageUrl: null, tiers: [] },
+            lemonsqueezy: { configured: false, checkoutUrl: null, manageUrl: null, hasWebhookSecret: false, tiers: [], analysisVariantMappings: [] },
+          }
           const authState = {
             authenticated: data.authenticated || false,
             hasAccess: data.hasAccess || false,
@@ -3408,6 +3686,11 @@ export default function Home() {
             user: data.user || null,
             loading: false,
             configured: data.configured === true,
+            checkoutUrl: data.checkoutUrl || null,
+            lsConfigured: !!payment.lemonsqueezy?.configured,
+            lsCheckoutUrl: payment.lemonsqueezy?.checkoutUrl || null,
+            lsHasWebhookSecret: !!payment.lemonsqueezy?.hasWebhookSecret,
+            payment,
           }
           setWhopAuth(authState)
 
@@ -3426,7 +3709,7 @@ export default function Home() {
       })
       .catch(() => {
         if (!cancelled) {
-          setWhopAuth(prev => ({ ...prev, loading: false, configured: false }))
+          setWhopAuth(prev => ({ ...prev, loading: false, configured: false, checkoutUrl: null, lsConfigured: false, lsCheckoutUrl: null, lsHasWebhookSecret: false, payment: null }))
         }
       })
     return () => { cancelled = true }

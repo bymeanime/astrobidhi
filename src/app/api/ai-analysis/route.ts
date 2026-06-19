@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 import { createHash, randomUUID } from 'crypto'
 import { rawQuery, rawExecute, initDb } from '@/lib/db'
+import { decodeSession } from '@/lib/whop'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -721,12 +722,8 @@ async function callZaiSDK(prompt: string): Promise<string> {
 function getWhopUserId(request: NextRequest): string | null {
   const cookie = request.cookies.get('whop_session')?.value
   if (!cookie) return null
-  try {
-    const session = JSON.parse(Buffer.from(cookie, 'base64').toString()) as { userId: string }
-    return session.userId || null
-  } catch {
-    return null
-  }
+  const session = decodeSession(cookie)
+  return session?.userId || null
 }
 
 // ============ Device Access Helper (Granular) ============

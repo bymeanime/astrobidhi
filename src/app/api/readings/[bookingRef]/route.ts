@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const booking = bookings[0]
 
     // If astrologer is assigned, get their info
-    let astrologer = null
+    let astrologer: { name: string; title: string | null; languages: string; rating: number } | null = null
     if (booking.astrologerId) {
       const astrologers = await rawQuery<{
         name: string; title: string | null; languages: string; rating: number;

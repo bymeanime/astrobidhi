@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rawQuery, initDb } from '@/lib/db'
-
-interface WhopSession {
-  userId: string
-  name: string
-  email: string
-  picture: string
-  hasAccess: boolean
-  accessLevel: string
-}
+import { rawQuery, rawExecute, initDb } from '@/lib/db'
+import { decodeSession, type WhopSession } from '@/lib/whop'
 
 function getSession(request: NextRequest): WhopSession | null {
   const cookie = request.cookies.get('whop_session')?.value
   if (!cookie) return null
-  try {
-    return JSON.parse(Buffer.from(cookie, 'base64').toString()) as WhopSession
-  } catch {
-    return null
-  }
+  return decodeSession(cookie)
 }
 
 export async function GET(request: NextRequest) {

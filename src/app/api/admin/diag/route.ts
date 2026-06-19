@@ -2,11 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminRequest, getCookieName } from '@/lib/admin-auth'
 import { initDb, rawQuery, isDbAvailable } from '@/lib/db'
 
+// Strongly-typed shape for the database portion of the diagnostic payload
+interface DbDiag {
+  isDbAvailable: boolean
+  initDb?: string
+  tables?: Record<string, { exists: boolean; rowCount: number | string; error?: string }>
+  seededCatalog?: unknown
+  seededBundles?: unknown
+  seedCheckError?: string
+}
+
 // GET /api/admin/diag — Diagnostic endpoint for debugging auth and database issues
 // This endpoint provides detailed info about the auth state and database connectivity
 export async function GET(request: NextRequest) {
-  const diag: Record<string, unknown> = {
+  const diag: { timestamp: string; auth: Record<string, unknown>; database: DbDiag; message?: string } = {
     timestamp: new Date().toISOString(),
+    auth: {},
+    database: { isDbAvailable: isDbAvailable() },
   }
 
   // ── Auth diagnostics ──
@@ -52,6 +64,8 @@ export async function GET(request: NextRequest) {
   // ── Database diagnostics ──
   diag.database = {
     isDbAvailable: isDbAvailable(),
+    initDb: undefined,
+    tables: undefined,
   }
 
   try {

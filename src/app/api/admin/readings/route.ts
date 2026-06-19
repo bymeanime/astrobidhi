@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Get astrologer names for assigned bookings
-    const astrologerIds = [...new Set(bookings.filter(b => b.astrologerId).map(b => b.astrologerId!))]
+    const astrologerIds: string[] = Array.from(new Set(
+      bookings.filter(b => b.astrologerId).map(b => b.astrologerId as string)
+    ))
     const astrologerMap: Record<string, { name: string; title: string | null }> = {}
     for (const aId of astrologerIds) {
       const astrologers = await rawQuery<{ name: string; title: string | null }>('SELECT name, title FROM Astrologer WHERE id = ?', [aId])

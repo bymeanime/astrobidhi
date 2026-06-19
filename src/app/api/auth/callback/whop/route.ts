@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exchangeCodeForTokens, getWhopUserInfo, checkUserAccess, isWhopConfigured } from '@/lib/whop'
+import {
+  exchangeCodeForTokens,
+  getWhopUserInfo,
+  checkUserAccess,
+  isWhopConfigured,
+  encodeSession,
+  getCheckoutUrl,
+  type WhopSession,
+} from '@/lib/whop'
 
 export async function GET(request: NextRequest) {
   if (!isWhopConfigured()) {
@@ -45,8 +53,8 @@ export async function GET(request: NextRequest) {
     // Check membership access
     const access = await checkUserAccess(userInfo.id)
 
-    // Store session data in cookies (encrypted in production would be better)
-    const sessionData = {
+    // Build session object
+    const session: WhopSession = {
       userId: userInfo.id,
       name: userInfo.name || userInfo.username || '',
       email: userInfo.email || '',
@@ -58,10 +66,20 @@ export async function GET(request: NextRequest) {
       expiresAt: Date.now() + (tokens.expires_in * 1000),
     }
 
-    const response = NextResponse.redirect(new URL('/?auth=success', request.url))
+    // HMAC-signed session cookie (replaces old plain base64 encoding)
+    const cookieValue = encodeSession(session)
 
-    // Store session in a cookie (base64 encoded — in production use encryption)
-    response.cookies.set('whop_session', Buffer.from(JSON.stringify(sessionData)).toString('base64'), {
+    // Decide where to send the user next:
+    //  - Has access → back to the homepage, success toast
+    //  - No access  → if we have a checkout URL, send them there; else homepage with hint
+    const checkoutUrl = getCheckoutUrl()
+    const redirectTo = (!access.hasAccess && checkoutUrl)
+      ? new URL(checkoutUrl)
+      : new URL('/?auth=success', request.url)
+
+    const response = NextResponse.redirect(redirectTo)
+
+    response.cookies.set('whop_session', cookieValue, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -73,7 +91,7 @@ export async function GET(request: NextRequest) {
     response.cookies.set('whop_code_verifier', '', { maxAge: 0, path: '/' })
     response.cookies.set('whop_state', '', { maxAge: 0, path: '/' })
 
-    console.log(`[Whop OAuth] User ${userInfo.username || userInfo.id} logged in, access: ${access.accessLevel}`)
+    console.log(`[Whop OAuth] User ${userInfo.username || userInfo.id} logged in, access: ${access.accessLevel}${!access.hasAccess && checkoutUrl ? ' → redirected to checkout' : ''}`)
     return response
   } catch (error) {
     console.error('[Whop OAuth] Callback error:', error)
