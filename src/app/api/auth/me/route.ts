@@ -20,6 +20,13 @@ import {
   getAllAnalysisVariantMappings,
 } from '@/lib/lemonsqueezy'
 import { rawQuery, initDb } from '@/lib/db'
+import {
+  getAvailableSubscriptionTiers,
+  getSubscriptionStatusForDevice,
+  getActiveBundlePurchasesForDevice,
+  type SubscriptionTier,
+  type SubscriptionPeriod,
+} from '@/lib/subscriptions'
 
 function getSession(request: NextRequest): WhopSession | null {
   const cookie = request.cookies.get('whop_session')?.value
@@ -29,11 +36,7 @@ function getSession(request: NextRequest): WhopSession | null {
 
 /**
  * Look up the user's Whop subscription status from the local DB
- * (populated by /api/whop/webhook). Returns null if no record exists
- * or the table doesn't exist yet.
- *
- * When this returns a valid record, /api/auth/me uses it to determine
- * hasAccess WITHOUT calling Whop's API — saves ~200ms per request.
+ * (populated by /api/whop/webhook). Returns null if no record exists.
  */
 async function getCachedWhopSubscription(userId: string): Promise<{ hasAccess: boolean; accessLevel: string; status: string } | null> {
   try {
@@ -52,39 +55,40 @@ async function getCachedWhopSubscription(userId: string): Promise<{ hasAccess: b
       return { hasAccess: false, accessLevel: 'no_access', status: 'expired' }
     }
 
-    // 'trialing' and 'past_due' still get access in Whop's model
     return {
       hasAccess: true,
-      accessLevel: row.status === 'trialing' ? 'customer' : 'customer',
+      accessLevel: 'customer',
       status: row.status,
     }
   } catch {
-    // Table doesn't exist or query failed — fall back to API check
     return null
   }
 }
 
 export async function GET(request: NextRequest) {
   // ── Build a unified payment config block ──
-  // The front-end uses this to decide which "Buy Now" buttons to show.
   const whopConfigured = isWhopConfigured()
   const lsConfigured = isLsConfigured()
   const lsStatus = getLsConfigStatus()
 
-  // Get Whop checkout URL (sync — already cached)
+  // Legacy single-tier checkout URLs (backwards compat)
   const whopCheckoutUrl = whopConfigured ? (getWhopCheckoutUrl() || null) : null
   const whopManageUrl = whopConfigured ? getWhopManageUrl() : null
-  const whopTiers = whopConfigured ? getWhopTiers() : []
 
-  // Get LS checkout URL (async — needs API call if no static URL set, but
-  // we return the static one immediately for speed)
   const lsCheckoutUrl = lsConfigured
-    ? (lsStatus.checkoutUrl || `https://[store-id].lemonsqueezy.com/checkout/buy/${lsStatus.variantId}`)
+    ? (lsStatus.checkoutUrl || (lsStatus.variantId ? `https://[store-id].lemonsqueezy.com/checkout/buy/${lsStatus.variantId}` : null))
     : null
   const lsManageUrl = lsConfigured ? getLsManageUrl() : null
+
+  // New 3-tier subscription options (Pro/Advanced/All-Access × Monthly/Yearly/Lifetime)
+  const lsSubscriptionTiers = lsConfigured ? getAvailableSubscriptionTiers('lemonsqueezy') : []
+  const whopSubscriptionTiers = whopConfigured ? getAvailableSubscriptionTiers('whop') : []
+
+  // Legacy tier lists (kept for backwards compat with old front-end code)
+  const whopTiers = whopConfigured ? getWhopTiers() : []
   const lsTiers = lsConfigured ? getLsTiers() : []
 
-  // Per-analysis variant mappings (for "Buy this analysis" buttons)
+  // Per-analysis variant mappings (for "Buy this analysis" one-time purchases)
   const analysisVariantMappings = lsConfigured ? await getAllAnalysisVariantMappings() : []
 
   const paymentConfig = {
@@ -93,6 +97,7 @@ export async function GET(request: NextRequest) {
       checkoutUrl: whopCheckoutUrl,
       manageUrl: whopManageUrl,
       tiers: whopTiers,
+      subscriptionTiers: whopSubscriptionTiers,
     },
     lemonsqueezy: {
       configured: lsConfigured,
@@ -100,20 +105,61 @@ export async function GET(request: NextRequest) {
       manageUrl: lsManageUrl,
       hasWebhookSecret: lsStatus.hasWebhookSecret,
       tiers: lsTiers,
+      subscriptionTiers: lsSubscriptionTiers,
       analysisVariantMappings,
     },
   }
 
-  // If neither is configured, return early with the payment config so the
-  // front-end can show appropriate "coming soon" messaging.
-  if (!whopConfigured) {
+  // ── Look up the device's subscription + bundle status ──
+  const deviceIdFromQuery = request.nextUrl.searchParams.get('deviceId')
+  const deviceIdFromHeader = request.headers.get('x-device-id')
+  const deviceId = deviceIdFromQuery || deviceIdFromHeader || ''
+
+  let subscriptionStatus: {
+    hasActiveSubscription: boolean
+    tier: SubscriptionTier | null
+    period: SubscriptionPeriod | null
+    chartsUsedThisPeriod: number
+    chartsPerPeriod: number
+    periodEnd: string | null
+    remainingCharts: number
+    includesHoroscopeBonus: boolean
+  } | null = null
+  let bundlePurchases: Array<{
+    orderId: string
+    bundleSlug: string
+    bundleName: string | null
+    analysesIncluded: string
+    chartsUsed: number
+  }> = []
+
+  if (deviceId) {
+    try {
+      subscriptionStatus = await getSubscriptionStatusForDevice(deviceId)
+      const bundles = await getActiveBundlePurchasesForDevice(deviceId)
+      bundlePurchases = bundles.map(b => ({
+        orderId: b.orderId,
+        bundleSlug: b.bundleSlug,
+        bundleName: b.bundleName,
+        analysesIncluded: b.analysesIncluded,
+        chartsUsed: b.chartsUsed,
+      }))
+    } catch {
+      // Tables might not exist yet — ignore
+    }
+  }
+
+  // If neither provider is configured, return early
+  if (!whopConfigured && !lsConfigured) {
     return NextResponse.json({
       authenticated: false,
       hasAccess: false,
       accessLevel: 'no_access',
       configured: false,
-      checkoutUrl: whopCheckoutUrl,
+      checkoutUrl: null,
       payment: paymentConfig,
+      subscription: subscriptionStatus,
+      bundles: bundlePurchases,
       user: null,
     })
   }
@@ -125,9 +171,11 @@ export async function GET(request: NextRequest) {
       authenticated: false,
       hasAccess: false,
       accessLevel: 'no_access',
-      configured: true,
+      configured: whopConfigured,
       checkoutUrl: whopCheckoutUrl,
       payment: paymentConfig,
+      subscription: subscriptionStatus,
+      bundles: bundlePurchases,
       user: null,
     })
   }
@@ -140,7 +188,6 @@ export async function GET(request: NextRequest) {
       session.refreshToken = newTokens.refresh_token
       session.expiresAt = Date.now() + (newTokens.expires_in * 1000)
 
-      // Refresh user info and access
       const userInfo = await getWhopUserInfo(session.accessToken)
       const access = await checkUserAccess(userInfo.id)
       session.hasAccess = access.hasAccess
@@ -155,6 +202,8 @@ export async function GET(request: NextRequest) {
         configured: true,
         checkoutUrl: whopCheckoutUrl,
         payment: paymentConfig,
+        subscription: subscriptionStatus,
+        bundles: bundlePurchases,
         user: {
           id: session.userId,
           name: session.name,
@@ -163,7 +212,6 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // Re-encode with new signature
       response.cookies.set('whop_session', encodeSession(session), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -182,29 +230,26 @@ export async function GET(request: NextRequest) {
         configured: true,
         checkoutUrl: whopCheckoutUrl,
         payment: paymentConfig,
+        subscription: subscriptionStatus,
+        bundles: bundlePurchases,
         user: null,
         error: 'Session expired',
       })
     }
   }
 
-  // ── Try cached subscription first (no API call needed) ──
-  // If the webhook is configured and has populated WhopSubscription rows,
-  // we can determine access without hitting Whop's API on every request.
+  // Try cached subscription first
   let effectiveHasAccess = session.hasAccess
   let effectiveAccessLevel = session.accessLevel
   const cached = await getCachedWhopSubscription(session.userId)
   if (cached) {
     effectiveHasAccess = cached.hasAccess
     effectiveAccessLevel = cached.accessLevel
-    // Update session if changed (so cookie stays consistent)
     if (session.hasAccess !== effectiveHasAccess || session.accessLevel !== effectiveAccessLevel) {
       session.hasAccess = effectiveHasAccess
       session.accessLevel = effectiveAccessLevel
     }
   } else if (session.hasAccess) {
-    // No cached record but session says hasAccess=true — verify with Whop API
-    // (this catches the case where user cancelled but webhook isn't set up yet)
     try {
       const access = await checkUserAccess(session.userId)
       session.hasAccess = access.hasAccess
@@ -212,7 +257,7 @@ export async function GET(request: NextRequest) {
       effectiveHasAccess = access.hasAccess
       effectiveAccessLevel = access.accessLevel
     } catch {
-      // API call failed — keep the session value
+      // keep session value
     }
   }
 
@@ -223,6 +268,8 @@ export async function GET(request: NextRequest) {
     configured: true,
     checkoutUrl: whopCheckoutUrl,
     payment: paymentConfig,
+    subscription: subscriptionStatus,
+    bundles: bundlePurchases,
     user: {
       id: session.userId,
       name: session.name,

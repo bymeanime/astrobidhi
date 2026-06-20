@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Shield, Lock, Eye, Database, Server, Globe, ArrowLeft, Mail } from 'lucide-react'
+import { Shield, Lock, Eye, Database, Server, Globe, ArrowLeft, Mail, CreditCard } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -136,12 +136,34 @@ export default function PolicyPage() {
               </CardContent>
             </Card>
 
+            {/* Subscriptions & Purchases */}
+            <Card className="border-saffron/20">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <CreditCard className="w-6 h-6 text-saffron" />
+                  <CardTitle className="text-maroon text-lg">6. Subscriptions &amp; Purchases</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li><strong className="text-maroon">Three Subscription Tiers:</strong> AstroBidhi offers Pro, Advanced, and All-Access subscription tiers in monthly, yearly, and lifetime periods. Each tier unlocks a specific set of premium analyses as described on the <a href="/pricing" className="text-saffron underline">pricing page</a>.</li>
+                  <li><strong className="text-maroon">Chart Budget:</strong> Monthly and yearly subscriptions include <strong>2 new charts per billing period</strong>. A "chart" is defined as a unique combination of birth data (date, time, place). Running multiple analyses on the same chart counts as 1 chart. Lifetime subscriptions have no chart limit.</li>
+                  <li><strong className="text-maroon">Cached Analyses — Permanent Access:</strong> All generated analyses are cached permanently and remain viewable to the account holder indefinitely, regardless of subscription status. AstroBidhi guarantees access to previously generated analysis content. The ability to generate NEW analyses depends on active subscription status, bundle ownership, or single-purchase rights.</li>
+                  <li><strong className="text-maroon">Daily Horoscope — Complimentary Bonus:</strong> Daily and monthly horoscope features are provided as a <strong>complimentary bonus</strong> to all paying subscribers at no additional charge. AstroBidhi does not guarantee uninterrupted availability of horoscope content. Subscriptions are sold on the basis of chart analysis features; horoscope access may be modified, suspended, or discontinued at any time without refund obligation. If horoscope services are unavailable, subscribers retain full access to all chart analysis features included in their tier.</li>
+                  <li><strong className="text-maroon">Subscription Cancellation:</strong> You may cancel your subscription at any time from the Whop or Lemon Squeezy dashboard (depending on which provider you subscribed through). Cancellation stops future billing immediately. Your subscription remains active until the end of the current billing period, after which you cannot generate new charts. All previously generated analyses remain viewable forever.</li>
+                  <li><strong className="text-maroon">Bundle Purchases:</strong> Bundles are one-time purchases that grant permanent access to the included analysis types on a single chart. Bundle purchases do not expire and are not eligible for refund once the analyses have been generated. If you have not yet generated any analyses from a bundle, you may request a refund within 14 days of purchase.</li>
+                  <li><strong className="text-maroon">Single Analysis Purchases:</strong> Single analysis purchases grant permanent access to that specific analysis type on a single chart. Once generated, the analysis is cached forever and remains viewable indefinitely. Refunds are not available once an analysis has been generated.</li>
+                  <li><strong className="text-maroon">Price Changes:</strong> AstroBidhi reserves the right to change subscription prices at any time. Existing subscribers will be charged the price in effect at the time of their subscription renewal. Price changes do not affect active subscription periods.</li>
+                </ul>
+              </CardContent>
+            </Card>
+
             {/* User Rights */}
             <Card className="border-saffron/20">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Shield className="w-6 h-6 text-saffron" />
-                  <CardTitle className="text-maroon text-lg">6. Your Rights</CardTitle>
+                  <CardTitle className="text-maroon text-lg">7. Your Rights</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
@@ -161,7 +183,7 @@ export default function PolicyPage() {
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Mail className="w-6 h-6 text-saffron" />
-                  <CardTitle className="text-maroon text-lg">7. Contact Us</CardTitle>
+                  <CardTitle className="text-maroon text-lg">8. Contact Us</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground leading-relaxed">
