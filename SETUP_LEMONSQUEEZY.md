@@ -90,7 +90,8 @@ no other code changes are needed.
      - `subscription_resumed`
      - `subscription_unpaid`
      - `subscription_trial_ended`
-   - You can leave the others off — we ignore non-subscription events.
+     - `order_created` (for one-time purchases — bundles + single analyses)
+     - `order_refunded` (so we can revoke access on refunds)
 4. Save the webhook.
 5. Paste the signing secret into `.env` as `LEMONSQUEEZY_WEBHOOK_SECRET`.
 

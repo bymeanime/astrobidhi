@@ -458,6 +458,76 @@ export async function processLsWebhookEvent(rawBody: string): Promise<{ handled:
     }
   }
 
+  // ── New 3-tier subscription handling ──
+  // If this variant corresponds to one of the 9 subscription tier+period
+  // combinations (Pro/Advanced/All-Access × Monthly/Yearly/Lifetime),
+  // record it in the ChartSubscription table so the rate limiter knows
+  // the subscriber's chart budget.
+  try {
+    const { resolveLsTier, upsertChartSubscription, deactivateChartSubscription } = await import('@/lib/subscriptions')
+    const resolved = resolveLsTier(variantId)
+    if (resolved) {
+      const { tier, period } = resolved
+      const isActiveState2 = eventName === 'order_created' || eventName === 'subscription_created' || eventName === 'subscription_updated'
+      const isRevokedState2 = eventName === 'subscription_cancelled' || eventName === 'subscription_expired' || eventName === 'order_refunded'
+
+      if (isActiveState2) {
+        await upsertChartSubscription({
+          subscriptionId,
+          customerEmail: attrs.customer_email,
+          customerName: attrs.customer_name,
+          deviceId,
+          tier,
+          period,
+          provider: 'lemonsqueezy',
+          status: attrs.status || 'active',
+          periodEnd: attrs.current_period_end || attrs.renews_at || null,
+          rawEvent: rawBody.slice(0, 50000),
+        })
+        console.log(`[LS Webhook] Recorded ChartSubscription: ${tier}/${period} for ${attrs.customer_email}`)
+
+        // Also grant DeviceAccess for the analyses included in this tier
+        // (so the existing premium-check code works unchanged)
+        const { SUBSCRIPTION_PRICING } = await import('@/lib/subscriptions')
+        const analysesIncluded = SUBSCRIPTION_PRICING[tier][period].analysesIncluded
+        for (const analysisTier of analysesIncluded) {
+          // Grant all_premium covers Pro tier; for Advanced we need a different marker
+          // The existing system uses 'all_premium' to mean "all premium analyses"
+          // We'll keep using that for all_access, and use 'all_premium' for pro/advanced
+          // too — the front-end / API will check the subscription tier separately
+          // to know which analyses are actually allowed.
+          // For now, just grant all_premium (covers everything). The new
+          // /api/ai-analysis route will check the subscription tier to determine
+          // which specific analysisTypes are allowed.
+          if (analysisTier === 'pro' || analysisTier === 'advanced') {
+            await rawExecute(
+              `INSERT INTO DeviceAccess (id, deviceId, analysisType, source, sourceRef, grantedBy, reason, expiresAt, createdAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(deviceId, analysisType, source) DO UPDATE SET
+                 expiresAt=excluded.expiresAt,
+                 reason=excluded.reason`,
+              [
+                `da_ls_${subscriptionId}_${analysisTier}`,
+                deviceId,
+                analysisTier === 'pro' ? 'all_premium' : 'all_advanced',
+                'lemonsqueezy',
+                subscriptionId,
+                'system',
+                `Lemon Squeezy ${tier}/${period} subscription`,
+                attrs.current_period_end || attrs.renews_at || null,
+              ]
+            )
+          }
+        }
+      } else if (isRevokedState2) {
+        await deactivateChartSubscription(subscriptionId, attrs.status || 'cancelled')
+        console.log(`[LS Webhook] Deactivated ChartSubscription ${subscriptionId} (${attrs.status})`)
+      }
+    }
+  } catch (subErr) {
+    console.warn('[LS Webhook] Subscription tracking failed:', subErr instanceof Error ? subErr.message : subErr)
+  }
+
   return { handled: true, eventName, subscriptionId }
 }
 

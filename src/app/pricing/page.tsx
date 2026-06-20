@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import {
   Crown, Check, Sparkles, Brain, Shield, Zap, Star, ArrowLeft,
   ShoppingCart, ExternalLink, Coffee, BookOpen, Hash, AlertCircle, Loader2,
+  Gift, Calendar, Infinity as InfinityIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,106 +14,83 @@ import { Badge } from '@/components/ui/badge'
 
 // ──────────────────── Types ────────────────────
 
-interface PaymentTier {
-  tier: 'monthly' | 'yearly' | 'lifetime'
-  checkoutUrl: string
-  productId?: string
-  variantId?: string
-  checkoutUrlOverride?: string | null
-}
+type SubscriptionTier = 'pro' | 'advanced' | 'all_access'
+type SubscriptionPeriod = 'monthly' | 'yearly' | 'lifetime'
 
-interface AnalysisVariantMapping {
-  analysisType: string
-  variantId: string
-  source: 'db' | 'env'
+interface SubscriptionTierOption {
+  tier: SubscriptionTier
+  period: SubscriptionPeriod
+  variantId?: string
+  productId?: string
+  checkoutUrl?: string
+  pricing: {
+    priceCents: number
+    priceLabel: string
+    effectiveMonthly: string
+    yearlySavings: number
+    chartsPerPeriod: number
+    analysesIncluded: ('pro' | 'advanced')[]
+  }
 }
 
 interface PaymentConfig {
   whop: {
     configured: boolean
-    checkoutUrl: string | null
-    manageUrl: string | null
-    tiers: PaymentTier[]
+    subscriptionTiers: SubscriptionTierOption[]
   }
   lemonsqueezy: {
     configured: boolean
-    checkoutUrl: string | null
-    manageUrl: string | null
     hasWebhookSecret: boolean
-    tiers: PaymentTier[]
-    analysisVariantMappings: AnalysisVariantMapping[]
+    subscriptionTiers: SubscriptionTierOption[]
+    analysisVariantMappings: Array<{ analysisType: string; variantId: string; source: 'db' | 'env' }>
   }
 }
 
-// ──────────────────── Tier metadata ────────────────────
+// ──────────────────── Tier display metadata ────────────────────
 
-const TIER_INFO: Record<PaymentTier['tier'], {
+const TIER_META: Record<SubscriptionTier, {
   label: string
-  badge: string
-  priceHint: string
+  tagline: string
+  icon: React.ReactNode
+  color: string
+  analysesCount: number
+  analysesLabel: string
   popular?: boolean
-  blurb: string
-  features: string[]
 }> = {
-  monthly: {
-    label: 'Monthly',
-    badge: 'Most flexible',
-    priceHint: '/mo',
-    blurb: 'Perfect for trying out all premium features. Cancel anytime.',
-    features: [
-      'Unlimited birth chart generations',
-      'All 10+ premium analysis types',
-      'Priority AI response times',
-      'Daily horoscope + monthly forecast',
-      'Save & share charts with anyone',
-      'AI follow-up questions (unlimited)',
-    ],
+  pro: {
+    label: 'Pro',
+    tagline: 'For seekers exploring deeper Vedic insights',
+    icon: <Sparkles className="w-5 h-5" />,
+    color: 'amber',
+    analysesCount: 9,
+    analysesLabel: '9 Pro analyses',
   },
-  yearly: {
-    label: 'Yearly',
-    badge: 'Save ~17%',
-    priceHint: '/yr',
+  advanced: {
+    label: 'Advanced',
+    tagline: 'For serious students of Jyotish',
+    icon: <Brain className="w-5 h-5" />,
+    color: 'purple',
+    analysesCount: 13,
+    analysesLabel: '13 Advanced analyses',
+  },
+  all_access: {
+    label: 'All-Access',
+    tagline: 'Everything unlocked — best value',
+    icon: <Crown className="w-5 h-5" />,
+    color: 'emerald',
+    analysesCount: 22,
+    analysesLabel: 'All 22 premium analyses',
     popular: true,
-    blurb: 'Best value for committed seekers. Two months free vs monthly.',
-    features: [
-      'Everything in Monthly, plus:',
-      'Priority queue for paid readings',
-      'Early access to new analysis types',
-      'Exclusive yearly forecast report',
-      'Email support within 24 hours',
-    ],
-  },
-  lifetime: {
-    label: 'Lifetime',
-    badge: 'Pay once',
-    priceHint: ' once',
-    blurb: 'One payment, premium forever. Ideal for serious practitioners.',
-    features: [
-      'Everything in Yearly, plus:',
-      'All future analysis types included',
-      'Lifetime API access (coming soon)',
-      'Founder badge on your profile',
-      'Direct line to the dev team',
-    ],
   },
 }
 
-const ANALYSIS_LABELS: Record<string, { label: string; price?: string }> = {
-  swot_5year: { label: '5-Year SWOT Forecast', price: '$15' },
-  cosmic_blueprint: { label: 'Cosmic Blueprint', price: '$9' },
-  shadow_integration: { label: 'Shadow Integration', price: '$9' },
-  life_decoder: { label: 'Life Decoder', price: '$12' },
-  career_destiny: { label: 'Career Destiny', price: '$12' },
-  relationship_destiny: { label: 'Relationship Destiny', price: '$12' },
-  soul_purpose: { label: 'Soul Purpose', price: '$15' },
-  wealth_code: { label: 'Wealth Code', price: '$15' },
-  future_timeline: { label: 'Future Timeline', price: '$15' },
-  past_life_karma: { label: 'Past Life Karma', price: '$15' },
-  mangal_dosha: { label: 'Mangal Dosha', price: '$7' },
-  sade_sati: { label: 'Sade Sati', price: '$7' },
+const PERIOD_META: Record<SubscriptionPeriod, { label: string; sublabel: string; badge?: string }> = {
+  monthly: { label: 'Monthly', sublabel: 'Cancel anytime' },
+  yearly: { label: 'Yearly', sublabel: 'Best deal — 58% off', badge: 'Save 58%' },
+  lifetime: { label: 'Lifetime', sublabel: 'Pay once, own forever', badge: 'Best for pros' },
 }
 
-// ──────────────────── Main page component ────────────────────
+// ──────────────────── Main page ────────────────────
 
 export default function PricingPage() {
   const [payment, setPayment] = useState<PaymentConfig | null>(null)
@@ -133,16 +111,16 @@ export default function PricingPage() {
     }
   }, [])
 
-  const anyWhopTier = payment?.whop.tiers || []
-  const anyLsTier = payment?.lemonsqueezy.tiers || []
-  const analysisMappings = payment?.lemonsqueezy.analysisVariantMappings || []
-  const hasTiers = anyWhopTier.length > 0 || anyLsTier.length > 0
-  const hasAnalysisOptions = analysisMappings.length > 0
+  const lsTiers = payment?.lemonsqueezy.subscriptionTiers || []
+  const whopTiers = payment?.whop.subscriptionTiers || []
+  const hasAnyTier = lsTiers.length > 0 || whopTiers.length > 0
   const noPayment = !payment?.whop.configured && !payment?.lemonsqueezy.configured
+
+  // Group tiers by tier type (pro/advanced/all_access) for display
+  const tierGroups: SubscriptionTier[] = ['pro', 'advanced', 'all_access']
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-temple-bg via-temple-bg to-amber-50/30">
-      {/* Header */}
       <header className="border-b border-saffron/20 bg-maroon-dark/95 backdrop-blur sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-gold-light hover:text-white transition-colors">
@@ -157,19 +135,11 @@ export default function PricingPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="text-center mb-12"
-        >
-          <Badge className="bg-amber-100 text-amber-800 mb-4">Premium Membership</Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-maroon mb-4">
-            Unlock the full power of your chart
-          </h1>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="text-center mb-12">
+          <Badge className="bg-amber-100 text-amber-800 mb-4">3 Subscription Tiers</Badge>
+          <h1 className="text-4xl md:text-5xl font-bold text-maroon mb-4">Unlock the full power of your chart</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Unlimited AI-powered Vedic astrology analyses, priority response times,
-            and access to all 10+ premium reading types. Cancel anytime.
+            Pick the tier that matches your depth of exploration. Get 2 new charts every month — every analysis you run is cached forever.
           </p>
         </motion.div>
 
@@ -179,286 +149,282 @@ export default function PricingPage() {
             <p className="text-sm text-muted-foreground">Loading pricing options…</p>
           </div>
         ) : noPayment ? (
-          /* No payment configured */
           <Card className="border-amber-200 bg-amber-50 max-w-2xl mx-auto">
             <CardContent className="pt-6 text-center">
               <AlertCircle className="w-10 h-10 text-amber-600 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-maroon mb-2">Subscriptions coming soon</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                We're finalizing our payment setup. In the meantime, you can still generate charts
-                and run free analyses — and consider supporting us with a coffee.
+                We're finalizing our payment setup. In the meantime, you can still generate charts and run free analyses.
               </p>
-              <a
-                href="https://buymeacoffee.com/astrobidhi"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full text-sm font-semibold transition-all"
-              >
+              <a href="https://buymeacoffee.com/astrobidhi" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-black rounded-full text-sm font-semibold transition-all">
                 <Coffee className="w-4 h-4" /> Support AstroBidhi
               </a>
             </CardContent>
           </Card>
+        ) : !hasAnyTier ? (
+          <Card className="border-amber-200 bg-amber-50 max-w-2xl mx-auto">
+            <CardContent className="pt-6 text-center">
+              <AlertCircle className="w-10 h-10 text-amber-600 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-maroon mb-2">Subscriptions not yet configured</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                The payment provider is set up but no subscription tiers are configured yet. Please check back soon.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <>
-            {/* ─────────── Tier cards ─────────── */}
-            {hasTiers && (
-              <section className="mb-16">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-maroon mb-2">Choose your plan</h2>
-                  <p className="text-sm text-muted-foreground">
-                    All plans include a 7-day free trial. No card required to start.
-                  </p>
-                </div>
+            {/* ─────────── Subscription tier cards ─────────── */}
+            <section className="mb-16">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-maroon mb-2">Choose your tier</h2>
+                <p className="text-sm text-muted-foreground">
+                  All tiers include <strong>2 new charts per billing period</strong> + daily horoscope bonus. Cached analyses are viewable forever.
+                </p>
+              </div>
 
-                <div className="grid md:grid-cols-3 gap-6">
-                  {(['monthly', 'yearly', 'lifetime'] as const).map((tierKey) => {
-                    const info = TIER_INFO[tierKey]
-                    const whopTier = anyWhopTier.find(t => t.tier === tierKey)
-                    const lsTier = anyLsTier.find(t => t.tier === tierKey)
-                    const hasThisTier = whopTier || lsTier
-                    if (!hasThisTier) return null
+              <div className="grid md:grid-cols-3 gap-6">
+                {tierGroups.map((tierKey, idx) => {
+                  const meta = TIER_META[tierKey]
+                  // Get all periods for this tier
+                  const lsTierOptions = lsTiers.filter(t => t.tier === tierKey)
+                  const whopTierOptions = whopTiers.filter(t => t.tier === tierKey)
+                  const hasThisTier = lsTierOptions.length > 0 || whopTierOptions.length > 0
+                  if (!hasThisTier) return null
 
-                    return (
-                      <motion.div
-                        key={tierKey}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 * (['monthly', 'yearly', 'lifetime'].indexOf(tierKey)) }}
-                      >
-                        <Card className={`h-full relative ${info.popular ? 'border-amber-500 shadow-lg shadow-amber-200/50' : 'border-saffron/30'}`}>
-                          {info.popular && (
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                              <Badge className="bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-3 py-1 text-[10px] font-bold uppercase tracking-wide">
-                                ⭐ Most Popular
-                              </Badge>
-                            </div>
-                          )}
-                          <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xl text-maroon">{info.label}</CardTitle>
-                              <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">{info.badge}</Badge>
-                            </div>
-                            <CardDescription className="text-xs">{info.blurb}</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {/* Provider buttons */}
-                            <div className="space-y-2 mb-5">
-                              {whopTier && (
-                                <a
-                                  href={whopTier.checkoutUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-4 py-2.5 h-11 transition-all"
-                                >
-                                  <Crown className="w-4 h-4" /> Subscribe via Whop
-                                </a>
-                              )}
-                              {lsTier && (
-                                <a
-                                  href={`/api/lemonsqueezy/checkout?tier=${tierKey}&deviceId=${encodeURIComponent(deviceId)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`w-full inline-flex items-center justify-center gap-1.5 rounded-md font-semibold px-4 py-2.5 h-11 transition-all ${
-                                    whopTier
-                                      ? 'border border-purple-300 text-purple-700 hover:bg-purple-50'
-                                      : 'bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white'
-                                  }`}
-                                  title="VAT/tax handled automatically by Lemon Squeezy"
-                                >
-                                  <ShoppingCart className="w-4 h-4" /> Subscribe via Lemon Squeezy
-                                </a>
-                              )}
-                            </div>
-
-                            {/* Features */}
-                            <ul className="space-y-2">
-                              {info.features.map((feat, i) => (
-                                <li key={i} className="flex items-start gap-2 text-sm">
-                                  <Check className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                                  <span className={i === 0 && feat.includes('Everything') ? 'font-semibold text-maroon' : 'text-foreground/80'}>
-                                    {feat}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    )
-                  })}
-                </div>
-
-                {/* Fallback: no tiers but provider is configured */}
-                {!hasTiers && (payment?.whop.configured || payment?.lemonsqueezy.configured) && (
-                  <Card className="border-saffron/30 max-w-2xl mx-auto">
-                    <CardContent className="pt-6 text-center">
-                      <Crown className="w-12 h-12 text-amber-600 mx-auto mb-3" />
-                      <h3 className="text-xl font-semibold text-maroon mb-2">Premium Membership</h3>
-                      <p className="text-sm text-muted-foreground mb-5">
-                        Unlock all premium features with a single subscription.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                        {payment?.whop.configured && payment.whop.checkoutUrl && (
-                          <a
-                            href={payment.whop.checkoutUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-5 py-2.5 h-11 transition-all"
-                          >
-                            <Crown className="w-4 h-4" /> Start Free Trial via Whop
-                          </a>
-                        )}
-                        {payment?.lemonsqueezy.configured && (
-                          <a
-                            href={`/api/lemonsqueezy/checkout?deviceId=${encodeURIComponent(deviceId)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white font-semibold px-5 py-2.5 h-11 transition-all"
-                          >
-                            <ShoppingCart className="w-4 h-4" /> Pay via Lemon Squeezy
-                          </a>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </section>
-            )}
-
-            {/* ─────────── Per-analysis one-time purchases ─────────── */}
-            {hasAnalysisOptions && (
-              <section className="mb-12">
-                <div className="text-center mb-8">
-                  <Badge className="bg-emerald-100 text-emerald-800 mb-3">One-time purchase</Badge>
-                  <h2 className="text-2xl font-bold text-maroon mb-2">Or buy individual analyses</h2>
-                  <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-                    Don't want a subscription? Buy just the analysis you need — yours forever,
-                    no recurring charges. Unlocks instantly after checkout.
-                  </p>
-                </div>
-
-                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {analysisMappings.map((mapping) => {
-                    const meta = ANALYSIS_LABELS[mapping.analysisType] || { label: mapping.analysisType }
-                    return (
-                      <Card key={mapping.analysisType} className="border-emerald-200 hover:border-emerald-400 transition-colors">
-                        <CardContent className="pt-5">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-emerald-600" />
-                              <span className="font-semibold text-sm text-maroon">{meta.label}</span>
-                            </div>
-                            {meta.price && (
-                              <Badge variant="outline" className="text-emerald-700 border-emerald-300">{meta.price}</Badge>
-                            )}
+                  return (
+                    <motion.div key={tierKey} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 * idx }}>
+                      <Card className={`h-full relative ${meta.popular ? 'border-emerald-500 shadow-lg shadow-emerald-200/50' : 'border-saffron/30'}`}>
+                        {meta.popular && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <Badge className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-3 py-1 text-[10px] font-bold uppercase tracking-wide">
+                              ⭐ Best Value
+                            </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground mb-4">
-                            One-time purchase. Instant unlock on the device you check out from.
-                          </p>
-                          <a
-                            href={`/api/lemonsqueezy/checkout?analysisType=${encodeURIComponent(mapping.analysisType)}&deviceId=${encodeURIComponent(deviceId)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold px-4 py-2 h-10 text-sm transition-all"
-                          >
-                            <ShoppingCart className="w-4 h-4" /> Buy this analysis
-                          </a>
+                        )}
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
+                                meta.color === 'amber' ? 'bg-amber-600' :
+                                meta.color === 'purple' ? 'bg-purple-600' : 'bg-emerald-600'
+                              }`}>
+                                {meta.icon}
+                              </div>
+                              <CardTitle className="text-xl text-maroon">{meta.label}</CardTitle>
+                            </div>
+                            <Badge variant="outline" className="text-[10px]">{meta.analysesLabel}</Badge>
+                          </div>
+                          <CardDescription className="text-xs">{meta.tagline}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {/* Period options */}
+                          <div className="space-y-3 mb-5">
+                            {(['monthly', 'yearly', 'lifetime'] as const).map((period) => {
+                              const lsOpt = lsTierOptions.find(t => t.period === period)
+                              const whopOpt = whopTierOptions.find(t => t.period === period)
+                              if (!lsOpt && !whopOpt) return null
+
+                              const pricing = (lsOpt || whopOpt)!.pricing
+                              const periodMeta = PERIOD_META[period]
+
+                              return (
+                                <div key={period} className="border border-saffron/20 rounded-lg p-3 bg-white/50">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <div className="font-semibold text-maroon text-sm flex items-center gap-1.5">
+                                        {period === 'monthly' && <Calendar className="w-3.5 h-3.5" />}
+                                        {period === 'yearly' && <Calendar className="w-3.5 h-3.5" />}
+                                        {period === 'lifetime' && <InfinityIcon className="w-3.5 h-3.5" />}
+                                        {periodMeta.label}
+                                      </div>
+                                      <div className="text-[11px] text-muted-foreground">{periodMeta.sublabel}</div>
+                                    </div>
+                                    {periodMeta.badge && (
+                                      <Badge variant="outline" className="text-[9px] text-emerald-700 border-emerald-300">{periodMeta.badge}</Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-xl font-bold text-maroon mb-2">{pricing.priceLabel}</div>
+                                  {period !== 'lifetime' && (
+                                    <div className="text-[11px] text-muted-foreground mb-2">
+                                      ≈ {pricing.effectiveMonthly}/mo · 2 new charts/mo
+                                    </div>
+                                  )}
+                                  {period === 'lifetime' && (
+                                    <div className="text-[11px] text-muted-foreground mb-2">
+                                      Unlimited charts forever
+                                    </div>
+                                  )}
+
+                                  {/* Buy buttons */}
+                                  <div className="flex flex-col gap-1.5">
+                                    {whopOpt && whopOpt.checkoutUrl && (
+                                      <a href={whopOpt.checkoutUrl} target="_blank" rel="noopener noreferrer" className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-white font-semibold px-3 py-2 h-9 text-xs transition-all">
+                                        <Crown className="w-3.5 h-3.5" /> Subscribe via Whop
+                                      </a>
+                                    )}
+                                    {lsOpt && (
+                                      <a href={`/api/lemonsqueezy/checkout?tier=${tierKey}&period=${period}&deviceId=${encodeURIComponent(deviceId)}`} target="_blank" rel="noopener noreferrer" className={`w-full inline-flex items-center justify-center gap-1.5 rounded-md font-semibold px-3 py-2 h-9 text-xs transition-all ${
+                                        whopOpt ? 'border border-purple-300 text-purple-700 hover:bg-purple-50' : 'bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white'
+                                      }`} title="VAT/tax handled automatically by Lemon Squeezy">
+                                        <ShoppingCart className="w-3.5 h-3.5" /> Subscribe via LS
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* What's included */}
+                          <div className="text-xs text-muted-foreground pt-3 border-t border-saffron/10">
+                            <p className="font-medium text-maroon mb-1">Includes:</p>
+                            <ul className="space-y-1">
+                              <li className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" /> {meta.analysesLabel}</li>
+                              <li className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" /> 2 new charts per billing period</li>
+                              <li className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" /> Cached analyses viewable forever</li>
+                              <li className="flex items-start gap-1.5"><Gift className="w-3 h-3 text-amber-600 mt-0.5 shrink-0" /> Daily horoscope bonus (free)</li>
+                            </ul>
+                          </div>
                         </CardContent>
                       </Card>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </section>
 
-            {/* ─────────── Trust signals / FAQ ─────────── */}
-            <section className="mt-16 pt-12 border-t border-saffron/20">
+            {/* ─────────── Daily horoscope bonus callout ─────────── */}
+            <section className="mb-12">
+              <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 flex items-center justify-center shrink-0">
+                      <Gift className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-maroon mb-1 flex items-center gap-2">
+                        🎁 BONUS: Daily Horoscope (FREE with any subscription)
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Your subscription includes daily + monthly horoscopes at no extra cost. This is a complimentary bonus — when it's working, enjoy it!
+                      </p>
+                      <p className="text-xs text-muted-foreground italic">
+                        If horoscope services ever experience downtime or technical issues, your subscription still provides full value through chart analyses. The horoscope is a gift, not a guaranteed service.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            {/* ─────────── How the chart budget works ─────────── */}
+            <section className="mb-12">
+              <Card className="border-saffron/20">
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold text-maroon mb-3 flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-saffron" /> How the "2 charts/month" budget works
+                  </h3>
+                  <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-medium text-maroon mb-1">✓ What counts as "1 chart"</p>
+                      <p className="text-muted-foreground text-xs">
+                        Each unique birth-data combination (date, time, place) = 1 chart. You can run every analysis in your tier on that chart — it's still just 1 chart.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-maroon mb-1">✓ Cached = free forever</p>
+                      <p className="text-muted-foreground text-xs">
+                        Once you generate an analysis, it's cached permanently. Re-viewing it never counts against your budget — even after your subscription ends.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-maroon mb-1">✓ Monthly/yearly = 2 new charts</p>
+                      <p className="text-muted-foreground text-xs">
+                        Add your chart + your partner's chart = 2 charts. Perfect for couples. Counter resets each billing period.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-maroon mb-1">✓ Lifetime = unlimited</p>
+                      <p className="text-muted-foreground text-xs">
+                        No chart cap. Add as many charts as you want, forever. Best for professional astrologers and serious students.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            {/* ─────────── Trust signals ─────────── */}
+            <section className="mb-12 pt-8 border-t border-saffron/20">
               <div className="grid md:grid-cols-3 gap-6 text-sm">
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="font-semibold text-maroon mb-1">Cancel anytime</p>
-                    <p className="text-muted-foreground">
-                      No long-term commitment. Cancel from Whop or Lemon Squeezy's dashboard
-                      and your access continues until the period ends.
-                    </p>
+                    <p className="text-muted-foreground text-xs">No long-term commitment. Cancel from Whop or Lemon Squeezy's dashboard. Your cached analyses remain accessible forever.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Zap className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="font-semibold text-maroon mb-1">Instant unlock</p>
-                    <p className="text-muted-foreground">
-                      Premium features activate within seconds of payment. Webhooks update
-                      your access in real-time — no waiting, no support tickets.
-                    </p>
+                    <p className="text-muted-foreground text-xs">Premium features activate within seconds of payment. Webhooks update your access in real-time.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Brain className="w-5 h-5 text-purple-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="font-semibold text-maroon mb-1">Your data stays yours</p>
-                    <p className="text-muted-foreground">
-                      Past analyses are always accessible, even after cancellation. We never
-                      delete your charts or readings.
-                    </p>
+                    <p className="text-muted-foreground text-xs">Past analyses are always accessible, even after cancellation. We never delete your charts or readings.</p>
                   </div>
                 </div>
               </div>
+            </section>
 
-              {/* FAQ */}
-              <div className="mt-12 max-w-3xl mx-auto space-y-4">
+            {/* ─────────── FAQ ─────────── */}
+            <section className="mt-12 pt-8 border-t border-saffron/20">
+              <div className="max-w-3xl mx-auto space-y-4">
                 <h3 className="text-xl font-semibold text-maroon text-center mb-4">Frequently asked questions</h3>
                 <Card className="border-saffron/20">
                   <CardContent className="pt-5">
                     <p className="font-medium text-sm text-maroon mb-1">What's included in the free tier?</p>
-                    <p className="text-sm text-muted-foreground">
-                      3 free chart readings per device, 2 analysis types per chart, all cached results
-                      forever. Premium unlocks unlimited everything.
-                    </p>
+                    <p className="text-sm text-muted-foreground">3 free charts, 2 analysis types per chart (6 total analyses), all 8 Standard analyses. Cached results are viewable forever.</p>
                   </CardContent>
                 </Card>
                 <Card className="border-saffron/20">
                   <CardContent className="pt-5">
-                    <p className="font-medium text-sm text-maroon mb-1">Can I switch between Whop and Lemon Squeezy?</p>
-                    <p className="text-sm text-muted-foreground">
-                      Yes — both providers run side by side. If you cancel one, your access ends
-                      when the billing period expires. You can then subscribe via the other provider.
-                    </p>
+                    <p className="font-medium text-sm text-maroon mb-1">What happens when I cancel?</p>
+                    <p className="text-sm text-muted-foreground">Your subscription stays active until the end of the billing period. After that, you can't generate NEW charts — but every analysis you've already generated remains viewable forever.</p>
                   </CardContent>
                 </Card>
                 <Card className="border-saffron/20">
                   <CardContent className="pt-5">
-                    <p className="font-medium text-sm text-maroon mb-1">Do one-time purchases expire?</p>
-                    <p className="text-sm text-muted-foreground">
-                      No. Analyses bought individually are yours permanently on the device you
-                      checked out from. If you change devices, contact support with your receipt.
-                    </p>
+                    <p className="font-medium text-sm text-maroon mb-1">Can I upgrade tiers later?</p>
+                    <p className="text-sm text-muted-foreground">Yes. Subscribe to a higher tier anytime — your existing analyses stay cached and you'll get access to the additional tier's analyses plus 2 more chart slots per period.</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-saffron/20">
+                  <CardContent className="pt-5">
+                    <p className="font-medium text-sm text-maroon mb-1">Why is the horoscope "free" — what if it breaks?</p>
+                    <p className="text-sm text-muted-foreground">The daily horoscope is a complimentary bonus on top of your subscription. You're paying for chart analyses. If the horoscope service experiences downtime or technical issues, your subscription still provides full value through unlimited chart analyses. We don't guarantee uninterrupted horoscope availability.</p>
                   </CardContent>
                 </Card>
                 <Card className="border-saffron/20">
                   <CardContent className="pt-5">
                     <p className="font-medium text-sm text-maroon mb-1">Is my payment information secure?</p>
-                    <p className="text-sm text-muted-foreground">
-                      We never see or store your credit card. All payments are processed by Whop
-                      or Lemon Squeezy (both PCI-DSS Level 1 compliant). We only receive your
-                      email and a webhook confirming the payment.
-                    </p>
+                    <p className="text-sm text-muted-foreground">We never see or store your credit card. All payments are processed by Whop or Lemon Squeezy (both PCI-DSS Level 1 compliant). We only receive your email and a webhook confirming the payment.</p>
                   </CardContent>
                 </Card>
               </div>
             </section>
 
-            {/* Footer CTA */}
             <div className="text-center mt-16">
               <Link href="/">
                 <Button size="lg" className="bg-gradient-to-r from-saffron to-maroon hover:from-saffron-light hover:to-maroon text-white">
                   <Star className="w-4 h-4 mr-2" /> Generate your free chart
                 </Button>
               </Link>
-              <p className="text-xs text-muted-foreground mt-3">
-                No credit card needed for the free tier
-              </p>
+              <p className="text-xs text-muted-foreground mt-3">No credit card needed for the free tier</p>
             </div>
           </>
         )}

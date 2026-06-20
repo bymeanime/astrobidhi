@@ -323,6 +323,62 @@ const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS WhopSubscription_userId_idx ON WhopSubscription(userId)`,
   `CREATE INDEX IF NOT EXISTS WhopSubscription_email_idx ON WhopSubscription(email)`,
   `CREATE INDEX IF NOT EXISTS WhopSubscription_status_idx ON WhopSubscription(status)`,
+
+  // ── Three-tier subscription tracking ──
+  // Tracks active subscriptions by tier (pro / advanced / all_access) and
+  // period (monthly / yearly / lifetime). Each row records the subscriber's
+  // monthly chart budget (2 for monthly/yearly, unlimited for lifetime) and
+  // how many charts they've used in the current billing period.
+  `CREATE TABLE IF NOT EXISTS ChartSubscription (
+    id TEXT PRIMARY KEY,
+    subscriptionId TEXT NOT NULL UNIQUE,        -- LS or Whop subscription ID
+    userId TEXT,                                -- Whop userId (null for LS-only)
+    customerEmail TEXT NOT NULL,
+    customerName TEXT,
+    deviceId TEXT,                              -- the device used at checkout
+    tier TEXT NOT NULL,                         -- 'pro' | 'advanced' | 'all_access'
+    period TEXT NOT NULL,                       -- 'monthly' | 'yearly' | 'lifetime'
+    provider TEXT NOT NULL,                     -- 'lemonsqueezy' | 'whop'
+    status TEXT NOT NULL,                       -- 'active' | 'cancelled' | 'expired' | etc.
+    chartsPerPeriod INTEGER NOT NULL DEFAULT 2, -- 2 for monthly/yearly, 999999 for lifetime
+    chartsUsedThisPeriod INTEGER NOT NULL DEFAULT 0,
+    periodStart DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    periodEnd DATETIME,                         -- null for lifetime
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS ChartSubscription_email_idx ON ChartSubscription(customerEmail)`,
+  `CREATE INDEX IF NOT EXISTS ChartSubscription_deviceId_idx ON ChartSubscription(deviceId)`,
+  `CREATE INDEX IF NOT EXISTS ChartSubscription_userId_idx ON ChartSubscription(userId)`,
+  `CREATE INDEX IF NOT EXISTS ChartSubscription_tier_period_idx ON ChartSubscription(tier, period)`,
+  `CREATE INDEX IF NOT EXISTS ChartSubscription_status_idx ON ChartSubscription(status)`,
+
+  // ── Bundle purchase tracking ──
+  // One row per bundle purchase. Limits buyer to 1 chart per bundle
+  // (1 chart × N analyses in the bundle, all cached forever on that chart).
+  `CREATE TABLE IF NOT EXISTS BundlePurchase (
+    id TEXT PRIMARY KEY,
+    orderId TEXT NOT NULL UNIQUE,               -- LS order ID or Whop subscription ID
+    customerEmail TEXT NOT NULL,
+    customerName TEXT,
+    deviceId TEXT,                              -- the device used at checkout
+    bundleSlug TEXT NOT NULL,                   -- matches ProductBundle.slug
+    bundleName TEXT,
+    analysesIncluded TEXT NOT NULL,             -- comma-separated analysisTypes
+    provider TEXT NOT NULL,                     -- 'lemonsqueezy' | 'whop'
+    priceCents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    chartsAllowed INTEGER NOT NULL DEFAULT 1,   -- always 1 (per user's model)
+    chartsUsed INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',      -- 'active' | 'refunded'
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rawEvent TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS BundlePurchase_email_idx ON BundlePurchase(customerEmail)`,
+  `CREATE INDEX IF NOT EXISTS BundlePurchase_deviceId_idx ON BundlePurchase(deviceId)`,
+  `CREATE INDEX IF NOT EXISTS BundlePurchase_bundleSlug_idx ON BundlePurchase(bundleSlug)`,
+  `CREATE INDEX IF NOT EXISTS BundlePurchase_status_idx ON BundlePurchase(status)`,
 ]
 
 let _libsql: Client | null = null
@@ -512,7 +568,7 @@ function createPrismaClient(): PrismaClient | null {
 async function ensureTablesExist(prisma: PrismaClient): Promise<void> {
   if (_dbReady) return
 
-  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription', 'WhopSubscription']
+  const tablesToCheck = ['CachedAnalysis', 'CachedChart', 'CachedStaticMeanings', 'DeviceUsage', 'AnalyticsEvent', 'SharedChart', 'UserAccount', 'UserAnalysis', 'UserAccess', 'PremiumCatalog', 'ProductBundle', 'ProductBundleItem', 'PromoCode', 'DeviceAccess', 'Astrologer', 'ReadingBooking', 'ChatFollowUp', 'HoroscopeSubscription', 'ContactMessage', 'LsSubscription', 'WhopSubscription', 'ChartSubscription', 'BundlePurchase']
   const missingTables: string[] = []
 
   // Check which tables are missing using the libsql client (more reliable than Prisma for DDL checks)

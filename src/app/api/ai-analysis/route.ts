@@ -922,6 +922,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── New 3-tier subscription chart budget check ──
+    // Subscribers get 2 new charts per billing period (lifetime = unlimited).
+    // Cached re-analyses (same cacheKey) don't count — those are always free.
+    // Bundle/single buyers: 1 chart per purchase (tracked separately).
+    let isNewChartForSubscriber = false
+    if (hasPremiumAccess) {
+      try {
+        const { canGenerateNewChart } = await import('@/lib/subscriptions')
+        const check = await canGenerateNewChart(deviceId, cacheKey)
+        if (!check.allowed && check.reason !== 'cached' && check.reason !== 'no_subscription') {
+          // Subscriber hit their chart budget for this period
+          return NextResponse.json({
+            detail: check.reason === 'subscription_expired'
+              ? `Your subscription has expired. Resubscribe to generate new charts. (Cached analyses remain viewable forever.)`
+              : `You've used all ${check.subscription?.chartsPerPeriod} new charts for this billing period. Cached analyses remain viewable. Next reset: ${check.subscription?.periodEnd ? new Date(check.subscription.periodEnd).toLocaleDateString() : 'never'}`,
+            limitReached: true,
+            limitType: 'subscription_chart_budget',
+            reason: check.reason,
+            chartsUsed: check.subscription?.chartsUsedThisPeriod,
+            chartsPerPeriod: check.subscription?.chartsPerPeriod,
+            periodEnd: check.subscription?.periodEnd,
+            tier: check.subscription?.tier,
+          }, { status: 429 })
+        }
+        // Track whether this was a NEW chart (so we increment the counter later)
+        isNewChartForSubscriber = check.reason === 'within_budget' || check.reason === 'grace_period'
+      } catch (subCheckErr) {
+        console.warn('[AI] Subscription budget check failed (continuing):', subCheckErr instanceof Error ? subCheckErr.message : 'unknown')
+      }
+    }
+
     // ---- Cache check ----
     console.log(`[AI] Cache lookup: type=${analysisType}, key=${cacheKey}, forceRefresh=${!!forceRefresh}`)
     if (!forceRefresh) {
@@ -1106,6 +1137,20 @@ export async function POST(request: NextRequest) {
         [usageId, deviceId, analysisType, cacheKey]
       )
       console.log(`[AI] Usage recorded: device=${deviceId.substring(0, 8)}..., type=${analysisType}`)
+
+      // ── Increment the subscriber's chart budget counter ──
+      // Only counts if this was a NEW chart (not cached). On cached re-analysis,
+      // canGenerateNewChart returned reason='cached' and we skipped this increment.
+      if (isNewChartForSubscriber) {
+        try {
+          const { incrementChartUsage } = await import('@/lib/subscriptions')
+          await incrementChartUsage(deviceId)
+        } catch (incErr) {
+          // Non-critical — best-effort counter increment
+          console.warn('[AI] Failed to increment chart usage counter:', incErr instanceof Error ? incErr.message : 'unknown')
+        }
+      }
+
       // Verify usage write
       const verifyUsage = await rawQuery<{ id: string }>(
         `SELECT id FROM DeviceUsage WHERE id = ?`,
