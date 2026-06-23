@@ -233,6 +233,13 @@
   margin-bottom: 0.5em;
 }
 
+.prose h4 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  font-size: 1em;
+  font-weight: 700;
+}
+
 .prose ul {
   list-style-type: disc;
   padding-left: 1.5em;
@@ -253,4 +260,101 @@
 
 .prose p {
   margin-bottom: 0.75em;
+}
+
+.prose blockquote {
+  border-left: 3px solid #C9721A;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: inherit;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid rgba(201, 114, 26, 0.2);
+  margin: 1.5em 0;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.875em;
+}
+
+.prose thead {
+  background: rgba(201, 114, 26, 0.08);
+}
+
+.prose th {
+  padding: 0.5em 0.75em;
+  text-align: left;
+  border: 1px solid rgba(201, 114, 26, 0.2);
+  font-weight: 600;
+}
+
+.prose td {
+  padding: 0.5em 0.75em;
+  border: 1px solid rgba(201, 114, 26, 0.15);
+  vertical-align: top;
+}
+
+.prose tr:nth-child(even) {
+  background: rgba(201, 114, 26, 0.03);
+}
+
+.prose code {
+  background: rgba(201, 114, 26, 0.1);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  font-size: 0.875em;
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.prose pre {
+  background: rgba(74, 14, 14, 0.05);
+  padding: 0.75em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose a {
+  color: #C9721A;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #D4A843;
+}
+
+/* Dark-mode variants for the special analysis types (cosmic_blueprint, etc.) */
+.prose-invert blockquote {
+  border-left-color: rgba(255, 255, 255, 0.3);
+}
+.prose-invert hr {
+  border-top-color: rgba(255, 255, 255, 0.15);
+}
+.prose-invert table thead {
+  background: rgba(255, 255, 255, 0.08);
+}
+.prose-invert th,
+.prose-invert td {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.prose-invert tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.prose-invert code {
+  background: rgba(255, 255, 255, 0.1);
+}
+.prose-invert pre {
+  background: rgba(0, 0, 0, 0.3);
 }
