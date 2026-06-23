@@ -13,7 +13,7 @@ import {
   Coffee, History, RefreshCw, Hash, Gem, UserCheck, RotateCcw, Flame, Users,
   Send, CheckCircle, Youtube, ShoppingCart
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
+import { AnalysisContent } from '@/components/analysis-content'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -2628,7 +2628,16 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 ? 'prose-invert prose-headings:text-blue-200 prose-headings:font-semibold prose-p:text-blue-100/90 prose-p:leading-relaxed prose-li:text-blue-100/90 prose-strong:text-amber-300 prose-h2:text-lg prose-h2:border-b prose-h2:border-blue-700/30 prose-h2:pb-2 prose-h3:text-base prose-h3:text-blue-300 prose-a:text-amber-300'
                 : 'prose-headings:text-maroon prose-headings:font-semibold prose-p:text-foreground prose-p:leading-relaxed prose-li:text-foreground prose-strong:text-maroon prose-h2:text-lg prose-h2:border-b prose-h2:border-saffron/20 prose-h2:pb-2 prose-h3:text-base'
             }`}>
-              <ReactMarkdown>{analysis}</ReactMarkdown>
+              <AnalysisContent
+                variant={
+                  selectedType === 'cosmic_blueprint' ? 'cosmic'
+                  : selectedType === 'shadow_integration' ? 'shadow'
+                  : selectedType === 'swot_5year' ? 'swot'
+                  : 'default'
+                }
+              >
+                {analysis}
+              </AnalysisContent>
             </div>
             <div className={`mt-6 pt-4 border-t ${
               selectedType === 'cosmic_blueprint' ? 'border-indigo-700/20'
@@ -2746,9 +2755,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                       : 'bg-muted text-foreground mr-8'
                   }`}>
                     <p className="text-xs font-semibold mb-1">{msg.role === 'user' ? 'You' : 'AstroBidhi AI'}</p>
-                    <div className="prose prose-xs max-w-none">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                    <AnalysisContent size="xs">{msg.content}</AnalysisContent>
                   </div>
                 ))}
                 {chatLoading && (
@@ -2897,9 +2904,7 @@ function HoroscopeWidget({ chartData }: { chartData: HoroscopeData | null }) {
       </CardHeader>
       <CardContent className="pt-4">
         {horoscopeResult ? (
-          <div className="prose prose-sm max-w-none">
-            <ReactMarkdown>{horoscopeResult}</ReactMarkdown>
-          </div>
+          <AnalysisContent>{horoscopeResult}</AnalysisContent>
         ) : isLoading ? (
           <div className="py-8 text-center">
             <Loader2 className="w-8 h-8 text-saffron animate-spin mx-auto mb-3" />
@@ -3369,9 +3374,7 @@ function MyAnalysesPage() {
             <p className="text-xs text-muted-foreground">Cached on {new Date(viewingAnalysis.cachedAt).toLocaleDateString()}</p>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{viewingAnalysis.result}</ReactMarkdown>
-            </div>
+            <AnalysisContent>{viewingAnalysis.result}</AnalysisContent>
           </CardContent>
         </Card>
       </div>
