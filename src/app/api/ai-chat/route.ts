@@ -87,7 +87,7 @@ async function callGemini(prompt: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, topP: 0.9 },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096, topP: 0.9 },
     }),
   })
   if (!response.ok) throw new Error(`Gemini: HTTP ${response.status}`)
@@ -103,7 +103,7 @@ async function callGroq(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: GROQ_MODEL,
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-      temperature: 0.7, max_tokens: 2048,
+      temperature: 0.7, max_tokens: 4096,
     }),
   })
   if (!response.ok) throw new Error(`Groq: HTTP ${response.status}`)
@@ -126,7 +126,7 @@ async function callOpenRouter(prompt: string): Promise<string> {
         body: JSON.stringify({
           model,
           messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-          temperature: 0.7, max_tokens: 2048,
+          temperature: 0.7, max_tokens: 4096,
         }),
       })
       if (!response.ok) continue
@@ -142,7 +142,7 @@ async function callZaiSDK(prompt: string): Promise<string> {
   const zai = await ZAI.create()
   const completion = await zai.chat.completions.create({
     messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-    temperature: 0.7, max_tokens: 2048,
+    temperature: 0.7, max_tokens: 4096,
   })
   return completion.choices[0]?.message?.content || ''
 }
