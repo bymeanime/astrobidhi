@@ -1945,13 +1945,13 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
     setSelectedType(typeId)
   }
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (forceRefresh = false) => {
     if ((catalog.premiumTypes.has(selectedType) || PREMIUM_ANALYSIS_TYPES.has(selectedType)) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
       setPremiumDialogType(selectedType)
       return
     }
     setLoading(true)
-    setAnalysis(null)
+    if (forceRefresh) setAnalysis(null)  // Clear the displayed analysis so user sees loading state
     try {
       const deviceId = getDeviceId()
       const res = await fetch('/api/ai-analysis', {
@@ -1962,6 +1962,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           chartData,
           horaryNumber,
           deviceId,
+          forceRefresh,  // Bypasses cache when true — generates a fresh analysis
         }),
       })
       if (!res.ok) {
@@ -2223,7 +2224,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
             </Card>
           </div>
           <Button
-            onClick={handleAnalyze}
+            onClick={() => handleAnalyze()}
             disabled={loading}
             className={`w-full font-semibold py-5 text-base ${
               selectedType === 'cosmic_blueprint' || dynamicAnalysisTypes.find(t => t.id === selectedType)?.category === 'Advanced'
@@ -2606,7 +2607,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                 {dynamicAnalysisTypes.find(t => t.id === selectedType)?.label}
               </CardTitle>
               <Badge className={`${
-                selectedType === 'cosmic_blueprint' 
+                selectedType === 'cosmic_blueprint'
                   ? 'bg-indigo-900/60 text-indigo-200 border-indigo-700/40'
                   : selectedType === 'shadow_integration'
                   ? 'bg-red-900/60 text-red-200 border-red-700/40'
@@ -2616,6 +2617,27 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               }`}>
                 <Brain className="w-3 h-3 mr-1" /> AI Analysis
               </Badge>
+              {analysis && (
+                <Button
+                  onClick={() => handleAnalyze(true)}
+                  disabled={loading}
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-xs ${
+                    selectedType === 'cosmic_blueprint'
+                      ? 'border-indigo-600/40 text-indigo-200 hover:bg-indigo-900/40'
+                      : selectedType === 'shadow_integration'
+                      ? 'border-red-600/40 text-red-200 hover:bg-red-900/40'
+                      : selectedType === 'swot_5year'
+                      ? 'border-blue-600/40 text-blue-200 hover:bg-blue-900/40'
+                      : 'border-saffron/30 text-maroon hover:bg-saffron/10'
+                  }`}
+                  title="Discard the cached version and generate a fresh analysis with the latest AI"
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Regenerating...' : 'Regenerate'}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
