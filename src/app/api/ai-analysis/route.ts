@@ -848,6 +848,168 @@ Be precise. Use KP terminology with explanations. Give specific time frames.
 Horary Number: {horaryNumber}
 
 {chartData}`,
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPECIALIZED ASTROLOGY BRANCHES (new)
+  // ═══════════════════════════════════════════════════════════════
+
+  medical_astrology: `Medical Astrology Deep Dive (Iatromathematics):
+1. Body Constitution (Prakriti): Ascendant sign + dominant elements → Ayurvedic dosha (Vata/Pitta/Kapha) with explanation
+2. Sign-to-Body Mapping: Your Ascendant, Moon, and Sun signs rule specific body parts — which are strong, which need care
+3. Planet-to-Organ Analysis:
+   - Sun: Heart, vitality, bones
+   - Moon: Mind, fluids, digestion
+   - Mars: Blood, muscles, marrow, surgery
+   - Mercury: Nervous system, speech, respiratory
+   - Jupiter: Liver, pancreas, fat, wisdom
+   - Venus: Kidneys, reproductive, throat
+   - Saturn: Bones, teeth, chronic illness, joints
+   - Rahu: Mysterious/undiagnosed conditions
+   - Ketu: Chronic/hidden ailments, healing ability
+   Analyze each planet's placement and what it means for your health
+4. Disease Tendency by House:
+   - 6th house: Acute diseases, enemies to health
+   - 8th house: Chronic conditions, surgery, longevity
+   - 12th house: Hospitalization, hidden ailments
+   Identify afflictions and what they indicate
+5. Health Timing by Dasa: Which periods are health-vulnerable, which are healing. Reference the actual Dasa timeline
+6. Mental Health Indicators: Moon placement, 4th house (mind), 5th house (intellect), afflictions to Moon/Mercury
+7. Nutritional Guidance: Foods that strengthen your weak planets, foods to avoid
+8. Gemstone Therapy: Which gemstones support your health, which to avoid
+9. Mantra & Remedy: Specific mantras for afflicted planets, Ayurvedic herbs for your dosha
+10. Preventive Lifestyle: Daily routines, exercise types, sleep patterns aligned with your chart
+
+⚠️ This reading is for astrological awareness only — always consult healthcare professionals for medical concerns.
+
+{chartData}`,
+
+  ayurvedic_constitution: `Ayurvedic Constitution & Lifestyle (Dosha Analysis):
+1. Your Dosha (Prakriti): Determine Vata/Pitta/Kapha dominance from:
+   - Ascendant element (fire/earth/air/water/ether)
+   - Moon sign element
+   - Dominant planets in the chart
+   Give a clear primary + secondary dosha
+2. Physical Characteristics: Body type, skin, hair, eyes — what your chart says about your physical form
+3. Mental & Emotional Temperament: How your dosha affects your thinking, reactions, stress patterns
+4. Dietary Recommendations:
+   - Foods that balance your dosha
+   - Foods that aggravate — avoid these
+   - Ideal meal timing and food combinations
+   - Specific grains, vegetables, spices, oils for you
+5. Lifestyle & Daily Routine (Dinacharya):
+   - Best wake/sleep times for your dosha
+   - Exercise types (yoga, walking, intense, gentle)
+   - Self-care practices (oil massage, meditation type)
+   - Seasonal adjustments
+6. Herbal Remedies: Ayurvedic herbs that support your weak planets and dosha imbalances
+7. Gemstone & Color Therapy: Stones and colors that balance your dosha
+8. Disease Prevention: Health vulnerabilities for your dosha type and how to prevent them
+9. Seasonal Guidance: How each season affects you (Ritu Sandhi) and what to adjust
+10. Spiritual Practices: Meditation style, mantra, yoga type best suited to your dosha
+
+Reference actual Ascendant, Moon sign, and dominant planets from the chart data.
+
+{chartData}`,
+
+  financial_timing: `Financial Astrology & Investment Timing:
+1. Wealth Capacity: 2nd/11th house strength, Dhana Yogas, Jupiter/Venus dignity — your overall wealth potential
+2. Income vs Investment: Whether you're better suited for earned income (6th/10th) or investment/windfall (8th/11th/9th)
+3. Favorable Sectors: Based on your chart, which industries/sectors favor you:
+   - Real estate (Mars/Saturn/4th house)
+   - Stocks/speculation (Mercury/5th house)
+   - Gold/precious metals (Jupiter/Sun)
+   - Technology (Rahu/Mercury)
+   - Agriculture (Venus/Moon)
+   - Healthcare (Sun/Mars/6th)
+   Explain which match your chart and why
+4. Current Market Alignment: How your current Dasa period affects your financial decisions
+5. Investment Timing by Dasa:
+   - Best periods for major investments
+   - Periods to hold cash and avoid risk
+   - Windfall windows (8th/11th activations)
+   - Loss-prevention periods (6th/12th activations)
+6. Risk Profile: Your chart's risk tolerance — conservative, moderate, or aggressive
+7. Debt & Credit: 6th house analysis — tendency toward debt, ability to repay
+8. Wealth Blockages: Afflictions blocking money flow and remedies to clear them
+9. Multi-Year Wealth Cycle: Map your Dasa timeline to major financial phases
+10. Remedies for Prosperity: Gemstones, mantras, charity, and actions that activate wealth
+
+⚠️ This reading is for astrological insight only — not financial advice. Always consult a qualified financial advisor.
+
+Current Date: {currentDate}
+
+{chartData}`,
+
+  electional_astrology: `Electional Astrology (Muhurta) — Finding Auspicious Timing:
+
+Event to Plan: {eventDescription}
+Current Date: {currentDate}
+
+1. Event Analysis: What kind of event is this and which houses/planets govern it:
+   - Wedding/Marriage → 7th house, Venus, Jupiter
+   - Business launch → 10th/11th house, Mercury, Jupiter
+   - Property purchase → 4th house, Mars, Venus
+   - Travel/Journey → 3rd/9th/12th house, Mercury, Moon
+   - Surgery/Medical → 6th/8th house, Mars, Sun
+   - Education/Exam → 4th/5th house, Mercury, Jupiter
+   - Legal/Court → 6th house, Saturn, Mars
+   - Starting a job → 10th/6th house, Sun, Saturn
+   - Investment → 2nd/11th house, Jupiter, Venus
+   - Other → analyze based on event nature
+
+2. Your Chart's Favorable Periods: Which upcoming Dasa/Bhukti periods support this event
+3. Planetary Transits: Current and upcoming transits that favor or hinder this event
+4. Recommended Date Windows: 2-3 specific date ranges (within the next 3-6 months) that are most auspicious for this event, with reasoning:
+   - Which weekdays are best
+   - Which lunar days (Tithi) are favorable
+   - Which Nakshatras support the event
+   - Avoid periods (Rahu Kaal, eclipses, retrogrades)
+5. Time of Day: Best Muhurta (time window) within the recommended dates — exact hours
+6. What to Avoid: Periods that would bring failure or obstacles if the event is started then
+7. Preparation: What to do before the event to maximize success (remedies, rituals, fasting)
+8. Backup Dates: Alternative dates if the primary window isn't feasible
+
+Be specific with dates — reference the current date and calculate forward.
+
+Event Description: {eventDescription}
+
+Current Date: {currentDate}
+
+{chartData}`,
+
+  synastry_compatibility: `Synastry & Relationship Compatibility Analysis (Two-Chart Comparison):
+
+Partner 1 (You): {chartData}
+
+Partner 2 (Your Partner): {partnerChartData}
+
+1. Core Compatibility Score: Rate 1-10 with brief explanation
+2. Ascendant Compatibility: How your Lagnas interact — physical attraction, approach to life
+3. Moon Sign Synastry: Emotional compatibility — do your Moons support each other?
+   - Same element: Natural harmony
+   - Compatible elements: Good understanding
+   - Conflicting elements: Emotional work needed
+4. Sun Sign Dynamics: Ego, identity, life direction alignment
+5. Venus-Mars Attraction: Romantic and physical chemistry indicators
+6. House Overlays: Where Partner 2's planets fall in Partner 1's houses (and vice versa):
+   - Partner 2's planets in your 7th: Strong partnership indicator
+   - Partner 2's planets in your 5th: Romance and creativity
+   - Partner 2's planets in your 4th: Home and family connection
+   - Partner 2's planets in your 1st: Strong influence on your identity
+7. Dasa Compatibility: Are your current life periods aligned or conflicting?
+8. Strengths of the Relationship: What makes this pairing work well
+9. Challenges & Growth Areas: Where friction will occur and how to navigate it
+10. Long-Term Potential: Marriage/life-partner indicators — 7th house lord connections, Jupiter blessings
+11. Karmic Connection: Rahu-Ketu axis connections between charts — past life bonds
+12. Remedies for Harmony: If there are afflictions, what both partners can do to strengthen the bond
+13. Best Phases Together: Favorable periods for commitment, marriage, starting a family
+14. Advice: Specific guidance for making this relationship thrive
+
+Analyze BOTH charts. Reference actual placements from both Partner 1 and Partner 2 data.
+
+Partner 1 chart: {chartData}
+
+Partner 2 chart: {partnerChartData}`,
 }
 
 // ============ Horoscope Prompt (Daily/Monthly Subscription) ============
@@ -1177,7 +1339,7 @@ async function checkWhopAccess(request: NextRequest): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { analysisType, chartData, horaryNumber, provider: requestedProvider, forceRefresh } = body
+    const { analysisType, chartData, horaryNumber, provider: requestedProvider, forceRefresh, eventDescription, partnerChartData } = body
 
     if (!analysisType || !chartData) {
       return NextResponse.json({ detail: 'analysisType and chartData are required' }, { status: 400 })
@@ -1186,6 +1348,14 @@ export async function POST(request: NextRequest) {
     const template = ANALYSIS_PROMPTS[analysisType]
     if (!template) {
       return NextResponse.json({ detail: `Invalid analysis type. Valid: ${Object.keys(ANALYSIS_PROMPTS).join(', ')}` }, { status: 400 })
+    }
+
+    // Validate required fields for specialized analyses
+    if (analysisType === 'electional_astrology' && !eventDescription) {
+      return NextResponse.json({ detail: 'eventDescription is required for Electional Astrology. Describe what event you want to plan.' }, { status: 400 })
+    }
+    if (analysisType === 'synastry_compatibility' && !partnerChartData) {
+      return NextResponse.json({ detail: 'partnerChartData is required for Synastry analysis. Please provide your partner\'s birth chart data.' }, { status: 400 })
     }
 
     // ---- Device ID ----
@@ -1397,6 +1567,15 @@ export async function POST(request: NextRequest) {
       .replace('{chartData}', `${chartSummary}\n\n---\n\n${compressedChart}`)
       .replace('{currentDate}', new Date().toISOString().split('T')[0])
     if (horaryNumber) prompt = prompt.replace('{horaryNumber}', String(horaryNumber))
+    // Specialized analysis replacements
+    if (eventDescription) prompt = prompt.replace(/{eventDescription}/g, String(eventDescription))
+    if (partnerChartData) {
+      // Compress partner chart data using the same function
+      const partnerCompressed = compressChartData(partnerChartData, 'synastry_compatibility')
+      const partnerInfo = extractChartInfo(partnerChartData as Record<string, unknown>)
+      const partnerSummary = formatChartInfoForPrompt(partnerInfo)
+      prompt = prompt.replace(/{partnerChartData}/g, `${partnerSummary}\n\n---\n\n${partnerCompressed}`)
+    }
 
     // ---- Call AI providers ----
     let analysis: string | null = null
