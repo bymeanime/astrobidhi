@@ -116,7 +116,7 @@ interface SavedChart {
 
 const SAVED_CHARTS_KEY = 'astrobidhi_saved_charts'
 
-type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'education' | 'family' | 'horary' | 'spiritual' | 'dasa' | 'vedic_master' | 'trik_bhava' | 'forecast_12month' | 'cosmic_love_letter' | 'name_numerology' | 'gemstone_remedy' | 'compatibility_profile' | 'kp_prashna' | 'cosmic_blueprint' | 'shadow_integration' | 'life_decoder' | 'career_destiny' | 'relationship_destiny' | 'soul_purpose' | 'wealth_code' | 'future_timeline' | 'swot_5year' | 'past_life_karma' | 'mangal_dosha' | 'sade_sati'
+type AnalysisType = 'overall' | 'career' | 'relationships' | 'health' | 'finance' | 'education' | 'family' | 'horary' | 'spiritual' | 'dasa' | 'vedic_master' | 'trik_bhava' | 'forecast_12month' | 'cosmic_love_letter' | 'name_numerology' | 'gemstone_remedy' | 'compatibility_profile' | 'kp_prashna' | 'cosmic_blueprint' | 'shadow_integration' | 'life_decoder' | 'career_destiny' | 'relationship_destiny' | 'soul_purpose' | 'wealth_code' | 'future_timeline' | 'swot_5year' | 'past_life_karma' | 'mangal_dosha' | 'sade_sati' | 'medical_astrology' | 'ayurvedic_constitution' | 'financial_timing' | 'electional_astrology' | 'synastry_compatibility'
 
 // ============ Static Meanings Types ============
 interface SignHouseMeaning {
@@ -175,7 +175,7 @@ interface StaticMeanings {
   key_aspects: KeyAspectMeaning[]
 }
 
-const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'kp_prashna', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'past_life_karma', 'mangal_dosha', 'sade_sati'])
+const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'kp_prashna', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'past_life_karma', 'mangal_dosha', 'sade_sati', 'medical_astrology', 'ayurvedic_constitution', 'financial_timing', 'electional_astrology', 'synastry_compatibility'])
 
 // ============ Catalog Context ============
 interface CatalogItem {
@@ -291,6 +291,11 @@ const FALLBACK_PREMIUM_DESCRIPTIONS: Record<string, string> = {
   past_life_karma: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path',
   mangal_dosha: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies',
   sade_sati: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies',
+  medical_astrology: 'Medical astrology deep dive — body constitution, sign-to-body mapping, planet-to-organ analysis, disease timing by Dasa, Ayurvedic remedies, gemstone therapy, and preventive lifestyle guidance',
+  ayurvedic_constitution: 'Ayurvedic dosha analysis — determine your Vata/Pitta/Kapha type from your chart, with personalized diet, lifestyle routine, herbal remedies, exercise, and spiritual practices',
+  financial_timing: 'Financial astrology & investment timing — wealth capacity, favorable sectors, investment timing by Dasa, risk profile, debt analysis, wealth blockages, and prosperity remedies',
+  electional_astrology: 'Electional astrology (Muhurta) — find the most auspicious date and time for your important events (wedding, business launch, travel, surgery, property purchase). Get specific date windows with reasoning',
+  synastry_compatibility: 'Synastry & relationship compatibility — compare TWO birth charts for emotional, physical, and karmic compatibility. Includes compatibility score, house overlays, Venus-Mars attraction, and long-term potential',
   kp_prashna: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing',
 }
 
@@ -321,6 +326,11 @@ const FALLBACK_PREMIUM_PRICES: Record<string, { priceCents: number; originalPric
   past_life_karma: { priceCents: 900, originalPriceCents: 1499 },
   mangal_dosha: { priceCents: 700, originalPriceCents: 1299 },
   sade_sati: { priceCents: 900, originalPriceCents: 1499 },
+  medical_astrology: { priceCents: 999, originalPriceCents: 1799 },
+  ayurvedic_constitution: { priceCents: 799, originalPriceCents: 1299 },
+  financial_timing: { priceCents: 1499, originalPriceCents: 2499 },
+  electional_astrology: { priceCents: 1499, originalPriceCents: 2499 },
+  synastry_compatibility: { priceCents: 1499, originalPriceCents: 2499 },
 }
 
 const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; desc: string; color: string; category: string; isPremium: boolean; priceCents: number; originalPriceCents: number | null }[] = [
@@ -357,6 +367,12 @@ const ANALYSIS_TYPES: { id: AnalysisType; label: string; icon: React.ReactNode; 
   { id: 'past_life_karma', label: 'Past Life Karma', icon: <RotateCcw className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.past_life_karma, color: '#4A235A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.past_life_karma.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.past_life_karma.originalPriceCents },
   { id: 'mangal_dosha', label: 'Mangal Dosha Report', icon: <Flame className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.mangal_dosha, color: '#B33A3A', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.mangal_dosha.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.mangal_dosha.originalPriceCents },
   { id: 'sade_sati', label: 'Sade Sati Report', icon: <Clock className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.sade_sati, color: '#2C3E50', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.sade_sati.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.sade_sati.originalPriceCents },
+  // ── Specialized Astrology Branches (new) ──
+  { id: 'medical_astrology', label: 'Medical Astrology', icon: <Activity className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.medical_astrology, color: '#E74C3C', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.medical_astrology.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.medical_astrology.originalPriceCents },
+  { id: 'ayurvedic_constitution', label: 'Ayurvedic Dosha', icon: <Flower2 className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.ayurvedic_constitution, color: '#27AE60', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.ayurvedic_constitution.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.ayurvedic_constitution.originalPriceCents },
+  { id: 'financial_timing', label: 'Financial & Investment Timing', icon: <DollarSign className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.financial_timing, color: '#F39C12', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.financial_timing.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.financial_timing.originalPriceCents },
+  { id: 'electional_astrology', label: 'Electional Astrology (Muhurta)', icon: <Calendar className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.electional_astrology, color: '#8E44AD', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.electional_astrology.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.electional_astrology.originalPriceCents },
+  { id: 'synastry_compatibility', label: 'Couples Compatibility (Synastry)', icon: <Heart className="w-5 h-5" />, desc: FALLBACK_PREMIUM_DESCRIPTIONS.synastry_compatibility, color: '#E91E63', category: 'Advanced', isPremium: true, priceCents: FALLBACK_PREMIUM_PRICES.synastry_compatibility.priceCents, originalPriceCents: FALLBACK_PREMIUM_PRICES.synastry_compatibility.originalPriceCents },
 ]
 
 // ============ Constants ============
@@ -1835,6 +1851,12 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   const [loading, setLoading] = useState(false)
   const [premiumDialogType, setPremiumDialogType] = useState<AnalysisType | null>(null)
   const [discountCode, setDiscountCode] = useState('')  // user-entered promo code, passed to checkout URL
+  // Specialized analysis inputs
+  const [eventDescription, setEventDescription] = useState('')  // for Electional Astrology
+  const [partnerBirthData, setPartnerBirthData] = useState<{  // for Synastry
+    year: number; month: number; day: number; hour: number; minute: number;
+    latitude: number; longitude: number; utc: string; ayanamsa: string; house_system: string;
+  } | null>(null)
   const [limitReached, setLimitReached] = useState<{ type: string; used: number; limit: number } | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -1950,8 +1972,17 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
       setPremiumDialogType(selectedType)
       return
     }
+    // Validate specialized inputs
+    if (selectedType === 'electional_astrology' && !eventDescription.trim()) {
+      toast({ title: 'Event description required', description: 'Please describe the event you want to find an auspicious date for.', variant: 'destructive' })
+      return
+    }
+    if (selectedType === 'synastry_compatibility' && !partnerBirthData) {
+      toast({ title: 'Partner details required', description: 'Please enter your partner\'s birth details below to generate a compatibility analysis.', variant: 'destructive' })
+      return
+    }
     setLoading(true)
-    if (forceRefresh) setAnalysis(null)  // Clear the displayed analysis so user sees loading state
+    if (forceRefresh) setAnalysis(null)
     try {
       const deviceId = getDeviceId()
       const res = await fetch('/api/ai-analysis', {
@@ -1962,7 +1993,10 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           chartData,
           horaryNumber,
           deviceId,
-          forceRefresh,  // Bypasses cache when true — generates a fresh analysis
+          forceRefresh,
+          // Specialized analysis params
+          ...(selectedType === 'electional_astrology' && eventDescription ? { eventDescription } : {}),
+          ...(selectedType === 'synastry_compatibility' && partnerBirthData ? { partnerChartData: partnerBirthData } : {}),
         }),
       })
       if (!res.ok) {
@@ -2223,6 +2257,56 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               </CardContent>
             </Card>
           </div>
+
+          {/* ── Specialized input: Electional Astrology event description ── */}
+          {selectedType === 'electional_astrology' && (
+            <Card className="border-purple-300 bg-purple-50/50">
+              <CardContent className="pt-4">
+                <Label className="text-sm font-medium text-maroon mb-1.5 block">
+                  What event do you want to find an auspicious date for?
+                </Label>
+                <textarea
+                  value={eventDescription}
+                  onChange={e => setEventDescription(e.target.value)}
+                  placeholder="e.g., I want to launch my online business. I'm planning for sometime in the next 3 months. I sell handmade jewelry."
+                  className="w-full min-h-[80px] p-3 text-sm rounded-md border border-purple-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Describe the event, your ideal timeframe, and any constraints. The AI will analyze your chart and recommend the most auspicious dates.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Specialized input: Synastry partner birth details ── */}
+          {selectedType === 'synastry_compatibility' && (
+            <Card className="border-pink-300 bg-pink-50/50">
+              <CardContent className="pt-4 space-y-3">
+                <Label className="text-sm font-medium text-maroon block">
+                  Enter your partner's birth details for compatibility analysis
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><Label className="text-xs">Year</Label><Input type="number" onChange={e => setPartnerBirthData(prev => ({ year: +e.target.value, month: prev?.month || 1, day: prev?.day || 1, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="1990" /></div>
+                  <div><Label className="text-xs">Month</Label><Input type="number" min={1} max={12} onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: +e.target.value, day: prev?.day || 1, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="6" /></div>
+                  <div><Label className="text-xs">Day</Label><Input type="number" min={1} max={31} onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: +e.target.value, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="15" /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><Label className="text-xs">Hour</Label><Input type="number" min={0} max={23} onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: prev?.day || 1, hour: +e.target.value, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="14" /></div>
+                  <div><Label className="text-xs">Min</Label><Input type="number" min={0} max={59} onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: prev?.day || 1, hour: prev?.hour || 12, minute: +e.target.value, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="30" /></div>
+                  <div><Label className="text-xs">UTC</Label><Input onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: prev?.day || 1, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: prev?.longitude || 0, utc: e.target.value, ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="+05:30" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label className="text-xs">Latitude</Label><Input type="number" step="0.01" onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: prev?.day || 1, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: +e.target.value, longitude: prev?.longitude || 0, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="27.7172" /></div>
+                  <div><Label className="text-xs">Longitude</Label><Input type="number" step="0.01" onChange={e => setPartnerBirthData(prev => ({ year: prev?.year || 1990, month: prev?.month || 1, day: prev?.day || 1, hour: prev?.hour || 12, minute: prev?.minute || 0, latitude: prev?.latitude || 0, longitude: +e.target.value, utc: prev?.utc || '+00:00', ayanamsa: prev?.ayanamsa || 'Krishnamurti', house_system: prev?.house_system || 'Whole Sign' }))} className="h-9" placeholder="85.3240" /></div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter your partner's exact birth date, time, and location. All fields are required for an accurate synastry reading.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Button
             onClick={() => handleAnalyze()}
             disabled={loading}
