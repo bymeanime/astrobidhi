@@ -876,6 +876,17 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
+    // ---- Force-refresh guard (admin only) ----
+    // forceRefresh bypasses the cache and generates a fresh analysis, which
+    // costs an AI API call (~$0.01-0.05). Only allow it for admin devices
+    // with 'unlimited' access. Regular users must use the cached version.
+    if (forceRefresh && !hasUnlimitedAccess) {
+      return NextResponse.json({
+        detail: 'Cache regeneration is admin-only. Your existing analysis is cached and will be served.',
+        cachedAvailable: true,
+      }, { status: 403 })
+    }
+
     // ---- Rate limit check ----
     // Count unique charts this device has read (non-cached)
     // Count analysis types used per chart for this device
