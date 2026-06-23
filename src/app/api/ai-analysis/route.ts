@@ -586,7 +586,9 @@ async function callGeminiAPI(prompt: string, retries = 2): Promise<string> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.8, maxOutputTokens: 4096, topP: 0.95, topK: 40 },
+          // 8192 is Gemini 2.0 Flash's max output. 4096 was cutting off
+          // longer analyses (future_timeline, life_decoder, soul_purpose) mid-sentence.
+          generationConfig: { temperature: 0.8, maxOutputTokens: 8192, topP: 0.95, topK: 40 },
         }),
       })
 
@@ -601,6 +603,15 @@ async function callGeminiAPI(prompt: string, retries = 2): Promise<string> {
       const data = await response.json()
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
       if (!text) throw new Error('Empty response from Gemini')
+
+      // Truncation detection: Gemini returns finishReason === 'MAX_TOKENS'
+      // when the output hit the max_tokens limit. Log + append a warning.
+      const finishReason = data?.candidates?.[0]?.finishReason
+      if (finishReason === 'MAX_TOKENS') {
+        console.warn('[AI] Gemini response truncated at 8192 tokens — analysis may be incomplete')
+        return text + '\n\n---\n\n*⚠️ Note: This analysis was truncated due to length limits. Some sections may be incomplete. Use the Regenerate button (admin) to try again, or try a different analysis type.*'
+      }
+
       return text
     } catch (error: unknown) {
       if (attempt === retries - 1) throw error
@@ -621,7 +632,9 @@ async function callGroqAPI(prompt: string, retries = 1): Promise<string> {
         body: JSON.stringify({
           model: GROQ_MODEL,
           messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-          temperature: 0.8, max_tokens: 4096, top_p: 0.95,
+          // Groq Llama 3.3 70B supports up to 32768 output tokens. Use 8192
+          // to be safe and avoid runaway costs while still allowing long analyses.
+          temperature: 0.8, max_tokens: 8192, top_p: 0.95,
         }),
       })
 
@@ -636,6 +649,13 @@ async function callGroqAPI(prompt: string, retries = 1): Promise<string> {
       const data = await response.json()
       const text = data?.choices?.[0]?.message?.content
       if (!text) throw new Error('Empty response from Groq')
+
+      // Truncation detection: OpenAI-compatible APIs return finish_reason === 'length'
+      if (data?.choices?.[0]?.finish_reason === 'length') {
+        console.warn('[AI] Groq response truncated at 8192 tokens — analysis may be incomplete')
+        return text + '\n\n---\n\n*⚠️ Note: This analysis was truncated due to length limits. Some sections may be incomplete. Use the Regenerate button (admin) to try again, or try a different analysis type.*'
+      }
+
       return text
     } catch (error: unknown) {
       if (attempt === retries - 1) throw error
@@ -662,7 +682,7 @@ async function callOpenRouterAPI(prompt: string): Promise<string> {
         body: JSON.stringify({
           model,
           messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-          temperature: 0.8, max_tokens: 4096,
+          temperature: 0.8, max_tokens: 8192,
         }),
       })
 
@@ -677,6 +697,13 @@ async function callOpenRouterAPI(prompt: string): Promise<string> {
       const data = await response.json()
       const text = data?.choices?.[0]?.message?.content
       if (!text) { errors.push(`${model}: Empty response`); continue }
+
+      // Truncation detection
+      if (data?.choices?.[0]?.finish_reason === 'length') {
+        console.warn(`[AI] OpenRouter (${model}) response truncated at 8192 tokens — analysis may be incomplete`)
+        return text + '\n\n---\n\n*⚠️ Note: This analysis was truncated due to length limits. Some sections may be incomplete. Use the Regenerate button (admin) to try again, or try a different analysis type.*'
+      }
+
       console.log(`[AI] OpenRouter using ${model}`)
       return text
     } catch (error: unknown) {
@@ -698,7 +725,7 @@ async function callXaiAPI(prompt: string, retries = 1): Promise<string> {
         body: JSON.stringify({
           model: XAI_MODEL,
           messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-          temperature: 0.8, max_tokens: 4096,
+          temperature: 0.8, max_tokens: 8192,
         }),
       })
 
@@ -713,6 +740,13 @@ async function callXaiAPI(prompt: string, retries = 1): Promise<string> {
       const data = await response.json()
       const text = data?.choices?.[0]?.message?.content
       if (!text) throw new Error('Empty response from xAI')
+
+      // Truncation detection
+      if (data?.choices?.[0]?.finish_reason === 'length') {
+        console.warn('[AI] xAI response truncated at 8192 tokens — analysis may be incomplete')
+        return text + '\n\n---\n\n*⚠️ Note: This analysis was truncated due to length limits. Some sections may be incomplete. Use the Regenerate button (admin) to try again, or try a different analysis type.*'
+      }
+
       return text
     } catch (error: unknown) {
       if (attempt === retries - 1) throw error
@@ -726,10 +760,17 @@ async function callZaiSDK(prompt: string): Promise<string> {
   const zai = await ZAI.create()
   const completion = await zai.chat.completions.create({
     messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
-    temperature: 0.7, max_tokens: 4096,
+    temperature: 0.7, max_tokens: 8192,
   })
   const text = completion.choices[0]?.message?.content
   if (!text) throw new Error('Empty response from z-ai-sdk')
+
+  // Truncation detection (OpenAI-compatible)
+  if (completion.choices[0]?.finish_reason === 'length') {
+    console.warn('[AI] z-ai-sdk response truncated at 8192 tokens — analysis may be incomplete')
+    return text + '\n\n---\n\n*⚠️ Note: This analysis was truncated due to length limits. Some sections may be incomplete. Use the Regenerate button (admin) to try again, or try a different analysis type.*'
+  }
+
   return text
 }
 
