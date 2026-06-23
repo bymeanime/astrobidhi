@@ -206,19 +206,29 @@ export async function POST(request: NextRequest) {
       ? conversationHistory.map((m: { role: string; content: string }) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
       : ''
 
-    const contextStr = analysisResult 
-      ? `\n\nPrevious Analysis:\n${analysisResult.substring(0, 3000)}` 
+    const contextStr = analysisResult
+      ? `\n\nPrevious Analysis:\n${analysisResult.substring(0, 3000)}`
       : ''
+
+    // Extract structured chart info so the AI has clear Moon sign / Nakshatra /
+    // Dasa context instead of having to parse raw JSON. Without this, the AI
+    // often responds with "your Moon sign and Nakshatra are unknown" because
+    // it can't find them in the raw JSON quickly.
+    const { extractChartInfo, formatChartInfoForPrompt } = await import('@/lib/chart-info')
+    const chartInfo = extractChartInfo(chartData as Record<string, unknown>)
+    const chartSummary = formatChartInfoForPrompt(chartInfo)
 
     const fullPrompt = `${SYSTEM_PROMPT}
 
-Chart Data:
-${JSON.stringify(chartData).substring(0, 4000)}
+${chartSummary}
+
+Full Chart JSON (truncated):
+${JSON.stringify(chartData).substring(0, 3000)}
 ${contextStr}
 ${historyStr ? `\nConversation History:\n${historyStr}\n` : ''}
 User's Follow-up Question: ${question}
 
-Answer specifically using the chart data. Be concise but thorough.`
+Answer specifically using the chart data above. The Moon sign, Nakshatra, Ascendant, and current Dasa period are already extracted for you in the Chart Summary — use them directly. Do NOT claim they are unknown. Be concise but thorough.`
 
     // Generate response
     const { text, provider } = await generateResponse(fullPrompt)
