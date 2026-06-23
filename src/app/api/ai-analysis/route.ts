@@ -222,37 +222,273 @@ OUTPUT FORMAT (mandatory):
 Always use Vedic terminology with brief explanations for non-experts.`
 
 const ANALYSIS_PROMPTS: Record<string, string> = {
-  overall: `Provide a comprehensive birth chart reading covering: Lagna personality, Moon sign emotional nature, key planetary placements, activated houses, yogas & challenges, and life purpose (dharma). Be personal and specific.
+  overall: `Provide a comprehensive birth chart reading. Structure your response as:
+
+## Core Personality
+- Lagna (Ascendant) sign, lord placement, and what it reveals about your outer personality and approach to life
+- Moon sign and Nakshatra — your emotional nature, inner self, and mental tendencies
+- Sun sign — your ego, vitality, and soul purpose
+
+## Key Planetary Placements
+- For each significant planet (Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu): sign, house, key dignity, and what it means for you
+- Highlight any exalted, debilitated, or retrograde planets
+
+## Activated Houses
+- Identify the strongest houses in your chart and what life areas they govern
+- Note any house with multiple planet concentrations
+
+## Yogas & Challenges
+- Name and explain any major yogas present (Raja Yoga, Dhana Yoga, Gaja Kesari, etc.)
+- Identify key challenges (Mangal Dosha, Kaal Sarp, Sade Sati, etc.) and their intensity
+
+## Life Purpose (Dharma)
+- What your chart suggests as your soul's mission
+- Strengths to lean into and weaknesses to transcend
+
+## Current Dasa Influence
+- How your current Mahadasha-Bhukti period is shaping your life right now
+
+Be personal and specific — reference actual placements from the chart data, not generic sign descriptions.
 
 {chartData}`,
 
-  career: `Career reading: 10th house/lord, 6th (service), 2nd (income), 11th (gains). How Sun/Mercury/Jupiter/Saturn influence career. Suggest specific career fields. Dasa periods for career growth. Challenges & remedies.
+  career: `Career & Profession reading. Structure your response as:
+
+## Career Indicators in Your Chart
+- 10th house (Karma Bhava): sign, lord placement, and what it says about your ideal profession
+- 6th house (service/employment): shows your work environment and daily routine
+- 2nd house (income): earning capacity and sources
+- 11th house (gains): fulfillment of desires and network success
+
+## Key Career Planets
+- **Sun**: authority, government, leadership roles
+- **Mercury**: communication, commerce, intellect-based careers
+- **Jupiter**: wisdom, teaching, advisory, expansion
+- **Saturn**: persistence, structure, delayed but lasting success
+- Analyze each based on their placement in your chart
+
+## Recommended Career Fields
+- List 4-5 specific industries/roles that align with your chart
+- Explain WHY each is a match (which placement supports it)
+
+## Career Growth Periods
+- Current Dasa period and its career impact
+- Upcoming favorable periods for job changes, promotions, or business launches
+- Challenging periods to navigate carefully
+
+## Challenges & Remedies
+- Career obstacles indicated in your chart
+- Specific Vedic remedies (gemstones, mantras, actions) to strengthen career prospects
+
+Reference actual planet positions and house lords from the chart data.
 
 {chartData}`,
 
-  relationships: `Relationship reading: 7th house/lord, Venus/Jupiter for partner nature, 5th house romance, Moon compatibility, Mangal Dosha check, marriage timing by Dasa, relationship challenges & remedies, spouse traits.
+  relationships: `Love & Marriage reading. Structure your response as:
+
+## Relationship Indicators
+- 7th house (Kalatra Bhava): sign, lord placement, and what it reveals about your partner and marriage
+- Venus (for men) / Jupiter (for women): karaka planets for romance and spouse
+- 5th house: romance, courtship, and creative love
+- Moon sign: emotional compatibility needs
+
+## Partner Characteristics
+- Physical, mental, and professional traits of your likely partner
+- Where you might meet them
+- Their background or origin
+
+## Marriage Timing
+- Current and upcoming Dasa periods favorable for marriage
+- Specific age ranges when marriage is most likely
+- Any delays indicated and their reasons
+
+## Compatibility Analysis
+- What moon sign/nakshatra would be most compatible with yours
+- Key qualities to look for in a partner
+
+## Mangal Dosha Check
+- Whether Mangal Dosha is present and its intensity
+- Cancellations if any
+- Remedies if applicable
+
+## Challenges & Remedies
+- Relationship obstacles in your chart
+- Vedic remedies to harmonize relationships
+
+Reference actual 7th house lord, Venus/Jupiter placement, and Moon Nakshatra from the chart data.
 
 {chartData}`,
 
-  health: `Health reading: 6th house/lord (diseases), 8th (chronic), 12th (hospitalization), Ascendant vitality. Vulnerable body areas by sign/planet. Cautious Dasa periods. Vedic remedies. Note: for awareness, not medical advice.
+  health: `Health & Wellness reading. Structure your response as:
+
+## Health Indicators in Your Chart
+- Ascendant (Lagna): overall vitality and body constitution
+- 6th house (Roga Bhava): diseases and health challenges
+- 8th house: chronic conditions and longevity
+- 12th house: hospitalization and hidden ailments
+
+## Vulnerable Body Areas
+- Based on your Ascendant sign, which body parts are most sensitive
+- Based on afflicted planets, which systems (digestive, nervous, etc.) need care
+- Specific health concerns indicated by planet placements in 6th/8th/12th houses
+
+## Cautious Periods
+- Dasa periods when health needs extra attention
+- Planetary transits that may trigger issues
+- Age ranges of vulnerability
+
+## Vedic Remedies
+- Gemstones to strengthen benefic health planets
+- Mantras for healing
+- Lifestyle and dietary recommendations based on your chart
+
+## Constitution Type
+- Your Ayurvedic dosha (Vata/Pitta/Kapha) based on chart
+- Recommended practices for balance
+
+⚠️ Note: This reading is for awareness and astrological insight, not medical advice. Always consult healthcare professionals for medical concerns.
+
+Reference actual Ascendant, 6th house, and afflicted planets from the chart data.
 
 {chartData}`,
 
-  finance: `Financial reading: 2nd/11th house/lords, 9th (fortune), Jupiter/Venus placements. Dhana Yogas, income sources, investment periods by Dasa, financial challenges & remedies.
+  finance: `Wealth & Finance reading. Structure your response as:
+
+## Wealth Indicators
+- 2nd house (Dhana Bhava): accumulated wealth, savings capacity
+- 11th house (Labha Bhava): income, gains, and fulfillment of desires
+- 9th house (Bhagya): fortune and luck that supports wealth
+- Jupiter and Venus placements: karaka planets for prosperity
+
+## Dhana Yogas Present
+- Identify any wealth-combination yogas in your chart (Dhana Yoga, Lakshmi Yoga, etc.)
+- Explain what each means and how strong it is
+- Note any poverty-indicating combinations (Daridra Yoga) and their cancellations
+
+## Income Sources
+- Best earning avenues based on your chart (job, business, investments, inheritance, etc.)
+- Industries or fields where wealth flows most easily
+- Whether you're better suited for earned income or windfall/investment gains
+
+## Favorable Wealth Periods
+- Current Dasa period and its financial impact
+- Upcoming periods for major income growth or windfalls
+- Challenging periods for expenses and losses — plan accordingly
+
+## Investment Guidance
+- Best investment types for your chart (real estate, stocks, gold, business, etc.)
+- Timing for major purchases or investments
+
+## Financial Challenges & Remedies
+- Obstacles to wealth accumulation
+- Vedic remedies (gemstones, mantras, charity) to remove financial blockages
+
+Reference actual 2nd/11th house lords, Jupiter/Venus positions, and Dasa periods from the chart data.
 
 {chartData}`,
 
-  spiritual: `Spiritual reading: 9th house/lord (dharma), 12th (moksha), 5th (poorva punya), Jupiter (wisdom), Ketu (liberation). Spiritual path type (Bhakti/Jnana/Karma/Raja). Favorable periods, mantras, practices.
+  spiritual: `Spiritual Growth reading. Structure your response as:
+
+## Spiritual Indicators
+- 9th house (Dharma Bhava): your dharma and spiritual inclinations
+- 12th house (Moksha Bhava): liberation potential and spiritual practices
+- 5th house (Poorva Punya): past life merits shaping your spiritual path
+- Jupiter: the guru planet — wisdom and spiritual guidance
+- Ketu: the moksha karaka — liberation and detachment
+
+## Your Spiritual Path Type
+- Based on your chart, which path suits you best:
+  - **Bhakti** (devotion) — if Jupiter/Venus strong and 5th/9th well-placed
+  - **Jnana** (knowledge) — if Mercury/Jupiter strong
+  - **Karma** (selfless action) — if Saturn/Mars strong
+  - **Raja** (meditation/yoga) — if Moon/Sun strong
+- Explain why this path fits your chart
+
+## Spiritual Strengths
+- Past life spiritual merits (Poorva Punya) indicated
+- Natural spiritual gifts (intuition, devotion, discernment, etc.)
+
+## Favorable Spiritual Periods
+- Dasa periods when spiritual growth accelerates
+- Best times for retreats, pilgrimages, or intensifying practice
+
+## Recommended Practices
+- Specific mantras based on your ruling planets
+- Gemstones that support spiritual elevation
+- Daily practices (meditation, japa, yoga) aligned with your chart
+- Pilgrimage or sacred places beneficial for you
+
+## Challenges on the Path
+- Spiritual obstacles in your chart (ego, attachment, doubt)
+- Remedies to overcome them
+
+Reference actual 9th/12th house, Jupiter/Ketu placements, and current Dasa from the chart data.
 
 {chartData}`,
 
-  dasa: `Dasa timeline reading: Current Maha & Bhukti themes, upcoming period changes, Dasa lord placement effects, key life event timing, challenging vs golden periods. Be timeline-specific.
+  dasa: `Dasa Timeline reading. Structure your response as:
+
+## Current Dasa Period
+- Mahadasha lord: which planet is currently ruling your life direction
+- Bhukti (Antardasha) lord: the sub-period refining the experience
+- Overall theme: what this combined period is about
+- Started: when this Bhukti began
+- Ends: when this Bhukti ends
+
+## Current Themes & Effects
+- How the Mahadasha lord's placement (sign, house, aspects) is shaping your life now
+- What the Bhukti lord is emphasizing within that
+- Areas of life most activated right now
+- Psychological and emotional themes
+
+## Key Life Event Timing
+- Upcoming Bhukti changes and what each will bring
+- Specific windows for: career moves, marriage, property, travel, health
+- Reference the dates from the Dasa timeline in the chart data
+
+## Challenging vs Golden Periods
+- Identify difficult upcoming periods (especially malefic planet Bhuktis)
+- Identify golden windows for major actions
+- How to prepare for and navigate each
+
+## Major Upcoming Mahadasha
+- Preview the next Mahadasha lord and its theme
+- When it begins and how it will shift your life direction
+
+Be specific with dates — reference the actual Dasa timeline from the chart data.
 
 Current Date: {currentDate}
 
 {chartData}`,
 
-  horary: `KP Horary answer: Direct Yes/No based on Sub-Lord theory. Moon position (querent mindset), relevant house significators, timing by Dasa/Bhukti, conditions, Sub-Lord judgment, advice.
+  horary: `KP Horary (Prashna) Answer. Structure your response as:
+
+## Question
+(Restate the question being answered)
+
+## Direct Answer: YES / NO
+(One clear word — no hedging)
+
+## Astrological Reasoning
+- Moon position: querent's mindset and the question's emotional context
+- Relevant house significators: which houses govern this question
+- Sub-Lord judgment: the deciding factor in KP system
+- Aspects influencing the outcome
+
+## Timing
+- When the answer will manifest (if applicable)
+- Dasa/Bhukti periods relevant to timing
+- Specific date ranges if determinable
+
+## Conditions
+- What needs to happen for the answer to fully manifest
+- Obstacles to watch for
+- Supporting factors working in your favor
+
+## Advice
+- What you should DO based on this reading
+- What you should AVOID doing
+- Remedies if applicable
 
 Horary Number: {horaryNumber}
 
@@ -423,11 +659,78 @@ Current Date: {currentDate}
 
 {chartData}`,
 
-  education: `Education & Learning reading: 4th house/lord (formal education), 5th (intelligence/creativity), 9th (higher learning), Mercury (academic ability). Academic fields suited, higher education timing by Dasa, learning style, competitive exam prospects, remedies for academic success.
+  education: `Education & Learning reading. Structure your response as:
+
+## Educational Indicators
+- 4th house (Vidya Bhava): formal education, schooling environment
+- 5th house: intelligence, creativity, grasping power
+- 9th house: higher learning, philosophy, research
+- Mercury: the karaka for academics and intellect
+- 2nd house: early education and speech
+
+## Academic Strengths
+- Subjects and fields where you naturally excel
+- Your learning style (visual, analytical, memorization, etc.)
+- Intellectual gifts indicated by Mercury's placement and aspects
+
+## Recommended Fields of Study
+- 3-5 specific academic disciplines aligned with your chart
+- Why each is a match (which planetary placement supports it)
+
+## Higher Education Prospects
+- Chances for postgraduate studies, research, or foreign education
+- 9th house and Jupiter's influence on higher learning
+- Whether education abroad is favored
+
+## Competitive Exams & Timing
+- Favorable Dasa periods for exams and academic milestones
+- Best ages for major educational achievements
+- Challenging periods to prepare for
+
+## Remedies for Academic Success
+- Mantras for enhancing Mercury and 5th house
+- Gemstones for educational progress
+- Study practices aligned with your chart
+
+Reference actual 4th/5th/9th house, Mercury placement, and current Dasa from the chart data.
 
 {chartData}`,
 
-  family: `Family & Children reading: 4th house/lord (home/mother), 5th (children/intelligence), 9th (father/fortune), Jupiter (progeny), Putra Bhava analysis. Relationship with parents, siblings from 3rd house, children prospects and timing, family harmony, remedies for family peace.
+  family: `Family & Children reading. Structure your response as:
+
+## Family Indicators
+- 4th house (Sukha Bhava): home, mother, domestic happiness
+- 5th house (Putra Bhava): children, intelligence, progeny
+- 9th house (Bhagya): father, fortune, ancestors
+- 3rd house: siblings, courage, neighbors
+- Jupiter: karaka for children and family wisdom
+
+## Relationship with Parents
+- Mother (4th house/Moon): nature of relationship, harmony level
+- Father (9th house/Sun): nature of relationship, blessings
+- Any afflictions affecting these relationships and remedies
+
+## Siblings
+- 3rd house analysis: number of siblings, relationship quality
+- Mars as karaka for siblings
+
+## Children Prospects
+- 5th house and Jupiter analysis: prospects for children
+- Number of children indicated
+- Timing for conception/birth (favorable Dasa periods)
+- Any delays or challenges and their remedies
+
+## Family Harmony
+- Overall family happiness indicated by 4th house and Moon
+- Sources of tension (if any) and how to resolve them
+- Strongest family bonds in your chart
+
+## Remedies for Family Peace
+- Mantras for strengthening 4th/5th house
+- Practices for ancestral blessings (9th house)
+- Gemstones for family harmony
+
+Reference actual 4th/5th/9th/3rd house, Jupiter/Moon placements from the chart data.
 
 {chartData}`,
 
