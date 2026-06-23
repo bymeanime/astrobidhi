@@ -2617,7 +2617,11 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
               }`}>
                 <Brain className="w-3 h-3 mr-1" /> AI Analysis
               </Badge>
-              {analysis && (
+              {/* Regenerate button — ADMIN ONLY.
+                  Regular users can't regenerate because each call hits the AI
+                  API (costs ~$0.01-0.05 per call depending on provider).
+                  Only devices with admin 'unlimited' access can bypass cache. */}
+              {analysis && adminAccess.accessLevel === 'unlimited' && (
                 <Button
                   onClick={() => handleAnalyze(true)}
                   disabled={loading}
@@ -2632,7 +2636,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
                       ? 'border-blue-600/40 text-blue-200 hover:bg-blue-900/40'
                       : 'border-saffron/30 text-maroon hover:bg-saffron/10'
                   }`}
-                  title="Discard the cached version and generate a fresh analysis with the latest AI"
+                  title="Admin only: discard the cached version and generate a fresh analysis with the latest AI"
                 >
                   <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
                   {loading ? 'Regenerating...' : 'Regenerate'}
