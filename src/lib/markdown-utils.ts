@@ -51,12 +51,13 @@ export function normalizeAnalysisMarkdown(raw: string): string {
     text = text.replace(pat, '')
   }
 
-  // 3. Strip duplicate AI disclaimers at the end (we show our own)
-  //    Match common patterns like "Disclaimer: ...", "*Disclaimer:* ...", "---\n*Disclaimer*..."
+  // 3. Strip ONLY the disclaimer line itself (not content after it)
+  //    We only remove the literal "Disclaimer: ..." line, not everything
+  //    after it — the AI might have useful closing notes after the disclaimer.
+  //    Only strip if there's a clear "---" separator + disclaimer word.
   const disclaimerPatterns = [
-    /\n+---?\s*\n+\*?\*?disclaimer\*?\*?:?[\s\S]*$/i,
-    /\n+\*?\*?disclaimer\*?\*?:?\s+[\s\S]*$/i,
-    /\n+>\s*\*?\*?disclaimer\*?\*?:?[\s\S]*$/i,
+    /\n+---\s*\n+\*?\*?Disclaimer\*?\*?:?\s*[^\n]*$/im,
+    /\n+\*?\*?Disclaimer\*?\*?:?\s*[^\n]*$/im,
   ]
   for (const pat of disclaimerPatterns) {
     text = text.replace(pat, '')
@@ -146,10 +147,12 @@ export function addBasicMarkdownStructure(text: string): string {
 
 /**
  * Full cleanup pipeline. Apply this to every AI response before rendering.
+ * Note: we no longer call addBasicMarkdownStructure() — it was too aggressive
+ * and would mangle the advanced prompts' intentional formatting (converting
+ * ALL-CAPS emphasis lines to ## headings, etc.). The AI prompts now provide
+ * enough structure that we don't need to guess.
  */
 export function cleanupAIResponse(raw: string): string {
   if (!raw) return ''
-  let text = normalizeAnalysisMarkdown(raw)
-  text = addBasicMarkdownStructure(text)
-  return text
+  return normalizeAnalysisMarkdown(raw)
 }
