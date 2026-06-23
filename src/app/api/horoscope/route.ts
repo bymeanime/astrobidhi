@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 import { rawQuery, rawExecute, initDb } from '@/lib/db'
 import { randomUUID } from 'crypto'
+import { extractChartInfo, formatChartInfoForPrompt } from '@/lib/chart-info'
 
 // ============ AI Provider Configuration ============
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
@@ -305,34 +306,6 @@ Do NOT include any markdown, backticks, or explanation. Just the raw JSON array.
 }
 
 // ============ Extract Moon Sign & Nakshatra from chart data ============
-function extractMoonInfo(chartData: Record<string, unknown>): { moonSign: string; nakshatra: string; currentDasa: string } {
-  let moonSign = 'Unknown'
-  let nakshatra = 'Unknown'
-  let currentDasa = 'Unknown'
-
-  try {
-    const planets = chartData.planets as Array<Record<string, unknown>> || []
-    const moon = planets.find((p: Record<string, unknown>) => p.name === 'Moon' || p.planet === 'Moon')
-    if (moon) {
-      moonSign = (moon.sign as string) || (moon.rasi as string) || moonSign
-      nakshatra = (moon.nakshatra as string) || (moon.star as string) || nakshatra
-    }
-
-    const dasas = chartData.dasas as Array<Record<string, unknown>> || []
-    const now = new Date()
-    for (const d of dasas) {
-      const start = new Date(d.start as string || 0)
-      const end = new Date(d.end as string || 0)
-      if (start <= now && end >= now) {
-        currentDasa = `${d.mahadasha || d.planet || 'Unknown'} - ${d.antardasha || d.bhukti || ''}`
-        break
-      }
-    }
-  } catch { /* use defaults */ }
-
-  return { moonSign, nakshatra, currentDasa }
-}
-
 // ============ API Handler ============
 
 // GET: Daily zodiac predictions (for landing page widget) or subscription status
@@ -451,15 +424,19 @@ export async function POST(request: NextRequest) {
         }
       } catch { /* cache miss */ }
 
-      const { moonSign, nakshatra, currentDasa } = extractMoonInfo(chartData)
+      // Use the shared chart-info extractor (replaces the buggy extractMoonInfo
+      // which was looking for the wrong field names — planets instead of
+      // planets_data, name instead of Object, etc.)
+      const chartInfo = extractChartInfo(chartData)
+      const chartSummary = formatChartInfoForPrompt(chartInfo)
       const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
       const prompt = HOROSCOPE_PROMPT
-        .replace('{moonSign}', moonSign)
-        .replace('{nakshatra}', nakshatra)
-        .replace('{currentDasa}', currentDasa)
+        .replace('{moonSign}', chartInfo.moonSign)
+        .replace('{nakshatra}', chartInfo.nakshatra)
+        .replace('{currentDasa}', chartInfo.currentDasa)
         .replace('{currentDate}', currentDate)
-        .replace('{chartData}', JSON.stringify(chartData).substring(0, 4000))
+        .replace('{chartData}', `${chartSummary}\n\nFull Chart JSON (truncated):\n${JSON.stringify(chartData).substring(0, 3000)}`)
 
       const { text, provider } = await generateWithAI(prompt)
 
@@ -476,8 +453,10 @@ export async function POST(request: NextRequest) {
         horoscope: text,
         date: today,
         provider,
-        moonSign,
-        nakshatra,
+        moonSign: chartInfo.moonSign,
+        nakshatra: chartInfo.nakshatra,
+        currentDasa: chartInfo.currentDasa,
+        ascendant: chartInfo.ascendant,
         cached: false,
       })
     }

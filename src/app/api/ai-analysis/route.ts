@@ -1019,9 +1019,18 @@ export async function POST(request: NextRequest) {
     const compressedChart = compressChartData(chartData, analysisType)
     console.log(`[AI] Chart compressed: ${JSON.stringify(chartData).length} → ${compressedChart.length} chars`)
 
+    // ---- Extract structured chart info ----
+    // Pull Moon sign, Nakshatra, Ascendant, current Dasa period, and all
+    // planet positions into a clean human-readable summary. This prevents
+    // the AI from claiming "your Moon sign is unknown" — it has the
+    // extracted values right at the top of the prompt.
+    const { extractChartInfo, formatChartInfoForPrompt } = await import('@/lib/chart-info')
+    const chartInfo = extractChartInfo(chartData as Record<string, unknown>)
+    const chartSummary = formatChartInfoForPrompt(chartInfo)
+
     // ---- Build prompt ----
     let prompt = template
-      .replace('{chartData}', compressedChart)
+      .replace('{chartData}', `${chartSummary}\n\n---\n\n${compressedChart}`)
       .replace('{currentDate}', new Date().toISOString().split('T')[0])
     if (horaryNumber) prompt = prompt.replace('{horaryNumber}', String(horaryNumber))
 
