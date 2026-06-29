@@ -1396,12 +1396,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Rate limit check ----
-    // Count unique charts this device has read (non-cached)
-    // Count analysis types used per chart for this device
+    // Free-tier limits apply ONLY to premium analyses. Standard (free) analyses
+    // (overall, career, relationships, health, finance, education, family, horary)
+    // are always allowed — no chart limit, no per-chart limit.
+    //
     // Users with any premium/unlimited access bypass rate limits entirely
+    // (they have their own chart budget via the subscription system).
     const cacheKey = makeCacheKey(analysisType, chartData)
 
-    if (!hasPremiumAccess) {
+    if (!hasPremiumAccess && isPremium) {
       try {
         await initDb()
 
