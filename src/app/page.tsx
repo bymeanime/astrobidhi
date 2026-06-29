@@ -2534,16 +2534,17 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           </DialogHeader>
           <div className="space-y-3">
             <div className="rounded-lg border border-saffron/30 bg-saffron/5 p-4">
-              <p className="text-sm font-semibold text-maroon mb-2">What you've used so far:</p>
+              <p className="text-sm font-semibold text-maroon mb-2">Free tier limits (premium analyses only):</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>3 free chart readings per device</li>
-                <li>2 analysis types per chart</li>
+                <li>3 free chart readings per device (premium analyses)</li>
+                <li>2 premium analysis types per chart</li>
               </ul>
-              <p className="text-sm font-semibold text-maroon mt-3 mb-2">Upgrade for unlimited:</p>
+              <p className="text-xs text-emerald-700 mt-2 mb-1">✓ Standard analyses (Overall, Career, Love, Health, Finance, Education, Family, Horary) are always free — no limits!</p>
+              <p className="text-sm font-semibold text-maroon mt-3 mb-2">Upgrade for unlimited premium:</p>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>Unlimited chart readings</li>
-                <li>All 10 analysis types</li>
-                <li>Priority AI response</li>
+                <li>All 30+ premium analysis types</li>
+                <li>2 new charts per billing period</li>
                 <li>Cached results always free</li>
               </ul>
             </div>
