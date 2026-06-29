@@ -2534,18 +2534,18 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
           </DialogHeader>
           <div className="space-y-3">
             <div className="rounded-lg border border-saffron/30 bg-saffron/5 p-4">
-              <p className="text-sm font-semibold text-maroon mb-2">Free tier limits (premium analyses only):</p>
+              <p className="text-sm font-semibold text-maroon mb-2">Free tier limits:</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>3 free chart readings per device (premium analyses)</li>
-                <li>2 premium analysis types per chart</li>
+                <li>3 new charts per month (standard analyses only)</li>
+                <li>All standard analyses free on those 3 charts</li>
+                <li>Premium analyses require a subscription</li>
               </ul>
-              <p className="text-xs text-emerald-700 mt-2 mb-1">✓ Standard analyses (Overall, Career, Love, Health, Finance, Education, Family, Horary) are always free — no limits!</p>
-              <p className="text-sm font-semibold text-maroon mt-3 mb-2">Upgrade for unlimited premium:</p>
+              <p className="text-xs text-emerald-700 mt-2">✓ Cached results are always free — re-viewing your existing analyses never counts!</p>
+              <p className="text-sm font-semibold text-maroon mt-3 mb-2">Subscribe for:</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>Unlimited chart readings</li>
-                <li>All 30+ premium analysis types</li>
+                <li>All 30+ premium analysis types (Pro + Advanced)</li>
                 <li>2 new charts per billing period</li>
-                <li>Cached results always free</li>
+                <li>Unlimited cached re-views</li>
               </ul>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

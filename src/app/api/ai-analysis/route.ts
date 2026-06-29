@@ -32,8 +32,8 @@ type Provider = 'openrouter' | 'groq' | 'xai' | 'gemini' | 'z-ai-sdk'
 
 // ============ Rate Limit Config ============
 // Per-device limits for AI analysis requests
-const FREE_CHART_LIMIT = 3        // Free: 3 unique chart readings per device
-const FREE_ANALYSIS_PER_CHART = 2 // Free: 2 analysis types per chart
+const FREE_CHART_LIMIT = 3        // Free: 3 unique chart readings per device per MONTH (standard analyses only)
+// Premium analyses: NO free access — fully blocked without subscription
 // After limit, user sees paywall. Cached results don't count.
 
 // ============ Cache Key Generator ============
@@ -1395,16 +1395,14 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    // ---- Rate limit check ----
-    // Free-tier limits apply ONLY to premium analyses. Standard (free) analyses
-    // (overall, career, relationships, health, finance, education, family, horary)
-    // are always allowed — no chart limit, no per-chart limit.
-    //
-    // Users with any premium/unlimited access bypass rate limits entirely
-    // (they have their own chart budget via the subscription system).
+    // ---- Rate limit check (standard analyses only) ----
+    // Free users get 3 NEW charts per MONTH for standard (free) analyses.
+    // Premium analyses are fully blocked (returned 403 above).
+    // Cached re-analyses (same cacheKey) don't count — always free.
+    // Subscribers bypass this (handled by the 3-tier chart budget system below).
     const cacheKey = makeCacheKey(analysisType, chartData)
 
-    if (!hasPremiumAccess && isPremium) {
+    if (!hasPremiumAccess && !isPremium) {
       try {
         await initDb()
 
@@ -1415,42 +1413,21 @@ export async function POST(request: NextRequest) {
         )
 
         if (existingUsage.length === 0) {
-          // New analysis for this chart — check limits
-          // Count unique charts (by distinct cacheKey) this device has used
-          const allUsages = await rawQuery<{ cacheKey: string }>(
-            `SELECT DISTINCT cacheKey FROM DeviceUsage WHERE deviceId = ?`,
+          // New chart — check monthly limit
+          // Count unique charts THIS MONTH only
+          const monthlyCharts = await rawQuery<{ cacheKey: string }>(
+            `SELECT DISTINCT cacheKey FROM DeviceUsage WHERE deviceId = ? AND createdAt >= datetime('now', 'start of month')`,
             [deviceId]
           )
-          const uniqueCacheKeys = new Set(allUsages.map(u => u.cacheKey))
-          const chartsCount = uniqueCacheKeys.size
+          const monthlyChartCount = monthlyCharts.length
 
-          // Count how many analysis types this device has used for this chart's cacheKey
-          const analysesForThisChart = await rawQuery<{ cnt: number }>(
-            `SELECT COUNT(*) as cnt FROM DeviceUsage WHERE deviceId = ? AND cacheKey = ?`,
-            [deviceId, cacheKey]
-          )
-          const analysesCount = analysesForThisChart[0]?.cnt || 0
-
-          if (chartsCount >= FREE_CHART_LIMIT && !uniqueCacheKeys.has(cacheKey)) {
-            // Device has used all free charts AND this is a new chart
+          if (monthlyChartCount >= FREE_CHART_LIMIT) {
             return NextResponse.json({
-              detail: `Free limit reached (${FREE_CHART_LIMIT} charts). Subscribe for unlimited readings.`,
+              detail: `Free limit reached (${FREE_CHART_LIMIT} charts per month). Subscribe for unlimited readings.`,
               limitReached: true,
               limitType: 'charts',
               limit: FREE_CHART_LIMIT,
-              used: chartsCount,
-            }, { status: 429 })
-          }
-
-          // Check per-chart analysis limit
-          if (analysesCount >= FREE_ANALYSIS_PER_CHART) {
-            // Device has used all free analysis types for this chart
-            return NextResponse.json({
-              detail: `Free limit reached (${FREE_ANALYSIS_PER_CHART} analyses per chart). Subscribe for all analysis types.`,
-              limitReached: true,
-              limitType: 'analyses_per_chart',
-              limit: FREE_ANALYSIS_PER_CHART,
-              used: analysesCount,
+              used: monthlyChartCount,
             }, { status: 429 })
           }
         }
