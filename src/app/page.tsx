@@ -177,6 +177,10 @@ interface StaticMeanings {
 
 const PREMIUM_ANALYSIS_TYPES = new Set<AnalysisType>(['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'kp_prashna', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'past_life_karma', 'mangal_dosha', 'sade_sati', 'medical_astrology', 'ayurvedic_constitution', 'financial_timing', 'electional_astrology', 'synastry_compatibility'])
 
+// Standard analyses are ALWAYS free — no matter what's in the database.
+// This set overrides any accidental PremiumCatalog entries for these types.
+const STANDARD_ANALYSIS_TYPES = new Set<string>(['overall', 'career', 'relationships', 'health', 'finance', 'education', 'family', 'horary'])
+
 // ============ Catalog Context ============
 interface CatalogItem {
   id: string
@@ -1887,7 +1891,7 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
         // Override with catalog data if available, otherwise use hardcoded defaults from ANALYSIS_TYPES
         label: catItem?.name || t.label,
         desc: catItem?.description || t.desc,
-        isPremium: catalog.premiumTypes.has(t.id) || t.isPremium,
+        isPremium: STANDARD_ANALYSIS_TYPES.has(t.id) ? false : (catalog.premiumTypes.has(t.id) || t.isPremium),
         priceCents,
         originalPriceCents: catItem?.originalPriceCents || t.originalPriceCents || null,
         // Update category based on actual price from catalog
@@ -1955,9 +1959,13 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalysisClick = (typeId: AnalysisType) => {
+    // Standard analyses are always free — never show premium dialog
+    if (STANDARD_ANALYSIS_TYPES.has(typeId)) {
+      setSelectedType(typeId)
+      return
+    }
     if (catalog.premiumTypes.has(typeId) || PREMIUM_ANALYSIS_TYPES.has(typeId)) {
       if (whopAuth.hasAccess || adminAccess.hasAccess) {
-        // User has Whop membership OR admin-granted access — allow premium analysis
         setSelectedType(typeId)
         return
       }
@@ -1968,7 +1976,8 @@ function AIAnalysisPanel({ chartData, horaryNumber }: { chartData: HoroscopeData
   }
 
   const handleAnalyze = async (forceRefresh = false) => {
-    if ((catalog.premiumTypes.has(selectedType) || PREMIUM_ANALYSIS_TYPES.has(selectedType)) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
+    // Standard analyses bypass the premium check entirely
+    if (!STANDARD_ANALYSIS_TYPES.has(selectedType) && (catalog.premiumTypes.has(selectedType) || PREMIUM_ANALYSIS_TYPES.has(selectedType)) && !whopAuth.hasAccess && !adminAccess.hasAccess) {
       setPremiumDialogType(selectedType)
       return
     }
