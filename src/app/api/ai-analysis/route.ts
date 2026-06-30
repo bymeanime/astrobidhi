@@ -36,6 +36,13 @@ const FREE_CHART_LIMIT = 3        // Free: 3 unique chart readings per device pe
 // Premium analyses: NO free access — fully blocked without subscription
 // After limit, user sees paywall. Cached results don't count.
 
+// Standard analyses are ALWAYS free — no matter what's in the PremiumCatalog database.
+// This overrides any accidental database entries that mark them as premium.
+const STANDARD_ANALYSIS_TYPES = new Set([
+  'overall', 'career', 'relationships', 'health', 'finance',
+  'education', 'family', 'horary'
+])
+
 // ============ Cache Key Generator ============
 function makeCacheKey(analysisType: string, chartData: Record<string, unknown>): string {
   // Create deterministic hash from birth details + analysis type
@@ -1365,9 +1372,12 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Paywall check ----
+    // Standard analyses are ALWAYS free — override the database
+    const isStandard = STANDARD_ANALYSIS_TYPES.has(analysisType)
+
     // Check granular device access (queries PremiumCatalog + DeviceAccess + UserAccess)
     const deviceAccess = await checkDeviceAccess(deviceId, analysisType)
-    const isPremium = deviceAccess.isPremium
+    const isPremium = !isStandard && deviceAccess.isPremium  // Standard types are never premium
 
     // Check Whop access as additional channel
     const whopHasAccess = await checkWhopAccess(request)
