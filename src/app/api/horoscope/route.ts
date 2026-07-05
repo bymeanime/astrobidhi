@@ -52,25 +52,46 @@ const ZODIAC_SIGNS = [
   { sign: 'Pisces', symbol: '♓', element: 'Water' },
 ]
 
-const HOROSCOPE_PROMPT = `Generate a personalized daily horoscope based on the birth chart. Use Moon sign (Rasi) and current planetary transits.
+const HOROSCOPE_PROMPT = `Generate an EXTENSIVE, deeply personalized daily horoscope based on the user's specific birth chart. Do NOT write a generic zodiac reading — reference their actual Moon sign, Nakshatra, Ascendant, current Dasa period, and specific planetary placements.
 
-Include:
-1. Today's Vibe: One-line mood/energy summary
-2. Career: Work and professional guidance for today
-3. Love: Relationship and romantic energy
-4. Health: Physical and mental wellness tip
-5. Lucky: Color, number, and time for today
-6. Caution: One thing to avoid today
-7. Affirmation: A personalized Vedic affirmation based on chart
+Today is {currentDate}. Moon Sign: {moonSign}. Nakshatra: {nakshatra}. Current Dasa: {currentDasa}.
 
-Keep it personal (not generic zodiac), concise, and actionable. Use Dasa period context for deeper insight.
+Structure your response with ## headings and write 2-3 sentences for each section:
 
-Moon Sign: {moonSign}
-Nakshatra: {nakshatra}
-Current Dasa: {currentDasa}
-Current Date: {currentDate}
+## Today's Cosmic Weather
+The overall planetary energy of the day — which transits are active, what the Moon is doing, how the day "feels" energetically for this specific chart.
 
-{chartData}`
+## Career & Professional Energy
+How today's transits interact with their 10th house, 6th house, and career planets (Sun, Mercury, Jupiter, Saturn). Specific guidance: should they push forward, network, rest, or plan? Reference their actual Dasa lord's influence today.
+
+## Love & Relationships
+How Venus, the 7th house, and the Moon's current position affect their emotional and romantic life today. If they're single vs partnered, what energy to expect. Mention any specific Nakshatra-based relationship themes.
+
+## Health & Wellbeing
+Based on their Ascendant sign and 6th house: which body areas need care today, what activities are recommended (yoga, walking, rest), and any dietary tips aligned with their dosha.
+
+## Wealth & Finances
+How Jupiter, Venus, and the 2nd/11th houses are influenced today. Is it a good day for financial decisions, investments, or should they wait? Mention any wealth-activating remedies.
+
+## Spiritual Practice
+A specific mantra, meditation focus, or spiritual practice aligned with their Nakshatra and current Dasa lord. Make it personal — not a generic "meditate today."
+
+## Lucky Elements
+- Color: (with astrological reason, e.g., "Yellow — Jupiter's color, activating your 7th house")
+- Number: (with reason)
+- Time: (specific time window with planetary reasoning)
+- Direction: (auspicious direction for important activities)
+
+## Caution
+One specific thing to avoid today, based on their chart's current afflictions or challenging transits.
+
+## Affirmation
+A personalized affirmation crafted from their Nakshatra deity, Dasa lord, and Moon sign — not a generic quote. Reference specific chart elements.
+
+## Planetary Spotlight
+Which ONE planet is most active in their chart today and why. What it means for them specifically.
+
+Use Vedic terminology with brief explanations. Be specific and personal — no generic statements like "Leos are confident." Reference their actual chart data throughout.`
 
 const SUBSCRIPTION_PRICE_CENTS = 499 // $4.99/month
 const SUBSCRIPTION_TYPE = 'horoscope_monthly'
