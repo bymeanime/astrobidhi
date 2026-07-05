@@ -1574,9 +1574,15 @@ export async function POST(request: NextRequest) {
 
     console.log(`[AI] Keys — OR:${!!OPENROUTER_API_KEY} GM:${!!GEMINI_API_KEY} GQ:${!!GROQ_API_KEY} xAI:${!!XAI_API_KEY}`)
 
+    // Provider order optimized for Vedic astrology accuracy:
+    // 1. Gemini — best Vedic knowledge, follows format well, fast
+    // 2. Groq (Llama 3.3 70B) — strong reasoning, decent Vedic understanding
+    // 3. OpenRouter (Gemma/Llama free) — good fallback, sometimes inconsistent
+    // 4. xAI (Grok) — moderate, less Vedic training
+    // 5. z-ai-sdk — always-available last resort
     const providerOrder: Provider[] = requestedProvider
-      ? [requestedProvider as Provider, ...(['openrouter', 'groq', 'xai', 'gemini', 'z-ai-sdk'] as Provider[]).filter(p => p !== requestedProvider)]
-      : ['openrouter', 'groq', 'xai', 'gemini', 'z-ai-sdk']
+      ? [requestedProvider as Provider, ...(['gemini', 'groq', 'openrouter', 'xai', 'z-ai-sdk'] as Provider[]).filter(p => p !== requestedProvider)]
+      : ['gemini', 'groq', 'openrouter', 'xai', 'z-ai-sdk']
 
     for (const provider of providerOrder) {
       try {
