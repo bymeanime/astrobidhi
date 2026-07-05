@@ -712,21 +712,26 @@ async function seedDefaultData(): Promise<void> {
       { analysisType: 'name_numerology', name: 'Name Numerology', description: 'Vedic name numerology with Chaldeon analysis, birth-name harmony check, and specific correction suggestions', priceCents: 500, originalPriceCents: 999, sortOrder: 16 },
       { analysisType: 'gemstone_remedy', name: 'Gemstone & Remedy', description: 'Personalized gemstone, rudraksha, mantra, fasting, and charity recommendations with monthly remedy calendar', priceCents: 500, originalPriceCents: 999, sortOrder: 17 },
       { analysisType: 'compatibility_profile', name: 'Compatibility Profile', description: 'Ideal partner profile from your chart — traits, Nakshatra matches, Mangal Dosha status, and best zodiac matches', priceCents: 500, originalPriceCents: 999, sortOrder: 18 },
-      // Advanced tier (variable pricing)
-      { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 900, originalPriceCents: 1499, sortOrder: 20 },
-      { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 500, originalPriceCents: 999, sortOrder: 21 },
-      { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 900, originalPriceCents: 1499, sortOrder: 22 },
-      { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 900, originalPriceCents: 1499, sortOrder: 23 },
-      { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 900, originalPriceCents: 1499, sortOrder: 24 },
-      { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 900, originalPriceCents: 1499, sortOrder: 25 },
-      { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 900, originalPriceCents: 1499, sortOrder: 26 },
-      { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 900, originalPriceCents: 1499, sortOrder: 27 },
-      { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 499, originalPriceCents: 999, sortOrder: 28 },
-      { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 700, originalPriceCents: 1299, sortOrder: 29 },
-      { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 900, originalPriceCents: 1499, sortOrder: 30 },
-      { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 700, originalPriceCents: 1299, sortOrder: 31 },
-      { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 900, originalPriceCents: 1499, sortOrder: 32 },
-      { analysisType: 'horoscope_monthly', name: 'Daily Horoscope Subscription', description: 'Personalized daily horoscope based on your birth chart — updated every day with transit insights', priceCents: 499, originalPriceCents: 999, sortOrder: 33 },
+      // Advanced tier ($9.99 each — unified pricing per pricing plan)
+      { analysisType: 'cosmic_blueprint', name: 'Cosmic Blueprint', description: 'Premium house-by-house blueprint with Ashtakvarga, Yoga directory, and Harmonized interpretations', priceCents: 999, originalPriceCents: 1799, sortOrder: 20 },
+      { analysisType: 'shadow_integration', name: 'Shadow Integration', description: 'Uncompromising shadow work analysis with Tragic Sublimation, vulnerability map, and integration protocol', priceCents: 999, originalPriceCents: 1799, sortOrder: 21 },
+      { analysisType: 'life_decoder', name: 'Life Decoder', description: 'Combined numerology + life path + personality deep dive with destiny blueprint and single biggest life purpose', priceCents: 999, originalPriceCents: 1799, sortOrder: 22 },
+      { analysisType: 'career_destiny', name: 'Career Destiny', description: 'Career destiny finder with natural talents, top 3 destined career paths, growth pattern, and action plan', priceCents: 999, originalPriceCents: 1799, sortOrder: 23 },
+      { analysisType: 'relationship_destiny', name: 'Relationship Destiny', description: 'Deep relationship analysis with compatible partner types, hidden patterns, intimacy blocks, and marriage timeline', priceCents: 999, originalPriceCents: 1799, sortOrder: 24 },
+      { analysisType: 'soul_purpose', name: 'Soul Purpose', description: 'Soul purpose and life mission with core mission, karmic lessons, daily alignment steps, and on-track indicators', priceCents: 999, originalPriceCents: 1799, sortOrder: 25 },
+      { analysisType: 'wealth_code', name: 'Wealth Code', description: 'Wealth and abundance code with money personality, mental blocks, exact wealth attraction strategy, and Dasa-based wealth windows', priceCents: 999, originalPriceCents: 1799, sortOrder: 26 },
+      { analysisType: 'future_timeline', name: 'Future Timeline', description: 'Future timeline and 5-year roadmap with key turning points, transformation phases, and age-based life stage analysis', priceCents: 999, originalPriceCents: 1799, sortOrder: 27 },
+      { analysisType: 'swot_5year', name: '5-Year SWOT Forecast', description: 'Comprehensive 5-year career & wealth forecast with SWOT analysis, specific timing, and remedies', priceCents: 999, originalPriceCents: 1799, sortOrder: 28 },
+      { analysisType: 'kp_prashna', name: 'KP Prashna (Advanced)', description: 'Advanced KP horary with Sub-Lord theory, ruling planets, precise Yes/No verdict, and specific timing', priceCents: 999, originalPriceCents: 1799, sortOrder: 29 },
+      { analysisType: 'past_life_karma', name: 'Past Life Karma', description: 'Past life karmic origins through Rahu-Ketu axis, 12th/8th house debts, Saturn\'s lesson, and liberation path', priceCents: 999, originalPriceCents: 1799, sortOrder: 30 },
+      { analysisType: 'mangal_dosha', name: 'Mangal Dosha Report', description: 'Complete Mangal Dosha analysis with severity, cancellation checks, marriage impact, and Mars pacification remedies', priceCents: 999, originalPriceCents: 1799, sortOrder: 31 },
+      { analysisType: 'sade_sati', name: 'Sade Sati Report', description: 'Saturn\'s 7.5-year transit analysis — current phase, career/health/relationship impact, key dates, and remedies', priceCents: 999, originalPriceCents: 1799, sortOrder: 32 },
+      // Specialized astrology branches (new)
+      { analysisType: 'medical_astrology', name: 'Medical Astrology', description: 'Medical astrology deep dive — body constitution, sign-to-body mapping, planet-to-organ analysis, disease timing, and Vedic remedies', priceCents: 999, originalPriceCents: 1799, sortOrder: 40 },
+      { analysisType: 'ayurvedic_constitution', name: 'Ayurvedic Dosha', description: 'Ayurvedic dosha analysis — Vata/Pitta/Kapha type from chart, personalized diet, lifestyle, herbs, and spiritual practices', priceCents: 799, originalPriceCents: 1299, sortOrder: 41 },
+      { analysisType: 'financial_timing', name: 'Financial & Investment Timing', description: 'Financial astrology — wealth capacity, favorable sectors, investment timing by Dasa, risk profile, and prosperity remedies', priceCents: 1499, originalPriceCents: 2499, sortOrder: 42 },
+      { analysisType: 'electional_astrology', name: 'Electional Astrology (Muhurta)', description: 'Find auspicious dates for events — wedding, business launch, surgery, travel. Get specific date windows with reasoning', priceCents: 1499, originalPriceCents: 2499, sortOrder: 43 },
+      { analysisType: 'synastry_compatibility', name: 'Couples Compatibility (Synastry)', description: 'Compare TWO birth charts for emotional, physical, and karmic compatibility. Includes compatibility score and house overlays', priceCents: 1499, originalPriceCents: 2499, sortOrder: 44 },
     ]
 
     // Always ensure ALL analysis types exist — use INSERT OR IGNORE for each
@@ -744,22 +749,34 @@ async function seedDefaultData(): Promise<void> {
     }
     console.log('[DB] Verified all analysis types in PremiumCatalog')
 
-    // Seed default bundle if empty
+    // Seed the 8 pricing-plan bundles (only if no bundles exist yet)
     const bundleCount = await rawQuery<{ cnt: number }>('SELECT COUNT(*) as cnt FROM ProductBundle')
     if (bundleCount[0]?.cnt === 0) {
-      const bundleId = randomUUID()
-      await rawExecute(
-        `INSERT INTO ProductBundle (id, slug, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, 1)`,
-        [bundleId, 'all-premium-pack', 'All Premium Pack', 'Get all three premium analyses at a discounted price', 1199, 2097]
-      )
-      for (const type of ['swot_5year', 'cosmic_blueprint', 'shadow_integration']) {
-        const itemId = randomUUID()
+      const bundles = [
+        { slug: 'pro-trio', name: 'Pro Trio', description: 'Any 3 Pro analyses at a discount. 1 chart, permanent ownership.', priceCents: 1300, originalPriceCents: 1500, sortOrder: 1, items: ['spiritual', 'dasa', 'vedic_master'] },
+        { slug: 'pro-complete', name: 'Pro Complete', description: 'All 9 Pro analyses. 1 chart, permanent ownership. Best value for Pro tier.', priceCents: 3500, originalPriceCents: 4500, sortOrder: 2, items: ['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile'] },
+        { slug: 'advanced-trio', name: 'Advanced Trio', description: 'Any 3 Advanced analyses at a discount. 1 chart, permanent ownership.', priceCents: 2400, originalPriceCents: 3000, sortOrder: 3, items: ['cosmic_blueprint', 'life_decoder', 'soul_purpose'] },
+        { slug: 'advanced-complete', name: 'Advanced Complete', description: 'All 13 Advanced analyses. 1 chart, permanent ownership. Best value for Advanced tier.', priceCents: 9900, originalPriceCents: 12987, sortOrder: 4, items: ['cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'kp_prashna', 'past_life_karma', 'mangal_dosha', 'sade_sati'] },
+        { slug: 'starter-mix', name: 'Starter Mix', description: '2 Pro + 1 Advanced analysis. 1 chart, permanent ownership. Great starting point.', priceCents: 1700, originalPriceCents: 1999, sortOrder: 5, items: ['spiritual', 'dasa', 'cosmic_blueprint'] },
+        { slug: 'power-mix', name: 'Power Mix', description: '3 Pro + 3 Advanced analyses. 1 chart, permanent ownership. Balanced deep dive.', priceCents: 3500, originalPriceCents: 4497, sortOrder: 6, items: ['spiritual', 'dasa', 'vedic_master', 'cosmic_blueprint', 'life_decoder', 'soul_purpose'] },
+        { slug: 'mega-mix', name: 'Mega Mix', description: '5 Pro + 5 Advanced analyses. 1 chart, permanent ownership. Comprehensive coverage.', priceCents: 5500, originalPriceCents: 7495, sortOrder: 7, items: ['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_blueprint', 'life_decoder', 'soul_purpose', 'wealth_code', 'future_timeline'] },
+        { slug: 'catalog-complete', name: 'Catalog Complete', description: 'All 22 premium analyses (Pro + Advanced). 1 chart, permanent ownership. The ultimate bundle.', priceCents: 12900, originalPriceCents: 17487, sortOrder: 8, items: ['spiritual', 'dasa', 'vedic_master', 'trik_bhava', 'forecast_12month', 'cosmic_love_letter', 'name_numerology', 'gemstone_remedy', 'compatibility_profile', 'cosmic_blueprint', 'shadow_integration', 'life_decoder', 'career_destiny', 'relationship_destiny', 'soul_purpose', 'wealth_code', 'future_timeline', 'swot_5year', 'kp_prashna', 'past_life_karma', 'mangal_dosha', 'sade_sati'] },
+      ]
+      for (const b of bundles) {
+        const bundleId = randomUUID()
         await rawExecute(
-          `INSERT INTO ProductBundleItem (id, bundleId, analysisType) VALUES (?, ?, ?)`,
-          [itemId, bundleId, type]
+          `INSERT INTO ProductBundle (id, slug, name, description, priceCents, originalPriceCents, isActive, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          [bundleId, b.slug, b.name, b.description, b.priceCents, b.originalPriceCents, b.sortOrder]
         )
+        for (const type of b.items) {
+          const itemId = randomUUID()
+          await rawExecute(
+            `INSERT INTO ProductBundleItem (id, bundleId, analysisType) VALUES (?, ?, ?)`,
+            [itemId, bundleId, type]
+          )
+        }
       }
-      console.log('[DB] Seeded default All Premium Bundle')
+      console.log('[DB] Seeded 8 pricing-plan bundles')
     }
 
     // Seed reading tiers if not already present
