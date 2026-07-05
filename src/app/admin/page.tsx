@@ -10,7 +10,7 @@ import {
   Activity, Eye, RefreshCw, ArrowLeft, BarChart3, PieChart as PieChartIcon,
   LogOut, Shield, Plus, Trash2, CheckCircle, XCircle, Clock,
   Package, Tag, Edit, Copy, Search, Pencil, ArrowUpDown, Zap, Gift, AlertCircle,
-  BookOpen, UserCheck, Video, Mail, CreditCard, ExternalLink
+  BookOpen, UserCheck, Video, Mail, CreditCard, ExternalLink, Crown, DollarSign
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -374,6 +374,46 @@ export default function AdminDashboard() {
   const [lsLoading, setLsLoading] = useState(false)
   const [lsError, setLsError] = useState<string | null>(null)
 
+  // ── Subscriptions overview state ──
+  interface SubTierInfo {
+    tier: string
+    period: string
+    priceCents: number
+    priceLabel: string
+    effectiveMonthly: string
+    yearlySavings: number
+    chartsPerPeriod: number
+    analysesIncluded: string[]
+    lsVariantId: string | null
+    lsConfigured: boolean
+    whopProductId: string | null
+    whopConfigured: boolean
+  }
+  interface SubOverview {
+    tierMatrix: SubTierInfo[]
+    subscriberCounts: Record<string, number>
+    totalActiveSubs: number
+    revenueByTier: Record<string, number>
+    mrrCents: number
+    mrrLabel: string
+    recentSubscriptions: Array<{
+      subscriptionId: string
+      customerEmail: string
+      customerName: string | null
+      tier: string
+      period: string
+      provider: string
+      status: string
+      chartsUsedThisPeriod: number
+      chartsPerPeriod: number
+      periodEnd: string | null
+      createdAt: string
+    }>
+  }
+  const [subOverview, setSubOverview] = useState<SubOverview | null>(null)
+  const [subLoading, setSubLoading] = useState(false)
+  const [subError, setSubError] = useState<string | null>(null)
+
   // ──────────────── Fetch functions ────────────────
 
   const handleLogout = async () => {
@@ -624,6 +664,27 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchLsStatus() }, [fetchLsStatus])
+
+  const fetchSubOverview = useCallback(async () => {
+    setSubLoading(true)
+    setSubError(null)
+    try {
+      const res = await fetch('/api/admin/subscriptions', { credentials: 'same-origin' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setSubError(data.detail || `Failed to fetch subscriptions (${res.status})`)
+        return
+      }
+      const data = await res.json() as SubOverview
+      setSubOverview(data)
+    } catch (err) {
+      setSubError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setSubLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchSubOverview() }, [fetchSubOverview])
 
   // ──────────────── Access handlers ────────────────
 
@@ -1266,6 +1327,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="lemonsqueezy" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
               <CreditCard className="w-4 h-4 mr-1" /> Lemon Squeezy
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <Crown className="w-4 h-4 mr-1" /> Subscriptions
             </TabsTrigger>
           </TabsList>
 
@@ -2823,6 +2887,190 @@ export default function AdminDashboard() {
                         works with the existing premium-access gating, no code changes needed.
                         See <code className="font-mono bg-blue-100 px-1 rounded">SETUP_LEMONSQUEEZY.md</code> for the
                         full walkthrough.
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════ SUBSCRIPTIONS TAB ═══════════ */}
+          <TabsContent value="subscriptions">
+            <Card className="border-emerald-200">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-maroon flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-emerald-600" /> Subscription Overview
+                    </CardTitle>
+                    <CardDescription>
+                      All 9 subscription tiers, configuration status, active subscribers, and revenue
+                    </CardDescription>
+                  </div>
+                  <Button onClick={fetchSubOverview} size="sm" variant="outline" className="border-emerald-300 text-emerald-700">
+                    <RefreshCw className={`w-3 h-3 mr-1 ${subLoading ? 'animate-spin' : ''}`} /> Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {subLoading && !subOverview ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Loading subscription overview…</p>
+                  </div>
+                ) : subError ? (
+                  <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-red-800">Failed to load</p>
+                    <p className="text-xs text-red-600 mt-1">{subError}</p>
+                  </div>
+                ) : subOverview ? (
+                  <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="border border-emerald-200 bg-emerald-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-semibold text-maroon">Active Subs</span>
+                        </div>
+                        <p className="text-2xl font-bold text-emerald-700 mt-1">{subOverview.totalActiveSubs}</p>
+                      </div>
+                      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-semibold text-maroon">MRR</span>
+                        </div>
+                        <p className="text-2xl font-bold text-amber-700 mt-1">{subOverview.mrrLabel}</p>
+                      </div>
+                      <div className="border border-saffron/20 bg-saffron/5 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Crown className="w-4 h-4 text-saffron" />
+                          <span className="text-xs font-semibold text-maroon">Pro Subs</span>
+                        </div>
+                        <p className="text-2xl font-bold text-maroon mt-1">{subOverview.subscriberCounts.pro || 0}</p>
+                      </div>
+                      <div className="border border-purple-200 bg-purple-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-purple-600" />
+                          <span className="text-xs font-semibold text-maroon">Advanced Subs</span>
+                        </div>
+                        <p className="text-2xl font-bold text-purple-700 mt-1">{(subOverview.subscriberCounts.advanced || 0) + (subOverview.subscriberCounts.all_access || 0)}</p>
+                      </div>
+                    </div>
+
+                    {/* Tier matrix table */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">Tier Configuration (9 tiers)</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tier</TableHead>
+                            <TableHead>Period</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Charts/Period</TableHead>
+                            <TableHead>LS Variant</TableHead>
+                            <TableHead>Whop Product</TableHead>
+                            <TableHead>Active Subs</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subOverview.tierMatrix.map((t) => (
+                            <TableRow key={`${t.tier}-${t.period}`}>
+                              <TableCell className="font-medium capitalize">{t.tier.replace('_', '-')}</TableCell>
+                              <TableCell className="capitalize">{t.period}</TableCell>
+                              <TableCell className="font-semibold">{t.priceLabel}</TableCell>
+                              <TableCell>{t.chartsPerPeriod === 999999 ? '∞' : t.chartsPerPeriod}</TableCell>
+                              <TableCell>
+                                {t.lsConfigured ? (
+                                  <Badge className="bg-green-100 text-green-800 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" /> {t.lsVariantId}</Badge>
+                                ) : (
+                                  <Badge className="bg-red-100 text-red-800 text-[9px]"><XCircle className="w-2.5 h-2.5 mr-0.5" /> Missing</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {t.whopConfigured ? (
+                                  <Badge className="bg-green-100 text-green-800 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" /> {t.whopProductId}</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] text-muted-foreground">Not set</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {/* Count subs matching this tier+period */}
+                                {subOverview.recentSubscriptions.filter(s => s.tier === t.tier && s.period === t.period && s.status === 'active').length}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        <strong>Env vars to set:</strong> LEMONSQUEEZY_VARIANT_&lt;TIER&gt;_&lt;PERIOD&gt; (e.g., LEMONSQUEEZY_VARIANT_PRO_MONTHLY=12345)
+                      </p>
+                    </div>
+
+                    {/* Recent subscriptions table */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">
+                        Recent Subscriptions {subOverview.recentSubscriptions.length > 0 && `(${subOverview.recentSubscriptions.length})`}
+                      </p>
+                      {subOverview.recentSubscriptions.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">No subscriptions yet</p>
+                          <p className="text-xs mt-1">When users subscribe via Lemon Squeezy or Whop, they'll appear here.</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Tier</TableHead>
+                              <TableHead>Period</TableHead>
+                              <TableHead>Provider</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Charts Used</TableHead>
+                              <TableHead>Period End</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {subOverview.recentSubscriptions.map((s) => (
+                              <TableRow key={s.subscriptionId}>
+                                <TableCell className="text-sm">{s.customerEmail}</TableCell>
+                                <TableCell className="capitalize">{s.tier.replace('_', '-')}</TableCell>
+                                <TableCell className="capitalize">{s.period}</TableCell>
+                                <TableCell>{s.provider}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={s.status === 'active' ? 'text-green-700 border-green-300' : 'text-red-700 border-red-300'}>
+                                    {s.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs">{s.chartsUsedThisPeriod} / {s.chartsPerPeriod === 999999 ? '∞' : s.chartsPerPeriod}</TableCell>
+                                <TableCell className="text-xs">{s.periodEnd ? new Date(s.periodEnd).toLocaleDateString() : '∞'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+
+                    {/* Revenue by tier */}
+                    <div className="border border-saffron/20 rounded-lg p-4 bg-white">
+                      <p className="text-sm font-semibold text-maroon mb-3">Revenue by Tier (active subscriptions)</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center p-3 rounded-lg bg-saffron/5">
+                          <p className="text-xs text-muted-foreground">Pro</p>
+                          <p className="text-lg font-bold text-maroon">${((subOverview.revenueByTier.pro || 0) / 100).toFixed(2)}</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-purple-50">
+                          <p className="text-xs text-muted-foreground">Advanced</p>
+                          <p className="text-lg font-bold text-purple-700">${((subOverview.revenueByTier.advanced || 0) / 100).toFixed(2)}</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-emerald-50">
+                          <p className="text-xs text-muted-foreground">All-Access</p>
+                          <p className="text-lg font-bold text-emerald-700">${((subOverview.revenueByTier.all_access || 0) / 100).toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        MRR (Monthly Recurring Revenue): <strong>{subOverview.mrrLabel}</strong> — excludes lifetime (one-time) purchases.
                       </p>
                     </div>
                   </>
